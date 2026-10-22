@@ -422,6 +422,10 @@ func UpdateOption(c *gin.Context) {
 		}
 		return
 	}
+	// 渠道可用性的探测目标或开关变化后立即跑一轮探测，避免页面长时间没有数据。
+	if option.Key == "service_status_setting.targets" || option.Key == "service_status_setting.enabled" {
+		service.TriggerServiceStatusProbeAsync()
+	}
 	// 出于安全考虑只记录被修改的配置项名称，不记录配置值（可能含密钥等敏感信息）。
 	recordManageAudit(c, "option.update", map[string]any{
 		"key": option.Key,

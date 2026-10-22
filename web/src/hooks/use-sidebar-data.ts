@@ -23,10 +23,13 @@ import {
   CreditCard,
   FileText,
   FlaskConical,
+  Gift,
   Key,
   LayoutDashboard,
+  Layers,
   ListTodo,
   MessageSquare,
+  PartyPopper,
   PlugZap,
   Radio,
   ServerCog,
@@ -111,6 +114,26 @@ export function useSidebarData(): SidebarData {
         id: 'personal',
         title: t('Personal'),
         items: [
+          {
+            title: t('Lucky Draw'),
+            url: '/lottery',
+            icon: PartyPopper,
+          },
+          {
+            title: t('Welfare Chests'),
+            url: '/welfare-chests',
+            icon: Gift,
+          },
+          {
+            title: t('Channel availability'),
+            url: '/service-status',
+            icon: Activity,
+          },
+          {
+            title: t('Infinite canvas'),
+            url: '/canvas',
+            icon: Layers,
+          },
           {
             title: t('Wallet'),
             url: '/wallet',

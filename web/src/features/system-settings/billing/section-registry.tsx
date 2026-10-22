@@ -19,12 +19,68 @@ For commercial licensing, please contact support@quantumnous.com
 import { parseCurrencyDisplayType } from '@/lib/currency'
 
 import { CheckinSettingsSection } from '../general/checkin-settings-section'
+import { LotterySettingsSection } from '../general/lottery-settings-section'
 import { PricingSection } from '../general/pricing-section'
 import { QuotaSettingsSection } from '../general/quota-settings-section'
+import {
+  WelfareChestSettingsSection,
+  type WelfareChestBoxDefaults,
+} from '../general/welfare-chest-settings-section'
 import { PaymentSettingsSection } from '../integrations/payment-settings-section'
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+
+const DEFAULT_XIAOSHUAI_GE: WelfareChestBoxDefaults = {
+  enabled: true,
+  thresholdUsd: 10,
+  rewardMinUsd: 0.2,
+  rewardMaxUsd: 1,
+  medianUsd: 0.5,
+}
+
+const DEFAULT_HEI_DASHUAI: WelfareChestBoxDefaults = {
+  enabled: true,
+  thresholdUsd: 10,
+  rewardMinUsd: 0.05,
+  rewardMaxUsd: 2,
+  medianUsd: 0.4,
+}
+
+const toFiniteNumber = (value: unknown, fallback: number): number => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+/**
+ * Read one chest option into the numeric form the admin form edits. A blank or
+ * unparsable option falls back to the shipped defaults so the operator never
+ * sees an empty form.
+ */
+function parseChestBox(
+  raw: string,
+  fallback: WelfareChestBoxDefaults
+): WelfareChestBoxDefaults {
+  let parsed: Record<string, unknown> = {}
+  try {
+    const value = JSON.parse(raw)
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      parsed = value as Record<string, unknown>
+    }
+  } catch {
+    return { ...fallback }
+  }
+
+  return {
+    enabled:
+      typeof parsed.enabled === 'boolean' ? parsed.enabled : fallback.enabled,
+    thresholdUsd: toFiniteNumber(parsed.threshold_usd, fallback.thresholdUsd),
+    rewardMinUsd: toFiniteNumber(parsed.reward_min_usd, fallback.rewardMinUsd),
+    rewardMaxUsd: toFiniteNumber(parsed.reward_max_usd, fallback.rewardMaxUsd),
+    medianUsd: toFiniteNumber(parsed.median_usd, fallback.medianUsd),
+  }
+}
+
 
 const getModelDefaults = (settings: BillingSettings) => ({
   ModelPrice: settings.ModelPrice,
@@ -198,6 +254,52 @@ const BILLING_SECTIONS = [
           minQuota: settings['checkin_setting.min_quota'],
           maxQuota: settings['checkin_setting.max_quota'],
         }}
+      />
+    ),
+  },
+  {
+    id: 'lottery',
+    titleKey: 'Lucky Draw',
+    build: (settings: BillingSettings) => (
+      <LotterySettingsSection
+        defaultValues={{
+          enabled: settings['lottery_setting.enabled'],
+          dailyFreeDraws: settings['lottery_setting.daily_free_draws'],
+          singleCostQuota: settings['lottery_setting.single_cost_quota'],
+          multiCostQuota: settings['lottery_setting.multi_cost_quota'],
+          enableMulti: settings['lottery_setting.enable_multi'],
+          requireNoDrawTodayForMulti:
+            settings['lottery_setting.require_no_draw_today_for_multi'],
+          publicWinsLimit: settings['lottery_setting.public_wins_limit'],
+          minWinQuotaForPublic:
+            settings['lottery_setting.min_win_quota_for_public'],
+          prizes: settings['lottery_setting.prizes'],
+        }}
+      />
+    ),
+  },
+  {
+    id: 'welfare-chests',
+    titleKey: 'Welfare Chests',
+    build: (settings: BillingSettings) => (
+      <WelfareChestSettingsSection
+        defaultValues={{
+          enabled: settings['welfare_chest_setting.enabled'],
+          canOpenAny: settings['welfare_chest_setting.can_open_any'],
+          unlimitedOpen: settings['welfare_chest_setting.unlimited_open'],
+          chooseOnePerWeek: settings['welfare_chest_setting.choose_one_per_week'],
+          maxQuotaLimit: settings['welfare_chest_setting.max_quota_limit'],
+          xiaoshuaiGe: parseChestBox(
+            settings['welfare_chest_setting.xiaoshuai_ge'],
+            DEFAULT_XIAOSHUAI_GE
+          ),
+          heiDashuai: parseChestBox(
+            settings['welfare_chest_setting.hei_dashuai'],
+            DEFAULT_HEI_DASHUAI
+          ),
+        }}
+        rawXiaoshuaiGe={settings['welfare_chest_setting.xiaoshuai_ge']}
+        rawHeiDashuai={settings['welfare_chest_setting.hei_dashuai']}
       />
     ),
   },

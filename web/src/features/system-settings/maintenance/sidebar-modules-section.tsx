@@ -124,6 +124,22 @@ export function SidebarModulesSection({
       },
     },
     personal: {
+      lottery: {
+        title: t('Lucky Draw'),
+        description: t('Daily free draws and quota prizes.'),
+      },
+      welfare: {
+        title: t('Welfare Chests'),
+        description: t('Weekly consumption reward chests.'),
+      },
+      serviceStatus: {
+        title: t('Channel availability'),
+        description: t('Live probe results for every published channel.'),
+      },
+      canvas: {
+        title: t('Infinite canvas'),
+        description: t('Infinite canvas workspace for AI image creation.'),
+      },
       topup: {
         title: t('Wallet'),
         description: t('Top up balance and view billing history.'),

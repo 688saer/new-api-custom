@@ -22,13 +22,19 @@ import { readCachedStatus, statusQueryOptions } from '@/lib/status-query'
 
 export type ModuleAccess = { enabled: boolean; requireAuth: boolean }
 
-export type HeaderNavModule = 'rankings' | 'pricing'
+export type HeaderNavModule =
+  | 'rankings'
+  | 'pricing'
+  | 'welfareApi'
+  | 'serviceStatus'
 
 export type HeaderNavModules = {
   home: boolean
   console: boolean
   pricing: ModuleAccess
   rankings: ModuleAccess
+  welfareApi: ModuleAccess
+  serviceStatus: ModuleAccess
   docs: boolean
   about: boolean
   [key: string]: boolean | ModuleAccess
@@ -39,6 +45,8 @@ const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
   console: true,
   pricing: { enabled: true, requireAuth: false },
   rankings: { enabled: true, requireAuth: false },
+  welfareApi: { enabled: true, requireAuth: false },
+  serviceStatus: { enabled: true, requireAuth: false },
   docs: true,
   about: true,
 }
@@ -46,6 +54,8 @@ const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
 const DEFAULTS: Record<HeaderNavModule, ModuleAccess> = {
   pricing: DEFAULT_HEADER_NAV_MODULES.pricing,
   rankings: DEFAULT_HEADER_NAV_MODULES.rankings,
+  welfareApi: DEFAULT_HEADER_NAV_MODULES.welfareApi,
+  serviceStatus: DEFAULT_HEADER_NAV_MODULES.serviceStatus,
 }
 
 function cloneHeaderNavDefaults(): HeaderNavModules {
@@ -53,6 +63,8 @@ function cloneHeaderNavDefaults(): HeaderNavModules {
     ...DEFAULT_HEADER_NAV_MODULES,
     pricing: { ...DEFAULT_HEADER_NAV_MODULES.pricing },
     rankings: { ...DEFAULT_HEADER_NAV_MODULES.rankings },
+    welfareApi: { ...DEFAULT_HEADER_NAV_MODULES.welfareApi },
+    serviceStatus: { ...DEFAULT_HEADER_NAV_MODULES.serviceStatus },
   }
 }
 
@@ -118,6 +130,14 @@ export function parseHeaderNavModules(raw: unknown): HeaderNavModules {
     }
     if (key === 'rankings') {
       result.rankings = parseAccess(value, result.rankings)
+      return
+    }
+    if (key === 'welfareApi') {
+      result.welfareApi = parseAccess(value, result.welfareApi)
+      return
+    }
+    if (key === 'serviceStatus') {
+      result.serviceStatus = parseAccess(value, result.serviceStatus)
       return
     }
 

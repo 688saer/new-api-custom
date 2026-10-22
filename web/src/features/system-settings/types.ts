@@ -154,6 +154,21 @@ export type SiteSettings = {
   'legal.privacy_policy': string
   HeaderNavModules: string
   SidebarModulesAdmin: string
+  'welfare_api_setting.enabled': boolean
+  'welfare_api_setting.title': string
+  'welfare_api_setting.subtitle': string
+  'welfare_api_setting.notice': string
+  'welfare_api_setting.require_login': boolean
+  'welfare_api_setting.apis': string
+  'service_status_setting.enabled': boolean
+  'service_status_setting.title': string
+  'service_status_setting.description': string
+  'service_status_setting.display_hours': number
+  'service_status_setting.probe_interval_minutes': number
+  'service_status_setting.sample_retention_days': number
+  'service_status_setting.require_login': boolean
+  'service_status_setting.show_latency': boolean
+  'service_status_setting.targets': string
 }
 
 export type AuthSettings = {
@@ -355,6 +370,22 @@ export type BillingSettings = {
   'checkin_setting.enabled': boolean
   'checkin_setting.min_quota': number
   'checkin_setting.max_quota': number
+  'lottery_setting.enabled': boolean
+  'lottery_setting.daily_free_draws': number
+  'lottery_setting.single_cost_quota': number
+  'lottery_setting.multi_cost_quota': number
+  'lottery_setting.enable_multi': boolean
+  'lottery_setting.require_no_draw_today_for_multi': boolean
+  'lottery_setting.public_wins_limit': number
+  'lottery_setting.min_win_quota_for_public': number
+  'lottery_setting.prizes': Array<{ quota: number; weight: number }>
+  'welfare_chest_setting.enabled': boolean
+  'welfare_chest_setting.can_open_any': boolean
+  'welfare_chest_setting.unlimited_open': boolean
+  'welfare_chest_setting.choose_one_per_week': boolean
+  'welfare_chest_setting.max_quota_limit': number
+  'welfare_chest_setting.xiaoshuai_ge': string
+  'welfare_chest_setting.hei_dashuai': string
 }
 
 export type OperationsSettings = {
