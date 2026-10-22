@@ -18,8 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Loader2, Maximize, Minus, Plus } from 'lucide-react'
 import {
+  useCallback,
   useEffect,
+  useMemo,
   useRef,
+  useState,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
@@ -29,7 +32,9 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 import { DEFAULT_VIEWPORT } from '../hooks/use-canvas-board'
+import { buildConnectors, type NodeSize } from '../lib/connectors'
 import type { CanvasImageNode, CanvasNode, CanvasViewport } from '../types'
+import { CanvasConnectorLayer } from './canvas-connectors'
 import { CanvasImageNode as CanvasImageNodeView } from './canvas-image-node'
 import { CanvasTextNode } from './canvas-text-node'
 
@@ -71,6 +76,28 @@ export function CanvasBoard(props: CanvasBoardProps) {
   const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const latest = useRef(props)
+  // Sizes drive the track lines, so they live here rather than in the nodes:
+  // a node cannot know where its parent ended up.
+  const [sizes, setSizes] = useState<Record<string, NodeSize>>({})
+
+  const handleMeasure = useCallback(
+    (id: string, width: number, height: number) => {
+      if (width <= 0 || height <= 0) return
+      setSizes((previous) => {
+        const current = previous[id]
+        if (current && current.width === width && current.height === height) {
+          return previous
+        }
+        return { ...previous, [id]: { width, height } }
+      })
+    },
+    []
+  )
+
+  const connectors = useMemo(
+    () => buildConnectors(props.nodes, sizes, props.selectedId),
+    [props.nodes, sizes, props.selectedId]
+  )
 
   useEffect(() => {
     latest.current = props
@@ -184,6 +211,8 @@ export function CanvasBoard(props: CanvasBoardProps) {
           transform: `translate(${props.viewport.x}px, ${props.viewport.y}px) scale(${props.viewport.zoom})`,
         }}
       >
+        <CanvasConnectorLayer connectors={connectors} />
+
         {props.nodes.map((node) => {
           if (node.kind === 'text') {
             return (
@@ -197,6 +226,7 @@ export function CanvasBoard(props: CanvasBoardProps) {
                 onRemove={props.onRemoveNode}
                 onChange={props.onChangeText}
                 onUseAsPrompt={props.onUseAsPrompt}
+                onMeasure={handleMeasure}
               />
             )
           }
@@ -212,6 +242,7 @@ export function CanvasBoard(props: CanvasBoardProps) {
               onRemove={props.onRemoveNode}
               onRegenerate={props.onRegenerate}
               onUseAsReference={props.onUseAsReference}
+              onMeasure={handleMeasure}
             />
           )
         })}
@@ -228,7 +259,7 @@ export function CanvasBoard(props: CanvasBoardProps) {
       {props.busy && (
         <div className='bg-background/70 absolute inset-0 flex flex-col items-center justify-center gap-3 backdrop-blur-[1px]'>
           <Loader2 className='text-primary size-7 animate-spin' aria-hidden='true' />
-          <p className='text-sm font-medium'>{t('Drawing...')}</p>
+          <p className='text-sm font-medium'>{t('Generating...')}</p>
           <p className='text-muted-foreground text-xs'>
             {t('A large image can take up to a minute.')}
           </p>

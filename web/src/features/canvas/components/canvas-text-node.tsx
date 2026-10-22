@@ -39,6 +39,8 @@ interface CanvasTextNodeProps {
   onChange: (id: string, text: string) => void
   /** Move this note's text into the prompt box to draw from it. */
   onUseAsPrompt: (text: string) => void
+  /** Reports the painted size so track lines can anchor to this node. */
+  onMeasure?: (id: string, width: number, height: number) => void
 }
 
 /** A free-form note for parking prompts and ideas next to the pictures. */
@@ -56,6 +58,7 @@ export function CanvasTextNode(props: CanvasTextNodeProps) {
       selected={props.selected}
       onMove={props.onMove}
       onSelect={props.onSelect}
+      onMeasure={props.onMeasure}
     >
       {editing ? (
         <Textarea

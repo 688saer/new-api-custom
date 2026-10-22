@@ -52,6 +52,8 @@ interface CanvasImageNodeProps {
   onRegenerate: (node: CanvasImageNodeData) => void
   /** Draw a variation, using this picture as the reference. */
   onUseAsReference: (node: CanvasImageNodeData) => void
+  /** Reports the painted size so track lines can anchor to this node. */
+  onMeasure?: (id: string, width: number, height: number) => void
 }
 
 /** One generated picture, with the actions that make iterating quick. */
@@ -75,6 +77,7 @@ export function CanvasImageNode(props: CanvasImageNodeProps) {
       selected={props.selected}
       onMove={props.onMove}
       onSelect={props.onSelect}
+      onMeasure={props.onMeasure}
     >
       <img
         src={props.node.image}

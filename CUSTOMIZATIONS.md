@@ -171,14 +171,37 @@ if option.Key == "service_status_setting.targets" || option.Key == "service_stat
 |---|---|
 | `canvas-workspace.tsx` | 编排：请求、节点布局、快捷键 |
 | `api.ts` | 调 `/v1/images/generations`、`/v1/images/edits`、`/api/pricing`、`/api/token/*` |
-| `components/canvas-board.tsx` | 画布容器：平移、缩放、点阵背景、缩放控件 |
-| `components/canvas-node-frame.tsx` | 节点通用外壳：定位、拖拽、选中 |
+| `components/canvas-board.tsx` | 画布容器：平移、缩放、点阵背景、缩放控件、连接线装配 |
+| `components/canvas-connectors.tsx` | 连接线图层（SVG，在节点之下） |
+| `components/canvas-node-frame.tsx` | 节点通用外壳：定位、拖拽、选中、尺寸测量 |
 | `components/canvas-image-node.tsx` | 图片节点 + 操作菜单（重生成/参考图/下载/删除） |
 | `components/canvas-text-node.tsx` | 便签节点（双击编辑） |
 | `components/canvas-prompt-panel.tsx` | 左侧面板：提示词、密钥、模型、尺寸、数量 |
 | `hooks/use-canvas-board.ts` | 状态：节点、视口、增删改、500ms 防抖持久化 |
 | `lib/board-storage.ts` | IndexedDB 存储（库 `newapi-canvas`，表 `boards`） |
+| `lib/connectors.ts` | 连接线几何：锚点选择 + 贝塞尔曲线 |
 | `types.ts` | `CanvasNode = CanvasImageNode \| CanvasTextNode` 联合类型 |
+
+#### 溯源连接线（parentId）
+
+每张图片可以记住自己「从哪来」，画布会在两者之间画一条虚线轨道：
+
+- 节点上的 `parentId?: string` 指向来源节点，随 IndexedDB 一起持久化。
+- 触发来源的场景有两个：**生成变体**（当前参考图就是父节点）和**重新生成**（原图就是父节点）。
+- 新图会摆在父图**右侧**（间隔 `PARENT_GAP = 56`），多张按行向下堆叠。若父图已滚出可视区，则退回「居中摆放」，避免新图落在看不见的地方。
+- 连接线在 `lib/connectors.ts` 里算：比较两者中心的横向/纵向距离，**谁近走谁的边**——横向连接走左右边中点，纵向连接走上下边中点，曲线用三次贝塞尔。
+- 锚点依赖节点真实高度（图片宽高比不同，高度不同），由 `canvas-node-frame.tsx` 用 `ResizeObserver` 测出 `offsetWidth/offsetHeight` 上报给画布。**测量值不持久化**，每次渲染重建。
+- 父节点被删除后，子节点的 `parentId` 变成悬空引用，连线自动消失，不报错。
+- 选中连线任一端时，该连线会加深显示。
+
+#### 踩过的坑：i18n key 冲突
+
+画布进度遮罩原来用了 `t('Drawing...')`，而抽奖页也用同一个 key，中文译成了「抽奖中」——于是生成图片时显示「抽奖中...」。
+
+i18n 的 key 是**英文原文**，一词多义就会撞车。画布现在只用 `Generating...`（仅画布使用，译作「生成中...」）。
+`__tests__/board-progress-overlay.test.tsx` 是防止回退的回归测试。
+
+> **新增文案时**：如果英文词有歧义（draw / generate / run / open / claim…），换个更具体的说法，别和别的功能共用 key。
 
 **设计决策（重要）**：
 

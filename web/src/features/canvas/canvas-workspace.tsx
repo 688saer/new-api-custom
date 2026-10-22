@@ -38,6 +38,8 @@ import type { CanvasImageNode, CanvasTextNode } from './types'
 const NODE_GAP = 24
 /** Rough height of an image node including its caption row. */
 const NODE_ROW_HEIGHT = 380
+/** Gap between a source picture and the picture derived from it. */
+const PARENT_GAP = 56
 /** Width of a note, mirroring the note component's own constant. */
 const TEXT_NODE_WIDTH = 260
 /** Used before the container reports its size, so a node is never off-screen. */
@@ -83,9 +85,15 @@ export function CanvasWorkspace() {
   /**
    * Run one request and place the results around the middle of the current
    * view, so a fresh batch lands where the operator is looking instead of at a
-   * stale saved offset.
+   * stale saved offset. A result derived from an existing picture is hung off
+   * that picture instead, and remembers it as its parent so the board can draw
+   * the track line between them.
    */
-  const runRequest = async (request: CanvasDraft, from: CanvasReference | null) => {
+  const runRequest = async (
+    request: CanvasDraft,
+    from: CanvasReference | null,
+    parentId: string | null = null
+  ) => {
     const apiKeyId = Number(request.apiKeyId)
     if (!apiKeyId) {
       handleServerError(new Error(t('Select an API key first.')))
@@ -136,17 +144,46 @@ export function CanvasWorkspace() {
         centerX - (columns * (IMAGE_NODE_WIDTH + NODE_GAP)) / 2 + NODE_GAP / 2
       const originY = centerY - NODE_ROW_HEIGHT / 3
 
+      const parent = parentId
+        ? board.nodes.find((node) => node.id === parentId)
+        : undefined
+      // Chain beside the parent only while it is on screen; otherwise the new
+      // pictures would be created somewhere the operator cannot see.
+      const parentOnScreen =
+        parent !== undefined &&
+        parent.x * board.viewport.zoom + board.viewport.x > -IMAGE_NODE_WIDTH &&
+        parent.x * board.viewport.zoom + board.viewport.x < view.width &&
+        parent.y * board.viewport.zoom + board.viewport.y > -NODE_ROW_HEIGHT &&
+        parent.y * board.viewport.zoom + board.viewport.y < view.height
+
       board.addNodes(
-        images.map((image, index) => ({
-          kind: 'image' as const,
-          id: newId('img'),
-          image,
-          prompt: request.prompt,
-          model: request.model,
-          x: originX + (index % columns) * (IMAGE_NODE_WIDTH + NODE_GAP),
-          y: originY + Math.floor(index / columns) * NODE_ROW_HEIGHT,
-          createdAt: Date.now(),
-        }))
+        images.map((image, index) => {
+          const base = {
+            kind: 'image' as const,
+            id: newId('img'),
+            image,
+            prompt: request.prompt,
+            model: request.model,
+            parentId: parent?.id,
+            createdAt: Date.now(),
+          }
+
+          // Hang the result off the source picture, one per row, so the track
+          // line between them stays short and readable.
+          if (parent && parentOnScreen) {
+            return {
+              ...base,
+              x: parent.x + IMAGE_NODE_WIDTH + PARENT_GAP,
+              y: parent.y + index * NODE_ROW_HEIGHT,
+            }
+          }
+
+          return {
+            ...base,
+            x: originX + (index % columns) * (IMAGE_NODE_WIDTH + NODE_GAP),
+            y: originY + Math.floor(index / columns) * NODE_ROW_HEIGHT,
+          }
+        })
       )
     } catch (error) {
       handleServerError(error, t('Could not generate the image.'))
@@ -175,7 +212,7 @@ export function CanvasWorkspace() {
     const next: CanvasDraft = { ...draft, prompt: node.prompt, model: node.model }
     setDraft(next)
     setReference(null)
-    void runRequest(next, null)
+    void runRequest(next, null, node.id)
   }
 
   /** Draw a variation that keeps this picture as the visual reference. */
@@ -215,7 +252,7 @@ export function CanvasWorkspace() {
             generating={generating}
             reference={reference}
             onClearReference={() => setReference(null)}
-            onGenerate={() => void runRequest(draft, reference)}
+            onGenerate={() => void runRequest(draft, reference, reference?.id ?? null)}
           />
           <CanvasBoard
             className='min-h-0 flex-1'

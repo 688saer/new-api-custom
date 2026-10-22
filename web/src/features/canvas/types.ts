@@ -37,6 +37,11 @@ interface CanvasNodeBase {
   x: number
   y: number
   createdAt: number
+  /**
+   * Node this one was derived from, drawn as a track line between the two.
+   * Absent for a picture drawn from scratch or for a note.
+   */
+  parentId?: string
 }
 
 /** A generated picture. */

@@ -16,7 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import {
+  useEffect,
+  useRef,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react'
 
 import { cn } from '@/lib/utils'
 
@@ -30,6 +35,8 @@ interface CanvasNodeFrameProps {
   zoom: number
   onMove: (id: string, x: number, y: number) => void
   onSelect: (id: string) => void
+  /** Reports the painted size, which track lines need to find their anchors. */
+  onMeasure?: (id: string, width: number, height: number) => void
   children: ReactNode
 }
 
@@ -38,6 +45,23 @@ interface CanvasNodeFrameProps {
  * here so both node types behave identically and no helper is duplicated.
  */
 export function CanvasNodeFrame(props: CanvasNodeFrameProps) {
+  const frameRef = useRef<HTMLDivElement>(null)
+  const measure = props.onMeasure
+
+  useEffect(() => {
+    const element = frameRef.current
+    if (!element || !measure) return
+
+    // offsetWidth/offsetHeight ignore the board's CSS transform, so they hand
+    // back board units rather than the zoomed on-screen size.
+    const report = () => measure(props.id, element.offsetWidth, element.offsetHeight)
+    report()
+
+    const observer = new ResizeObserver(report)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [props.id, measure])
+
   const handleDragStart = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
     // A node sits inside the pannable surface, so its own presses must not pan.
@@ -72,6 +96,7 @@ export function CanvasNodeFrame(props: CanvasNodeFrameProps) {
 
   return (
     <div
+      ref={frameRef}
       className={cn(
         'bg-card absolute overflow-hidden rounded-lg border shadow-sm',
         props.selected && 'ring-primary ring-2'
