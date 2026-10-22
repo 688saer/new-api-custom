@@ -55,6 +55,10 @@ const headerNavSchema = z.object({
   pricingRequireAuth: z.boolean(),
   rankingsEnabled: z.boolean(),
   rankingsRequireAuth: z.boolean(),
+  welfareApiEnabled: z.boolean(),
+  welfareApiRequireAuth: z.boolean(),
+  serviceStatusEnabled: z.boolean(),
+  serviceStatusRequireAuth: z.boolean(),
   docs: z.boolean(),
   about: z.boolean(),
 })
@@ -89,6 +93,22 @@ const toFormValues = (config: HeaderNavModulesConfig): HeaderNavFormValues => ({
     config.rankings?.requireAuth === undefined
       ? HEADER_NAV_DEFAULT.rankings.requireAuth
       : Boolean(config.rankings.requireAuth),
+  welfareApiEnabled:
+    config.welfareApi?.enabled === undefined
+      ? HEADER_NAV_DEFAULT.welfareApi.enabled
+      : Boolean(config.welfareApi.enabled),
+  welfareApiRequireAuth:
+    config.welfareApi?.requireAuth === undefined
+      ? HEADER_NAV_DEFAULT.welfareApi.requireAuth
+      : Boolean(config.welfareApi.requireAuth),
+  serviceStatusEnabled:
+    config.serviceStatus?.enabled === undefined
+      ? HEADER_NAV_DEFAULT.serviceStatus.enabled
+      : Boolean(config.serviceStatus.enabled),
+  serviceStatusRequireAuth:
+    config.serviceStatus?.requireAuth === undefined
+      ? HEADER_NAV_DEFAULT.serviceStatus.requireAuth
+      : Boolean(config.serviceStatus.requireAuth),
   docs:
     config.docs === undefined ? HEADER_NAV_DEFAULT.docs : Boolean(config.docs),
   about:
@@ -130,6 +150,16 @@ export function HeaderNavigationSection({
         ...(config.rankings ?? HEADER_NAV_DEFAULT.rankings),
         enabled: values.rankingsEnabled,
         requireAuth: values.rankingsRequireAuth,
+      },
+      welfareApi: {
+        ...(config.welfareApi ?? HEADER_NAV_DEFAULT.welfareApi),
+        enabled: values.welfareApiEnabled,
+        requireAuth: values.welfareApiRequireAuth,
+      },
+      serviceStatus: {
+        ...(config.serviceStatus ?? HEADER_NAV_DEFAULT.serviceStatus),
+        enabled: values.serviceStatusEnabled,
+        requireAuth: values.serviceStatusRequireAuth,
       },
     }
 
@@ -178,7 +208,11 @@ export function HeaderNavigationSection({
   const accessModules: Array<{
     enabledKey: keyof HeaderNavFormValues
     requireAuthKey: keyof HeaderNavFormValues
-    requireAuthDependsOn: 'pricingEnabled' | 'rankingsEnabled'
+    requireAuthDependsOn:
+      | 'pricingEnabled'
+      | 'rankingsEnabled'
+      | 'welfareApiEnabled'
+      | 'serviceStatusEnabled'
     title: string
     description: string
     requireAuthTitle: string
@@ -204,6 +238,28 @@ export function HeaderNavigationSection({
       requireAuthTitle: t('Require login to view rankings'),
       requireAuthDescription: t(
         'Visitors must authenticate before accessing the rankings page.'
+      ),
+    },
+    {
+      enabledKey: 'welfareApiEnabled',
+      requireAuthKey: 'welfareApiRequireAuth',
+      requireAuthDependsOn: 'welfareApiEnabled',
+      title: t('Welfare API'),
+      description: t('Public page listing the free APIs offered by the site.'),
+      requireAuthTitle: t('Require login to view welfare APIs'),
+      requireAuthDescription: t(
+        'Visitors must authenticate before accessing the welfare API page.'
+      ),
+    },
+    {
+      enabledKey: 'serviceStatusEnabled',
+      requireAuthKey: 'serviceStatusRequireAuth',
+      requireAuthDependsOn: 'serviceStatusEnabled',
+      title: t('Channel availability'),
+      description: t('Public page showing live channel probe results.'),
+      requireAuthTitle: t('Require login to view channel availability'),
+      requireAuthDescription: t(
+        'Visitors must authenticate before accessing the availability page.'
       ),
     },
   ]

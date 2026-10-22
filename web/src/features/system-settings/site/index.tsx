@@ -38,6 +38,23 @@ const defaultSiteSettings: SiteSettings = {
   'legal.privacy_policy': '',
   HeaderNavModules: '',
   SidebarModulesAdmin: '',
+  'welfare_api_setting.enabled': true,
+  'welfare_api_setting.title': 'Welfare API',
+  'welfare_api_setting.subtitle':
+    'Free APIs published by the site operator, with endpoints and models ready to call.',
+  'welfare_api_setting.notice': '',
+  'welfare_api_setting.require_login': false,
+  'welfare_api_setting.apis': '[]',
+  'service_status_setting.enabled': false,
+  'service_status_setting.title': 'Channel availability',
+  'service_status_setting.description':
+    'Live probe results for every channel published by this site.',
+  'service_status_setting.display_hours': 24,
+  'service_status_setting.probe_interval_minutes': 5,
+  'service_status_setting.sample_retention_days': 30,
+  'service_status_setting.require_login': false,
+  'service_status_setting.show_latency': true,
+  'service_status_setting.targets': '[]',
 }
 
 export function SiteSettings() {

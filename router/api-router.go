@@ -43,6 +43,8 @@ func SetApiRouter(router *gin.Engine) {
 			perfMetricsRoute.GET("", controller.GetPerfMetrics)
 		}
 		apiRouter.GET("/rankings", middleware.HeaderNavModuleAuth("rankings"), controller.GetRankings)
+		apiRouter.GET("/welfare-apis", middleware.TryUserAuth(), middleware.DisableCache(), controller.GetWelfareApis)
+		apiRouter.GET("/service-status", middleware.TryUserAuth(), middleware.DisableCache(), controller.GetServiceStatus)
 		apiRouter.GET("/verification", middleware.EmailVerificationRateLimit(), middleware.TurnstileCheck(), controller.SendEmailVerification)
 		apiRouter.GET("/reset_password", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), controller.SendPasswordResetEmail)
 		apiRouter.POST("/user/reset", middleware.CriticalRateLimit(), anonymousRequestBodyLimit, controller.ResetPassword)
@@ -144,6 +146,17 @@ func SetApiRouter(router *gin.Engine) {
 				// Check-in routes
 				selfRoute.GET("/checkin", controller.GetCheckinStatus)
 				selfRoute.POST("/checkin", middleware.TurnstileCheck(), controller.DoCheckin)
+
+				// Lottery routes
+				selfRoute.GET("/lottery/status", controller.GetLotteryStatus)
+				selfRoute.POST("/lottery/draw", middleware.CriticalRateLimit(), controller.DoLotteryDraw)
+				selfRoute.GET("/lottery/ranking", controller.GetLotteryRanking)
+				selfRoute.GET("/lottery/public-wins", controller.GetLotteryPublicWins)
+
+				// Welfare chest routes
+				selfRoute.GET("/welfare-chests/status", controller.GetWelfareChestsStatus)
+				selfRoute.POST("/welfare-chests/open", middleware.CriticalRateLimit(), controller.OpenWelfareChest)
+				selfRoute.GET("/welfare-chests/ranking", controller.GetWelfareChestsRanking)
 
 				// Custom OAuth bindings
 				selfRoute.GET("/oauth/bindings", controller.GetUserOAuthBindings)
@@ -316,6 +329,15 @@ func SetApiRouter(router *gin.Engine) {
 			redemptionRoute.PUT("/", controller.UpdateRedemption)
 			redemptionRoute.DELETE("/invalid", controller.DeleteInvalidRedemption)
 			redemptionRoute.DELETE("/:id", controller.DeleteRedemption)
+		}
+		serviceStatusAdminRoute := apiRouter.Group("/service-status/admin")
+		serviceStatusAdminRoute.Use(middleware.AdminAuth())
+		{
+			serviceStatusAdminRoute.GET("/settings", controller.GetServiceStatusAdminSettings)
+			serviceStatusAdminRoute.PUT("/settings", controller.UpdateServiceStatusAdminSettings)
+			serviceStatusAdminRoute.POST("/probe", controller.ProbeAllServiceStatusTargets)
+			serviceStatusAdminRoute.POST("/probe/:id", controller.ProbeServiceStatusTargetNow)
+			serviceStatusAdminRoute.DELETE("/samples", controller.ClearServiceStatusSamples)
 		}
 		handlePermissionRoute(apiRouter.Group("", middleware.DisableCache(), middleware.AdminAuth()), http.MethodGet, "/audit", authz.AuditRead, controller.GetAuditLogs)
 		apiRouter.GET("/audit/self", middleware.DisableCache(), middleware.UserAuth(), controller.GetAuditLogs)

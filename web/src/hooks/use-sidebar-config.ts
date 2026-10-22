@@ -53,6 +53,10 @@ const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
   },
   personal: {
     enabled: true,
+    lottery: true,
+    welfare: true,
+    serviceStatus: true,
+    canvas: true,
     topup: true,
     personal: true,
     security: true,
@@ -109,6 +113,11 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/usage-logs/drawing': { section: 'console', module: 'midjourney' },
   '/usage-logs/task': { section: 'console', module: 'task' },
   '/wallet': { section: 'personal', module: 'topup' },
+  // 幸运抽奖 / 福利宝箱归入 personal 区域，受后台「侧边栏模块」开关控制。
+  '/lottery': { section: 'personal', module: 'lottery' },
+  '/welfare-chests': { section: 'personal', module: 'welfare' },
+  '/service-status': { section: 'personal', module: 'serviceStatus' },
+  '/canvas': { section: 'personal', module: 'canvas' },
   '/profile': { section: 'personal', module: 'personal' },
   '/security': { section: 'personal', module: 'security' },
   '/channels': { section: 'admin', module: 'channel' },

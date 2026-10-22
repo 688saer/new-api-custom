@@ -86,6 +86,24 @@ export function useTopNavLinks(): TopNavLink[] {
     links.push({ title: t('Rankings'), href: '/rankings', requiresAuth })
   }
 
+  // Welfare API
+  const welfareApi = modules?.welfareApi
+  if (welfareApi && typeof welfareApi === 'object' && welfareApi.enabled) {
+    const requiresAuth = welfareApi.requireAuth && !isAuthed
+    links.push({ title: t('Welfare API'), href: '/welfare-apis', requiresAuth })
+  }
+
+  // Channel availability
+  const serviceStatus = modules?.serviceStatus
+  if (serviceStatus && typeof serviceStatus === 'object' && serviceStatus.enabled) {
+    const requiresAuth = serviceStatus.requireAuth && !isAuthed
+    links.push({
+      title: t('Channel availability'),
+      href: '/service-status',
+      requiresAuth,
+    })
+  }
+
   // Docs (supports external links)
   if (modules?.docs !== false) {
     if (docsLink) {
