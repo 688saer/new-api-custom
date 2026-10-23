@@ -812,7 +812,8 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 |---|---|
 | 生产镜像 | `new-api-lottery:gt6` |
 | 已发布版本 | `v1.0.0-rc.46-gt6`（含 Docker 镜像 + 桌面端） |
-| 回滚镜像 | `new-api-lottery:geetest5`、`:geetest4`、`:geetest3`、`:canvas1`、`:rc46`、`:rc45s` |
+| 回滚镜像 | `new-api-lottery:geetest5`、`:geetest4`（更早的已清理） |
+| 磁盘占用 | 29%（清理构建缓存与旧镜像后） |
 | 前端测试 | 2394 通过 / 1 失败（`intl-locale.test.ts`，因服务器无 node，与本次改动无关） |
 | typecheck | 通过 |
 | gofmt | 干净 |
