@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { CheckCircle2, ShieldCheck } from 'lucide-react'
+import { CheckCircle2, RefreshCw, ShieldCheck } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -38,6 +38,7 @@ interface GeeTestInstance {
   onClose: (callback: () => void) => void
   getValidate: () => GeeTestResult | undefined
   showCaptcha: () => void
+  reset?: () => void
   destroy: () => void
 }
 
@@ -53,6 +54,46 @@ declare global {
 const SCRIPT_ID = 'geetest-v4'
 const SCRIPT_URL = 'https://static.geetest.com/v4/gt4.js'
 
+/** Give the SDK this long to produce an instance before offering a retry. */
+const INIT_TIMEOUT_MS = 15000
+
+/**
+ * One script tag serves every form on the page, so the load is shared. A
+ * rejected load resolves `false`; `discardGeeTestScript` clears the cache so a
+ * retry starts over.
+ */
+let geetestScriptPromise: Promise<boolean> | null = null
+
+function loadGeeTestScript(): Promise<boolean> {
+  if (window.initGeetest4) return Promise.resolve(true)
+  if (geetestScriptPromise) return geetestScriptPromise
+
+  geetestScriptPromise = new Promise<boolean>((resolve) => {
+    const existing = document.getElementById(SCRIPT_ID)
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true), { once: true })
+      existing.addEventListener('error', () => resolve(false), { once: true })
+      return
+    }
+    const script = document.createElement('script')
+    script.id = SCRIPT_ID
+    script.src = SCRIPT_URL
+    script.async = true
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.head.appendChild(script)
+  })
+
+  return geetestScriptPromise
+}
+
+function discardGeeTestScript() {
+  geetestScriptPromise = null
+  document.getElementById(SCRIPT_ID)?.remove()
+}
+
+type Phase = 'loading' | 'ready' | 'error'
+
 interface GeeTestCaptchaProps {
   /** Public captcha id from the status payload. */
   captchaId: string
@@ -65,95 +106,142 @@ interface GeeTestCaptchaProps {
   className?: string
 }
 
+function geetestLanguage(language: string) {
+  return language.toLowerCase().startsWith('zh') ? 'zho' : 'eng'
+}
+
 /**
  * GeeTest V4 challenge for one form.
  *
- * The widget opens a popup on demand rather than binding inline: a modal-owned
- * challenge can be reset cleanly after a rejected request, which matters
- * because each solved payload is single-use.
+ * Uses the popup product: the account behind the configured captcha id only
+ * supports the popup challenge, and `bind` silently leaves an empty hidden
+ * widget behind instead of an inline one. A popup also keeps the form layout
+ * untouched and lets GeeTest lay itself out for phones on its own.
+ *
+ * Two failure modes matter more than the happy path, because both present to
+ * the user as "the button does nothing":
+ *
+ * 1. GeeTest's loader throws an uncaught error when the init-level `onError` is
+ *    missing, and its callback then never runs. So `onError` is always passed,
+ *    and a watchdog surfaces a stall instead of waiting forever.
+ * 2. The trigger button must never be disabled on a state the widget controls.
+ *    While the challenge is still loading a press explains the wait, and after
+ *    a failure the same button retries.
+ *
+ * The overlay is also kept usable inside a modal dialog, which sets
+ * `pointer-events: none` on `<body>` where GeeTest appends itself.
  */
 export function GeeTestCaptcha(props: GeeTestCaptchaProps) {
   const { t, i18n } = useTranslation()
   const instance = useRef<GeeTestInstance | null>(null)
-  const [ready, setReady] = useState(false)
-  const [failed, setFailed] = useState(false)
+  const [phase, setPhase] = useState<Phase>('loading')
+  const [attempt, setAttempt] = useState(0)
   const captchaId = props.captchaId
+  const language = geetestLanguage(
+    i18n.resolvedLanguage || i18n.language || 'en'
+  )
 
-  // The callbacks are recreated on every render, so keep them in a ref and let
-  // the instance be created once per captcha id.
+  // Callbacks change on every render; keep them in a ref so the instance is
+  // created once per captcha id instead of being torn down each render.
   const handlers = useRef({ onVerify: props.onVerify })
   useEffect(() => {
     handlers.current = { onVerify: props.onVerify }
   })
 
+  // Keep the body-attached overlay interactive even inside a modal dialog.
   useEffect(() => {
-    if (!captchaId) return
+    const enableOverlay = (event: Event) => {
+      const target = event.target
+      if (!(target instanceof Element)) return
+      if (!target.closest('.geetest_captcha, .geetest_popup_wrap')) return
+      const parent = target.parentElement
+      if (parent === document.body) parent.style.pointerEvents = 'auto'
+    }
+    document.addEventListener('pointerdown', enableOverlay, true)
+    return () => {
+      document.removeEventListener('pointerdown', enableOverlay, true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!captchaId || props.verified) return
+
     let cancelled = false
+    let initTimer: ReturnType<typeof setTimeout> | undefined
+    setPhase('loading')
+
+    const fail = () => {
+      if (cancelled) return
+      if (initTimer) clearTimeout(initTimer)
+      setPhase('error')
+    }
 
     const create = () => {
-      if (cancelled || !window.initGeetest4) return
-      window.initGeetest4(
-        {
-          captchaId,
-          product: 'popup',
-          language: i18n.resolvedLanguage === 'zh' ? 'zho' : 'eng',
-          hideBar: ['close'],
-        },
-        (captcha) => {
-          if (cancelled) {
-            captcha.destroy()
-            return
-          }
-          instance.current = captcha
-          captcha.onSuccess(() => {
-            const result = captcha.getValidate()
-            if (!result) {
-              setFailed(true)
+      if (cancelled || !window.initGeetest4) {
+        fail()
+        return
+      }
+      try {
+        window.initGeetest4(
+          {
+            captchaId,
+            product: 'popup',
+            language,
+            // Without this the loader rethrows and the callback never fires.
+            onError: () => fail(),
+          },
+          (captcha) => {
+            if (cancelled) {
+              captcha.destroy()
               return
             }
-            setFailed(false)
-            handlers.current.onVerify(JSON.stringify(result))
-          })
-          captcha.onError(() => setFailed(true))
-          captcha.onReady(() => setReady(true))
-        }
-      )
+            if (initTimer) clearTimeout(initTimer)
+            instance.current = captcha
+            captcha.onSuccess(() => {
+              const result = captcha.getValidate()
+              if (!result) {
+                fail()
+                return
+              }
+              handlers.current.onVerify(JSON.stringify(result))
+            })
+            // A failed challenge is recoverable: the user can slide again, so
+            // only the load itself is treated as fatal.
+            captcha.onError(() => undefined)
+            captcha.onReady(() => setPhase('ready'))
+            // `onReady` can lag behind the instance; the button stays usable
+            // either way, so a late event must not strand the form.
+            setPhase('ready')
+          }
+        )
+      } catch {
+        fail()
+      }
     }
 
-    if (window.initGeetest4) {
+    if (attempt > 0) discardGeeTestScript()
+
+    void loadGeeTestScript().then((loaded) => {
+      if (cancelled) return
+      if (!loaded) {
+        fail()
+        return
+      }
       create()
-      return () => {
-        cancelled = true
-        instance.current?.destroy()
-        instance.current = null
-      }
-    }
+    })
 
-    const existing = document.getElementById(SCRIPT_ID)
-    if (existing) {
-      existing.addEventListener('load', create)
-      return () => {
-        cancelled = true
-        existing.removeEventListener('load', create)
-        instance.current?.destroy()
-        instance.current = null
-      }
-    }
-
-    const script = document.createElement('script')
-    script.id = SCRIPT_ID
-    script.src = SCRIPT_URL
-    script.async = true
-    script.onload = create
-    script.onerror = () => setFailed(true)
-    document.head.appendChild(script)
+    initTimer = setTimeout(() => {
+      if (cancelled || instance.current) return
+      fail()
+    }, INIT_TIMEOUT_MS)
 
     return () => {
       cancelled = true
+      if (initTimer) clearTimeout(initTimer)
       instance.current?.destroy()
       instance.current = null
     }
-  }, [captchaId, i18n.resolvedLanguage])
+  }, [captchaId, language, attempt, props.verified])
 
   if (props.verified) {
     return (
@@ -171,7 +259,10 @@ export function GeeTestCaptcha(props: GeeTestCaptchaProps) {
             variant='link'
             size='sm'
             className='h-auto p-0 text-xs'
-            onClick={props.onReset}
+            onClick={() => {
+              instance.current?.reset?.()
+              props.onReset?.()
+            }}
           >
             {t('Reset')}
           </Button>
@@ -180,21 +271,39 @@ export function GeeTestCaptcha(props: GeeTestCaptchaProps) {
     )
   }
 
+  const label = () => {
+    if (phase === 'error') return t('Retry human verification')
+    if (phase === 'ready') return t('Click to complete human verification')
+    return t('Loading human verification...')
+  }
+
   return (
     <div className={cn('space-y-1', props.className)}>
       <Button
         type='button'
         variant='outline'
         className='w-full justify-center gap-2'
-        disabled={!ready && !failed}
-        onClick={() => instance.current?.showCaptcha()}
+        aria-busy={phase === 'loading'}
+        onClick={() => {
+          if (phase === 'error') {
+            setAttempt((value) => value + 1)
+            return
+          }
+          instance.current?.showCaptcha()
+        }}
       >
-        <ShieldCheck className='size-4' />
-        {ready ? t('Click to complete human verification') : t('Loading human verification...')}
+        {phase === 'error' ? (
+          <RefreshCw className='size-4' />
+        ) : (
+          <ShieldCheck className='size-4' />
+        )}
+        {label()}
       </Button>
-      {failed ? (
+      {phase === 'error' ? (
         <p className='text-destructive text-xs'>
-          {t('Human verification could not load. Check your network and try again.')}
+          {t(
+            'Human verification could not load. Check your network and try again.'
+          )}
         </p>
       ) : null}
     </div>

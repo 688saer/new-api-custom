@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { GeeTestCaptcha } from '../geetest-captcha'
@@ -27,12 +27,17 @@ interface FakeInstance {
   onError: (callback: () => void) => void
   onClose: (callback: () => void) => void
   getValidate: () => Record<string, string> | undefined
-  showCaptcha: () => void
+  showCaptcha: ReturnType<typeof vi.fn>
   destroy: () => void
+  success?: () => void
+  ready?: () => void
 }
 
-/** A stand-in for the gt4.js popup: solved on demand, like the real widget. */
-function installFakeGeeTest(options?: { noResult?: boolean }) {
+/** Stand-in for the GeeTest popup: the puzzle opens when asked to. */
+function installFakeGeeTest(options?: {
+  noResult?: boolean
+  failInit?: boolean
+}) {
   const instance: FakeInstance = {
     onSuccess: (callback) => {
       instance.success = callback
@@ -51,18 +56,24 @@ function installFakeGeeTest(options?: { noResult?: boolean }) {
             pass_token: 'pass-1',
             gen_time: '1700000000',
           },
-    showCaptcha: vi.fn(() => instance.success?.()),
+    showCaptcha: vi.fn(),
     destroy: vi.fn(),
-    success: undefined,
-    ready: undefined,
   }
 
-  window.initGeetest4 = vi.fn((_options, callback) => {
-    callback(instance as unknown as never)
-    instance.ready?.()
-  })
+  const init = vi.fn(
+    (config: Record<string, unknown>, callback: (value: never) => void) => {
+      if (options?.failInit) {
+        const onError = config.onError as ((error: unknown) => void) | undefined
+        onError?.({ code: '60204', msg: 'Network failure' })
+        return
+      }
+      callback(instance as unknown as never)
+      instance.ready?.()
+    }
+  )
+  window.initGeetest4 = init
 
-  return { instance, init: window.initGeetest4 }
+  return { instance, init }
 }
 
 describe('GeeTestCaptcha', () => {
@@ -74,29 +85,44 @@ describe('GeeTestCaptcha', () => {
     delete window.initGeetest4
   })
 
-  it('asks for the challenge before the widget is ready instead of allowing submit', () => {
+  it('passes an init-level onError so a load failure cannot be swallowed', async () => {
+    const { init } = installFakeGeeTest()
+
     render(
       <GeeTestCaptcha captchaId='id-1' verified={false} onVerify={vi.fn()} />
     )
 
-    expect(
-      screen.getByRole('button', { name: 'Loading human verification...' })
-    ).toBeDisabled()
+    await waitFor(() => expect(init).toHaveBeenCalledTimes(1))
+    const config = init.mock.calls[0][0] as Record<string, unknown>
+    expect(typeof config.onError).toBe('function')
+    expect(config.product).toBe('popup')
+  })
+
+  it('opens the challenge when the button is pressed', async () => {
+    const { instance } = installFakeGeeTest()
+
+    render(
+      <GeeTestCaptcha captchaId='id-1' verified={false} onVerify={vi.fn()} />
+    )
+
+    const button = await screen.findByRole('button', {
+      name: 'Click to complete human verification',
+    })
+    fireEvent.click(button)
+
+    expect(instance.showCaptcha).toHaveBeenCalledTimes(1)
   })
 
   it('hands the solved challenge back as serialized JSON', async () => {
-    installFakeGeeTest()
+    const { instance } = installFakeGeeTest()
     const onVerify = vi.fn()
 
     render(
       <GeeTestCaptcha captchaId='id-1' verified={false} onVerify={onVerify} />
     )
 
-    const button = await screen.findByRole('button', {
-      name: 'Click to complete human verification',
-    })
-    await waitFor(() => expect(button).toBeEnabled())
-    fireEvent.click(button)
+    await waitFor(() => expect(instance.success).toBeTypeOf('function'))
+    act(() => instance.success?.())
 
     expect(onVerify).toHaveBeenCalledTimes(1)
     const payload = JSON.parse(String(onVerify.mock.calls[0][0]))
@@ -109,18 +135,15 @@ describe('GeeTestCaptcha', () => {
   })
 
   it('reports a locked-out solve instead of submitting an empty challenge', async () => {
-    installFakeGeeTest({ noResult: true })
+    const { instance } = installFakeGeeTest({ noResult: true })
     const onVerify = vi.fn()
 
     render(
       <GeeTestCaptcha captchaId='id-1' verified={false} onVerify={onVerify} />
     )
 
-    const button = await screen.findByRole('button', {
-      name: 'Click to complete human verification',
-    })
-    await waitFor(() => expect(button).toBeEnabled())
-    fireEvent.click(button)
+    await waitFor(() => expect(instance.success).toBeTypeOf('function'))
+    act(() => instance.success?.())
 
     expect(onVerify).not.toHaveBeenCalled()
     expect(
@@ -128,6 +151,23 @@ describe('GeeTestCaptcha', () => {
         'Human verification could not load. Check your network and try again.'
       )
     ).toBeInTheDocument()
+  })
+
+  it('offers a retry that re-initialises after a failed load', async () => {
+    const { init } = installFakeGeeTest({ failInit: true })
+
+    render(
+      <GeeTestCaptcha captchaId='id-1' verified={false} onVerify={vi.fn()} />
+    )
+
+    const retry = await screen.findByRole('button', {
+      name: 'Retry human verification',
+    })
+    expect(init).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(retry)
+
+    await waitFor(() => expect(init).toHaveBeenCalledTimes(2))
   })
 
   it('confirms a stored challenge and offers a reset that drops it', () => {
@@ -149,10 +189,10 @@ describe('GeeTestCaptcha', () => {
   })
 
   it('does not load the vendor script without a captcha id', () => {
-    installFakeGeeTest()
+    const { init } = installFakeGeeTest()
 
     render(<GeeTestCaptcha captchaId='' verified={false} onVerify={vi.fn()} />)
 
-    expect(window.initGeetest4).not.toHaveBeenCalled()
+    expect(init).not.toHaveBeenCalled()
   })
 })

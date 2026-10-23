@@ -290,26 +290,9 @@ export function CheckinCalendarCard({
         </div>
       </Dialog>
 
-      <Dialog
-        open={geetestModalVisible}
-        onOpenChange={setGeetestModalVisible}
-        title={t('Security Check')}
-        contentClassName='sm:max-w-md'
-        contentHeight='auto'
-        bodyClassName='space-y-4'
-      >
-        <div className='text-muted-foreground text-sm'>
-          {t('Please complete the security check to continue.')}
-        </div>
-        <GeeTestCaptcha
-          captchaId={geetestCaptchaId}
-          verified={false}
-          onVerify={(payload) => {
-            setGeetestModalVisible(false)
-            void doCheckin(undefined, payload)
-          }}
-        />
-      </Dialog>
+      {/* GeeTest renders inline rather than in a dialog: a modal sets
+          `pointer-events: none` on <body>, where GeeTest attaches its overlay,
+          which leaves the challenge untouchable. */}
 
       <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
         {/* Header */}
@@ -355,7 +338,7 @@ export function CheckinCalendarCard({
             <Button
               onClick={() => {
                 if (geetestEnabled) {
-                  setGeetestModalVisible(true)
+                  setGeetestModalVisible((value) => !value)
                   return
                 }
                 doCheckin()
@@ -368,6 +351,19 @@ export function CheckinCalendarCard({
             </Button>
           </div>
         </div>
+
+        {geetestEnabled && geetestModalVisible && !checkedToday ? (
+          <div className='border-b p-4 sm:px-6'>
+            <GeeTestCaptcha
+              captchaId={geetestCaptchaId}
+              verified={false}
+              onVerify={(payload) => {
+                setGeetestModalVisible(false)
+                void doCheckin(undefined, payload)
+              }}
+            />
+          </div>
+        ) : null}
 
         {!collapsed ? (
           <>
