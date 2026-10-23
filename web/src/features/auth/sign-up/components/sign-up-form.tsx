@@ -26,6 +26,7 @@ import type { z } from 'zod'
 
 import { Dialog } from '@/components/dialog'
 import { PasswordInput } from '@/components/password-input'
+import { GeeTestCaptcha } from '@/components/geetest-captcha'
 import { Turnstile } from '@/components/turnstile'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,6 +46,7 @@ import { registerFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useEmailVerification } from '@/features/auth/hooks/use-email-verification'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
+import { useGeetest } from '@/features/auth/hooks/use-geetest'
 import {
   getAffiliateCode,
   saveAffiliateCode,
@@ -77,6 +79,14 @@ export function SignUpForm({
     setTurnstileToken,
     validateTurnstile,
   } = useTurnstile()
+  const {
+    geetestEnabled,
+    geetestCaptchaId,
+    geetestPayload,
+    setGeetestPayload,
+    resetGeetest,
+    validateGeetest,
+  } = useGeetest('register')
   const { redirectToLogin, handleLoginResult } = useAuthRedirect()
   const {
     isSending: isSendingCode,
@@ -86,6 +96,9 @@ export function SignUpForm({
   } = useEmailVerification({
     turnstileToken,
     validateTurnstile,
+    geetestPayload,
+    validateGeetest,
+    resetGeetest,
   })
 
   const form = useForm<z.infer<typeof registerFormSchema>>({
@@ -108,7 +121,9 @@ export function SignUpForm({
     status?.data?.oauth_register_enabled ??
     true
   const hasWeChatLogin = Boolean(status?.wechat_login)
-  const turnstileReady = !isTurnstileEnabled || Boolean(turnstileToken)
+  const turnstileReady =
+    (!isTurnstileEnabled || Boolean(turnstileToken)) &&
+    (!geetestEnabled || Boolean(geetestPayload))
 
   const wechatQrCodeUrl = useMemo(() => {
     return (
@@ -158,6 +173,11 @@ export function SignUpForm({
     }
 
     if (!validateTurnstile()) return
+    if (!validateGeetest()) return
+
+    // A solved GeeTest challenge is single-use, so spend it before the request.
+    const submittedGeetestPayload = geetestPayload
+    if (geetestEnabled) resetGeetest()
 
     setIsLoading(true)
     try {
@@ -168,6 +188,7 @@ export function SignUpForm({
         verification_code: verificationCode || undefined,
         aff_code: getAffiliateCode(),
         turnstile: turnstileToken,
+        geetest: submittedGeetestPayload,
       })
 
       if (res?.success) {
@@ -359,6 +380,17 @@ export function SignUpForm({
               onVerify={setTurnstileToken}
             />
           </div>
+        )}
+
+        {/* GeeTest */}
+        {geetestEnabled && (
+          <GeeTestCaptcha
+            className='mt-2'
+            captchaId={geetestCaptchaId}
+            verified={Boolean(geetestPayload)}
+            onVerify={setGeetestPayload}
+            onReset={resetGeetest}
+          />
         )}
 
         <LegalConsent

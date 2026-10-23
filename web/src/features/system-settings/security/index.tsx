@@ -42,6 +42,14 @@ const defaultSecuritySettings: SecuritySettings = {
   'fetch_setting.allowed_ports': [],
   'fetch_setting.apply_ip_filter_for_domain': false,
   'token_setting.max_user_tokens': 1000,
+  'geetest_setting.enabled': false,
+  'geetest_setting.captcha_id': '',
+  'geetest_setting.captcha_key': '',
+  'geetest_setting.on_register': true,
+  'geetest_setting.on_login': true,
+  'geetest_setting.on_checkin': true,
+  'geetest_setting.on_password_reset': true,
+  'geetest_setting.on_email_verify': true,
 }
 
 export function SecuritySettings() {

@@ -253,6 +253,13 @@ func UpdateOption(c *gin.Context) {
 			common.ApiErrorT(c, "Cannot enable Turnstile verification. Enter the Turnstile settings first.")
 			return
 		}
+	case "geetest_setting.enabled":
+		// Switching the master on without credentials would leave every guarded
+		// action unanswered, so refuse it up front instead of at request time.
+		if option.Value == "true" && !system_setting.GetGeeTestSetting().IsConfigured() {
+			common.ApiErrorT(c, "Cannot enable GeeTest verification. Enter the captcha id and captcha key first.")
+			return
+		}
 	case "TelegramOAuthEnabled":
 		if option.Value == "true" && !system_setting.GetTelegramSettings().IsConfigured() {
 			c.JSON(http.StatusOK, gin.H{

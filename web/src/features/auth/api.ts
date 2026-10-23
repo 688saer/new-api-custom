@@ -30,6 +30,20 @@ import {
   clearPasswordEncryptionCache,
   encryptPassword,
 } from './lib/password-encryption'
+
+/**
+ * Build the verification query string shared by the guarded endpoints.
+ *
+ * Turnstile travels as a plain token and GeeTest as the JSON the browser
+ * received; either may be absent when the operator only enabled the other.
+ */
+function verificationQuery(turnstile?: string, geetest?: string): string {
+  const params = new URLSearchParams()
+  if (turnstile) params.set('turnstile', turnstile)
+  if (geetest) params.set('geetest', geetest)
+  const query = params.toString()
+  return query ? `?${query}` : ''
+}
 import { getAffiliateCode } from './lib/storage'
 import type { TelegramAuthorization } from './lib/telegram-login'
 import type { VerificationOperation } from './secure-verification/types'
@@ -53,6 +67,7 @@ import type {
 // User login with username and password
 export async function login(payload: LoginPayload): Promise<LoginResponse> {
   const turnstile = payload.turnstile ?? ''
+  const geetest = payload.geetest ?? ''
   try {
     let passwordFields:
       | { password: string }
@@ -67,7 +82,7 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
       passwordFields = { password: payload.password }
     }
     const res = await api.post<LoginResponse>(
-      `/api/user/login?turnstile=${turnstile}`,
+      `/api/user/login${verificationQuery(turnstile, geetest)}`,
       {
         username: payload.username,
         ...passwordFields,
@@ -151,10 +166,11 @@ export async function logout(): Promise<ApiResponse> {
 // Send password reset email
 export async function sendPasswordResetEmail(
   email: string,
-  turnstile?: string
+  turnstile?: string,
+  geetest?: string
 ): Promise<ApiResponse> {
   const res = await api.get('/api/reset_password', {
-    params: { email, turnstile },
+    params: { email, turnstile, geetest },
   })
   return res.data
 }
@@ -248,19 +264,21 @@ export async function telegramLogin(
 
 // User registration
 export async function register(payload: RegisterPayload): Promise<ApiResponse> {
-  const res = await api.post(`/api/user/register`, payload, {
-    params: { turnstile: payload.turnstile ?? '' },
-  })
+  const res = await api.post(
+    `/api/user/register${verificationQuery(payload.turnstile, payload.geetest)}`,
+    payload
+  )
   return res.data
 }
 
 // Send email verification code
 export async function sendEmailVerification(
   email: string,
-  turnstile?: string
+  turnstile?: string,
+  geetest?: string
 ): Promise<ApiResponse> {
   const res = await api.get('/api/verification', {
-    params: { email, turnstile },
+    params: { email, turnstile, geetest },
   })
   return res.data
 }

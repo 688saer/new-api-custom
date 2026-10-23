@@ -295,13 +295,18 @@ export async function getCheckinStatus(
 
 /**
  * Perform daily checkin
+ *
+ * Both human-verification providers travel in the query string, matching the
+ * middleware that guards this endpoint.
  */
 export async function performCheckin(
-  turnstileToken?: string
+  turnstileToken?: string,
+  geetestPayload?: string
 ): Promise<ApiResponse<CheckinResponse>> {
-  const url = turnstileToken
-    ? `/api/user/checkin?turnstile=${encodeURIComponent(turnstileToken)}`
-    : '/api/user/checkin'
-  const res = await api.post(url)
+  const params = new URLSearchParams()
+  if (turnstileToken) params.set('turnstile', turnstileToken)
+  if (geetestPayload) params.set('geetest', geetestPayload)
+  const query = params.toString()
+  const res = await api.post(`/api/user/checkin${query ? `?${query}` : ''}`)
   return res.data
 }

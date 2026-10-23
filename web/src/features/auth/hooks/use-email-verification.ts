@@ -31,6 +31,11 @@ import { EMAIL_VERIFICATION_COUNTDOWN } from '../constants'
 interface UseEmailVerificationOptions {
   turnstileToken?: string
   validateTurnstile?: () => boolean
+  /** Solved GeeTest challenge, when this deployment guards the send. */
+  geetestPayload?: string
+  validateGeetest?: () => boolean
+  /** Called once the challenge has been spent, so a fresh one can be solved. */
+  resetGeetest?: () => void
 }
 
 /**
@@ -57,10 +62,22 @@ export function useEmailVerification(options?: UseEmailVerificationOptions) {
     if (options?.validateTurnstile && !options.validateTurnstile()) {
       return false
     }
+    if (options?.validateGeetest && !options.validateGeetest()) {
+      return false
+    }
+
+    // The challenge is single-use, so spend it before the request and let the
+    // operator solve a new one if this send is rejected.
+    const geetestPayload = options?.geetestPayload
+    options?.resetGeetest?.()
 
     setIsSending(true)
     try {
-      const res = await sendEmailVerification(email, options?.turnstileToken)
+      const res = await sendEmailVerification(
+        email,
+        options?.turnstileToken,
+        geetestPayload
+      )
       if (res?.success) {
         startCountdown()
         toast.success(i18next.t('Verification email sent'))

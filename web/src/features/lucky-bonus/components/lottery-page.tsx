@@ -16,16 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Dices, Loader2, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrencyUSD } from '@/lib/format'
-import { cn } from '@/lib/utils'
 
 import {
   drawLottery,
@@ -39,8 +39,11 @@ import type {
   LotteryRankBoard,
   LotteryStatus,
 } from '../types'
+import { LotteryHero } from './lottery-hero'
+import { LotteryPrizeOdds } from './lottery-prize-odds'
 import { LotteryPublicWins } from './lottery-public-wins'
 import { LotteryRankingCard } from './lottery-ranking-card'
+import { LotteryReel } from './lottery-reel'
 
 /** 老虎机滚动的视觉槽位数量（奖池档位按循环填充） */
 const SLOT_COUNT = 12
@@ -279,142 +282,69 @@ export function LuckyLottery() {
       <SectionPageLayout.Title>{t('Lucky Draw')}</SectionPageLayout.Title>
       <SectionPageLayout.Content>
         <div className='flex flex-col gap-6'>
-          {/* ---------------- 状态栏 ---------------- */}
-          <Card>
-            <CardContent className='flex flex-wrap items-center justify-between gap-4 p-5'>
-              <div>
-                <p className='text-muted-foreground text-xs font-medium'>
-                  {t('Balance')}
-                </p>
-                <p className='text-2xl font-bold tracking-tight tabular-nums'>
-                  {formatCurrencyUSD(status.quota)}
-                </p>
-              </div>
-              <div className='text-center'>
-                <p className='text-muted-foreground text-xs font-medium'>
-                  {t('Free draws left today')}
-                </p>
-                <p className='text-2xl font-bold tracking-tight tabular-nums'>
-                  {status.remaining_draws} / {status.daily_draw_limit}
-                </p>
-              </div>
-              <div className='text-center'>
-                <p className='text-muted-foreground text-xs font-medium'>
-                  {t('Prize received today')}
-                </p>
-                <p className='text-2xl font-bold tracking-tight tabular-nums text-amber-500'>
-                  {status.total_prize_display}
-                </p>
-              </div>
-              <div className='text-center'>
-                <p className='text-muted-foreground text-xs font-medium'>
-                  {t('Draws used today')}
-                </p>
-                <p className='text-2xl font-bold tracking-tight tabular-nums'>
-                  {status.draws_used_today}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <LotteryHero status={status} />
 
-          {/* ---------------- 老虎机 ---------------- */}
-          <Card>
-            <CardHeader className='pb-2'>
-              <CardTitle className='text-base'>{t('Prize slot')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className='grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6'>
-                {slots.map((prize, idx) => {
-                  const active = spin.activeSlot === idx
-                  const highlighted = highlightSlot === idx
-                  return (
-                    <div
-                      key={idx}
-                      className={cn(
-                        'flex h-16 items-center justify-center rounded-lg border text-sm font-semibold tabular-nums transition-all duration-100',
-                        prize.quota === 0 && 'text-muted-foreground',
-                        active && 'scale-105 border-primary bg-primary/10',
-                        highlighted &&
-                          'border-amber-400 bg-amber-500/15 text-amber-600 shadow-md shadow-amber-500/30 dark:text-amber-300'
-                      )}
+          <div className='grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.4fr)] lg:items-start'>
+            <div className='flex flex-col gap-4'>
+              <LotteryReel
+                slots={slots}
+                activeSlot={spin.activeSlot}
+                highlightSlot={highlightSlot}
+                running={spin.running}
+                drawing={drawing !== null}
+                lastPrizes={lastPrizes}
+              />
+
+              <Card>
+                <CardContent className='pt-5'>
+                  <div className='flex flex-col gap-3 sm:flex-row'>
+                    <Button
+                      className='h-11 flex-1 gap-2 font-medium'
+                      disabled={!canSingle}
+                      onClick={() => void handleDraw('single')}
                     >
-                      {prize.quota === 0
-                        ? t('No prize')
-                        : formatCurrencyUSD(prize.quota)}
-                    </div>
-                  )
-                })}
-              </div>
-
-              {lastPrizes && lastPrizes.length > 0 && (
-                <div className='bg-muted/30 mt-4 rounded-xl border p-3'>
-                  <div className='mb-2 text-sm font-medium'>
-                    {t('This round')} · {t('Total')}{' '}
-                    <span className='text-amber-500 tabular-nums'>
-                      {formatCurrencyUSD(
-                        lastPrizes.reduce((sum, p) => sum + p, 0)
+                      {drawing === 'single' ? (
+                        <Loader2 className='size-4 animate-spin' />
+                      ) : (
+                        <Dices className='size-4' />
                       )}
-                    </span>
-                  </div>
-                  <div className='flex flex-wrap gap-2'>
-                    {lastPrizes.map((prize, idx) => (
-                      <div
-                        key={idx}
-                        className={cn(
-                          'rounded-lg border px-2 py-1 text-sm font-semibold tabular-nums',
-                          prize >= 5000000 && 'border-amber-400/50 bg-amber-500/10',
-                          prize >= 1000000 &&
-                            prize < 5000000 &&
-                            'border-sky-400/40 bg-sky-500/10',
-                          prize === 0 && 'text-muted-foreground'
-                        )}
+                      {status.remaining_draws > 0
+                        ? t('Draw once (free)')
+                        : t('Draw once ({{cost}})', {
+                            cost: status.single_cost_display,
+                          })}
+                    </Button>
+                    {status.enable_multi && (
+                      <Button
+                        variant='outline'
+                        className='h-11 flex-1 gap-2 font-medium'
+                        disabled={!canMulti}
+                        onClick={() => void handleDraw('multi')}
                       >
-                        {prize === 0 ? t('No prize') : formatCurrencyUSD(prize)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className='mt-5 flex flex-col gap-3 sm:flex-row'>
-                <Button
-                  className='h-11 flex-1 font-medium'
-                  disabled={!canSingle}
-                  onClick={() => void handleDraw('single')}
-                >
-                  {drawing === 'single'
-                    ? t('Drawing...')
-                    : status.remaining_draws > 0
-                      ? t('Draw once (free)')
-                      : t('Draw once ({{cost}})', {
-                          cost: status.single_cost_display,
-                        })}
-                </Button>
-                {status.enable_multi && (
-                  <Button
-                    variant='outline'
-                    className='h-11 flex-1 font-medium'
-                    disabled={!canMulti}
-                    onClick={() => void handleDraw('multi')}
-                  >
-                    {drawing === 'multi'
-                      ? t('Drawing...')
-                      : t('Draw 10 times ({{cost}})', {
+                        {drawing === 'multi' ? (
+                          <Loader2 className='size-4 animate-spin' />
+                        ) : (
+                          <Sparkles className='size-4' />
+                        )}
+                        {t('Draw 10 times ({{cost}})', {
                           cost: status.multi_cost_display,
                         })}
-                  </Button>
-                )}
-              </div>
+                      </Button>
+                    )}
+                  </div>
 
-              <p className='text-muted-foreground mt-3 text-xs'>
-                {t(
-                  'Free draws are granted daily. A 10-draw requires no draw today (remaining ≥ 10). Prizes are credited immediately; interrupting the animation does not refund.'
-                )}
-              </p>
-            </CardContent>
-          </Card>
+                  <p className='text-muted-foreground mt-3 text-xs leading-relaxed'>
+                    {t(
+                      'Free draws are granted daily. A 10-draw requires no draw today (remaining ≥ 10). Prizes are credited immediately; interrupting the animation does not refund.'
+                    )}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* ---------------- 榜单 ---------------- */}
+            <LotteryPrizeOdds prizes={status.prizes} />
+          </div>
+
           <div className='grid grid-cols-1 gap-6 md:grid-cols-2'>
             <LotteryRankingCard
               title={t("Today's ranking")}

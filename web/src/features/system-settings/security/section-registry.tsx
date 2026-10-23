@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { GeeTestSettingsSection } from '../general/geetest-settings-section'
 import { RateLimitSection } from '../request-limits/rate-limit-section'
 import { SSRFSection } from '../request-limits/ssrf-section'
 import { TokenLimitSection } from '../request-limits/token-limit-section'
@@ -61,6 +62,24 @@ const SECURITY_SECTIONS = [
             settings['fetch_setting.allowed_ports'],
           'fetch_setting.apply_ip_filter_for_domain':
             settings['fetch_setting.apply_ip_filter_for_domain'],
+        }}
+      />
+    ),
+  },
+  {
+    id: 'geetest',
+    titleKey: 'GeeTest Verification',
+    build: (settings: SecuritySettings) => (
+      <GeeTestSettingsSection
+        defaultValues={{
+          enabled: settings['geetest_setting.enabled'],
+          captchaId: settings['geetest_setting.captcha_id'],
+          captchaKey: settings['geetest_setting.captcha_key'],
+          onRegister: settings['geetest_setting.on_register'],
+          onLogin: settings['geetest_setting.on_login'],
+          onCheckin: settings['geetest_setting.on_checkin'],
+          onPasswordReset: settings['geetest_setting.on_password_reset'],
+          onEmailVerify: settings['geetest_setting.on_email_verify'],
         }}
       />
     ),

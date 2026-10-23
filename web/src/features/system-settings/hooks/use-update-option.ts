@@ -49,6 +49,16 @@ const STATUS_RELATED_KEYS = new Set([
   'passkey.origins',
   'QuotaRemindEnabled',
   'QuotaRemindThreshold',
+  // The sign-in and sign-up pages read GeeTest from the public status payload,
+  // so its cached copy has to be dropped whenever the configuration changes.
+  'geetest_setting.enabled',
+  'geetest_setting.captcha_id',
+  'geetest_setting.captcha_key',
+  'geetest_setting.on_register',
+  'geetest_setting.on_login',
+  'geetest_setting.on_checkin',
+  'geetest_setting.on_password_reset',
+  'geetest_setting.on_email_verify',
 ])
 
 export function useUpdateOption() {

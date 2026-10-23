@@ -47,6 +47,8 @@ func GetStatus(c *gin.Context) {
 
 	legalSetting := system_setting.GetLegalSettings()
 
+	geetestSetting := system_setting.GetGeeTestSetting()
+
 	data := gin.H{
 		"version":                     common.Version,
 		"start_time":                  common.StartTime,
@@ -70,8 +72,17 @@ func GetStatus(c *gin.Context) {
 		"server_address":              system_setting.ServerAddress,
 		"turnstile_check":             common.TurnstileCheckEnabled,
 		"turnstile_site_key":          common.TurnstileSiteKey,
-		"docs_link":                   operation_setting.GetGeneralSetting().DocsLink,
-		"quota_per_unit":              common.QuotaPerUnit,
+		// GeeTest V4: only the captcha id is public. The captcha key signs the
+		// validation server-side and never leaves the deployment.
+		"geetest_check":                geetestSetting.Enabled && geetestSetting.IsConfigured(),
+		"geetest_captcha_id":           geetestSetting.CaptchaId,
+		"geetest_register_check":       geetestSetting.ShouldVerify(system_setting.GeeTestActionRegister),
+		"geetest_login_check":          geetestSetting.ShouldVerify(system_setting.GeeTestActionLogin),
+		"geetest_checkin_check":        geetestSetting.ShouldVerify(system_setting.GeeTestActionCheckin),
+		"geetest_password_reset_check": geetestSetting.ShouldVerify(system_setting.GeeTestActionPasswordReset),
+		"geetest_email_verify_check":   geetestSetting.ShouldVerify(system_setting.GeeTestActionEmailVerify),
+		"docs_link":                    operation_setting.GetGeneralSetting().DocsLink,
+		"quota_per_unit":               common.QuotaPerUnit,
 		// 兼容旧前端：保留 display_in_currency，同时提供新的 quota_display_type
 		"display_in_currency":           operation_setting.IsCurrencyDisplay(),
 		"quota_display_type":            operation_setting.GetQuotaDisplayType(),

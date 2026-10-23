@@ -30,6 +30,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Dialog } from '@/components/dialog'
+import { GeeTestCaptcha } from '@/components/geetest-captcha'
 import { Turnstile } from '@/components/turnstile'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -54,12 +55,16 @@ interface CheckinCalendarCardProps {
   checkinEnabled: boolean
   turnstileEnabled: boolean
   turnstileSiteKey: string
+  geetestEnabled: boolean
+  geetestCaptchaId: string
 }
 
 export function CheckinCalendarCard({
   checkinEnabled,
   turnstileEnabled,
   turnstileSiteKey,
+  geetestEnabled,
+  geetestCaptchaId,
 }: CheckinCalendarCardProps) {
   const { t } = useTranslation()
   const [currentMonth, setCurrentMonth] = useState(() => {
@@ -69,6 +74,7 @@ export function CheckinCalendarCard({
   const [checkinLoading, setCheckinLoading] = useState(false)
   const [turnstileModalVisible, setTurnstileModalVisible] = useState(false)
   const [turnstileWidgetKey, setTurnstileWidgetKey] = useState(0)
+  const [geetestModalVisible, setGeetestModalVisible] = useState(false)
   const [initialLoaded, setInitialLoaded] = useState(false)
   const [collapsed, setCollapsed] = useState<boolean>(false)
 
@@ -141,16 +147,17 @@ export function CheckinCalendarCard({
   )
 
   const doCheckin = useCallback(
-    async (token?: string) => {
+    async (token?: string, geetestPayload?: string) => {
       setCheckinLoading(true)
       try {
-        const res = await performCheckin(token)
+        const res = await performCheckin(token, geetestPayload)
         if (res.success && res.data) {
           toast.success(
             `${t('Check-in successful! Received')} ${formatQuotaWithCurrency(res.data.quota_awarded)}`
           )
           refetch()
           setTurnstileModalVisible(false)
+          setGeetestModalVisible(false)
         } else {
           if (!token && shouldTriggerTurnstile(res.message)) {
             if (!turnstileSiteKey) {
@@ -283,6 +290,27 @@ export function CheckinCalendarCard({
         </div>
       </Dialog>
 
+      <Dialog
+        open={geetestModalVisible}
+        onOpenChange={setGeetestModalVisible}
+        title={t('Security Check')}
+        contentClassName='sm:max-w-md'
+        contentHeight='auto'
+        bodyClassName='space-y-4'
+      >
+        <div className='text-muted-foreground text-sm'>
+          {t('Please complete the security check to continue.')}
+        </div>
+        <GeeTestCaptcha
+          captchaId={geetestCaptchaId}
+          verified={false}
+          onVerify={(payload) => {
+            setGeetestModalVisible(false)
+            void doCheckin(undefined, payload)
+          }}
+        />
+      </Dialog>
+
       <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
         {/* Header */}
         <div className='border-b p-4 sm:p-6'>
@@ -325,7 +353,13 @@ export function CheckinCalendarCard({
               </div>
             </button>
             <Button
-              onClick={() => doCheckin()}
+              onClick={() => {
+                if (geetestEnabled) {
+                  setGeetestModalVisible(true)
+                  return
+                }
+                doCheckin()
+              }}
               disabled={checkinLoading || checkedToday}
               size='sm'
               className='w-full shrink-0 sm:w-auto'

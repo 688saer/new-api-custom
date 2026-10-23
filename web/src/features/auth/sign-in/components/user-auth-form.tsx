@@ -27,6 +27,7 @@ import type { z } from 'zod'
 
 import { Dialog } from '@/components/dialog'
 import { PasswordInput } from '@/components/password-input'
+import { GeeTestCaptcha } from '@/components/geetest-captcha'
 import { Turnstile } from '@/components/turnstile'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,6 +46,7 @@ import { OAuthProviders } from '@/features/auth/components/oauth-providers'
 import { loginFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
+import { useGeetest } from '@/features/auth/hooks/use-geetest'
 import { beginPasskeyLogin, finishPasskeyLogin } from '@/features/auth/passkey'
 import {
   requestPasskeyAssertion,
@@ -102,6 +104,14 @@ export function UserAuthForm({
     setTurnstileToken,
     validateTurnstile,
   } = useTurnstile()
+  const {
+    geetestEnabled,
+    geetestCaptchaId,
+    geetestPayload,
+    setGeetestPayload,
+    resetGeetest,
+    validateGeetest,
+  } = useGeetest('login')
   const { handleLoginResult } = useAuthRedirect()
 
   const hasUserAgreement = Boolean(status?.user_agreement_enabled)
@@ -166,12 +176,17 @@ export function UserAuthForm({
     }
 
     if (!validateTurnstile()) return
+    if (!validateGeetest()) return
 
     const submittedTurnstileToken = turnstileToken
     if (isTurnstileEnabled) {
       setTurnstileToken('')
       setTurnstileWidgetKey((current) => current + 1)
     }
+    // A solved GeeTest challenge is single-use, so hand it over and forget it:
+    // a rejected password must be followed by a fresh challenge.
+    const submittedGeetestPayload = geetestPayload
+    if (geetestEnabled) resetGeetest()
 
     setIsLoading(true)
     try {
@@ -179,6 +194,7 @@ export function UserAuthForm({
         username: data.username,
         password: data.password,
         turnstile: submittedTurnstileToken,
+        geetest: submittedGeetestPayload,
         passwordEncryptionEnabled: passwordLoginEncryptionEnabled,
       })
 
@@ -415,6 +431,17 @@ export function UserAuthForm({
                   onExpire={() => setTurnstileToken('')}
                 />
               </div>
+            )}
+
+            {/* GeeTest */}
+            {geetestEnabled && (
+              <GeeTestCaptcha
+                className='mt-2'
+                captchaId={geetestCaptchaId}
+                verified={Boolean(geetestPayload)}
+                onVerify={setGeetestPayload}
+                onReset={resetGeetest}
+              />
             )}
           </>
         )}

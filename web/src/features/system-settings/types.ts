@@ -445,6 +445,14 @@ export type SecuritySettings = {
   'fetch_setting.allowed_ports': number[]
   'fetch_setting.apply_ip_filter_for_domain': boolean
   'token_setting.max_user_tokens': number
+  'geetest_setting.enabled': boolean
+  'geetest_setting.captcha_id': string
+  'geetest_setting.captcha_key': string
+  'geetest_setting.on_register': boolean
+  'geetest_setting.on_login': boolean
+  'geetest_setting.on_checkin': boolean
+  'geetest_setting.on_password_reset': boolean
+  'geetest_setting.on_email_verify': boolean
 }
 
 export type UpstreamChannel = {

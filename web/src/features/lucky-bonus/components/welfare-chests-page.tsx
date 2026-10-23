@@ -18,16 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Clock, Lock, Gift, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrencyUSD } from '@/lib/format'
-import { cn } from '@/lib/utils'
-
 import {
   getWelfareChestsRanking,
   getWelfareChestsStatus,
@@ -38,20 +35,11 @@ import type {
   WelfareChestRankings,
   WelfareChestStatus,
 } from '../types'
+import { WelfareChestCard } from './welfare-chest-card'
 import { WelfareChestRankingCard } from './welfare-chest-ranking-card'
+import { WelfareChestsHero } from './welfare-chests-hero'
 
 const CHEST_KEYS: WelfareChestKey[] = ['xiaoshuai_ge', 'hei_dashuai']
-
-function formatCountdown(seconds: number): string {
-  if (seconds <= 0) return '00:00:00'
-  const days = Math.floor(seconds / 86400)
-  const hours = Math.floor((seconds % 86400) / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const secs = seconds % 60
-  const pad = (value: number) => String(value).padStart(2, '0')
-  if (days > 0) return `${days}d ${pad(hours)}:${pad(minutes)}:${pad(secs)}`
-  return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`
-}
 
 export function WelfareChests() {
   const { t } = useTranslation()
@@ -185,25 +173,6 @@ export function WelfareChests() {
     [opening, t, resolveErrorText, loadStatus, loadRankings]
   )
 
-  const chestTitle = useCallback(
-    (key: WelfareChestKey) =>
-      key === 'xiaoshuai_ge' ? t('Xiaoshuai Ge Chest') : t('Hei Dashuai Chest'),
-    [t]
-  )
-
-  const chestRoleName = useCallback(
-    (key: WelfareChestKey) =>
-      key === 'xiaoshuai_ge' ? t('Xiaoshuai Ge') : t('Hei Dashuai'),
-    [t]
-  )
-
-  const chestDesc = useCallback(
-    (key: WelfareChestKey) =>
-      key === 'xiaoshuai_ge'
-        ? t('Gentle, balanced, steady weekly gift')
-        : t('Bold, thrilling, high reward variance gift'),
-    [t]
-  )
 
   if (loading && !status) {
     return (
@@ -245,36 +214,12 @@ export function WelfareChests() {
             )}
           </p>
 
-          {/* ---------------- 本周消费 + 倒计时 ---------------- */}
-          <Card>
-            <CardContent className='flex flex-wrap items-center justify-between gap-4 p-5'>
-              <div className='flex items-center gap-3'>
-                <div className='bg-primary/10 text-primary flex size-10 items-center justify-center rounded-xl'>
-                  <Gift className='size-5' aria-hidden='true' />
-                </div>
-                <div>
-                  <p className='text-muted-foreground text-xs font-medium'>
-                    {t('This Week Consumption')}
-                  </p>
-                  <p className='text-2xl font-bold tracking-tight tabular-nums'>
-                    {formatCurrencyUSD(status.weekly_consumption_usd)}
-                  </p>
-                </div>
-              </div>
-              <div className='bg-muted/40 flex items-center gap-2.5 rounded-lg border px-3.5 py-2 text-sm'>
-                <Clock
-                  className='text-muted-foreground size-4 shrink-0'
-                  aria-hidden='true'
-                />
-                <span className='text-muted-foreground text-xs'>
-                  {t('Reset Countdown')}:
-                </span>
-                <span className='font-mono font-medium tabular-nums'>
-                  {countdown === null ? '--:--:--' : formatCountdown(countdown)}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
+          <WelfareChestsHero
+            weeklyConsumptionUsd={status.weekly_consumption_usd}
+            countdown={countdown}
+            hasOpened={hasOpened}
+            unlimited={unlimited}
+          />
 
           {error && (
             <div
@@ -293,7 +238,6 @@ export function WelfareChests() {
             </div>
           )}
 
-          {/* ---------------- 宝箱卡片 ---------------- */}
           <div className='grid grid-cols-1 gap-6 md:grid-cols-2'>
             {CHEST_KEYS.map((key) => {
               const box = status.boxes[key]
@@ -305,159 +249,25 @@ export function WelfareChests() {
                 isEligible &&
                 (!hasOpened || unlimited) &&
                 opening === null
-              const imageSrc = isOpened
-                ? box?.opened_image
-                : box?.closed_image
 
               return (
-                <Card
+                <WelfareChestCard
                   key={key}
-                  className={cn(
-                    'flex flex-col justify-between overflow-hidden border-border/70 transition-all duration-200',
-                    isOpened &&
-                      'border-primary/50 shadow-md ring-1 ring-primary/20',
-                    blockedByOther && 'opacity-70 grayscale-[30%]'
-                  )}
-                >
-                  <CardHeader className='pb-3'>
-                    <div className='flex items-center justify-between'>
-                      <CardTitle className='text-lg font-bold'>
-                        {chestTitle(key)}
-                      </CardTitle>
-                      {isOpened ? (
-                        <span className='inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400'>
-                          <CheckCircle2
-                            className='size-3.5'
-                            aria-hidden='true'
-                          />
-                          {t('Claimed')}
-                        </span>
-                      ) : isEligible ? (
-                        <span className='bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold'>
-                          <Gift className='size-3.5' aria-hidden='true' />
-                          {t('Eligible')}
-                        </span>
-                      ) : (
-                        <span className='bg-muted text-muted-foreground inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium'>
-                          <Lock className='size-3.5' aria-hidden='true' />
-                          {t('Locked')}
-                        </span>
-                      )}
-                    </div>
-                    <p className='text-muted-foreground text-xs'>
-                      {chestDesc(key)}
-                    </p>
-                  </CardHeader>
-
-                  <CardContent className='flex flex-1 flex-col items-center justify-between gap-5'>
-                    <div className='bg-muted/20 relative flex h-52 w-full items-center justify-center rounded-xl p-2'>
-                      {imageSrc && !imageFailed[key] ? (
-                        <img
-                          src={imageSrc}
-                          alt={chestTitle(key)}
-                          className={cn(
-                            'max-h-48 max-w-full object-contain transition-transform duration-300',
-                            isOpened ? 'scale-105' : 'hover:scale-105'
-                          )}
-                          loading='lazy'
-                          onError={() =>
-                            setImageFailed((prev) => ({ ...prev, [key]: true }))
-                          }
-                        />
-                      ) : (
-                        <div className='text-muted-foreground flex flex-col items-center gap-2'>
-                          <Gift className='size-16' aria-hidden='true' />
-                          <span className='text-xs'>
-                            {chestRoleName(key)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className='w-full space-y-2.5 text-xs'>
-                      <div className='bg-muted/40 flex items-center justify-between rounded-md px-3 py-2'>
-                        <span className='text-muted-foreground'>
-                          {t('Unlock Threshold')}
-                        </span>
-                        <span className='font-semibold tabular-nums'>
-                          {formatCurrencyUSD(box?.threshold_usd ?? 0)}
-                        </span>
-                      </div>
-                      <div className='bg-muted/40 flex items-center justify-between rounded-md px-3 py-2'>
-                        <span className='text-muted-foreground'>
-                          {t('Reward Range')}
-                        </span>
-                        <span className='font-semibold tabular-nums'>
-                          {formatCurrencyUSD(box?.reward_min_usd ?? 0)} ~{' '}
-                          {formatCurrencyUSD(box?.reward_max_usd ?? 0)}
-                        </span>
-                      </div>
-                      <div className='bg-muted/40 flex items-center justify-between rounded-md px-3 py-2'>
-                        <span className='text-muted-foreground'>
-                          {t('Median Reward')}
-                        </span>
-                        <span className='font-semibold tabular-nums'>
-                          {formatCurrencyUSD(box?.median_usd ?? 0)}
-                        </span>
-                      </div>
-                      {isOpened && status.opened_reward_usd > 0 && (
-                        <div className='flex items-center justify-between rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-emerald-700 dark:text-emerald-400'>
-                          <span className='font-medium'>
-                            {t('Claimed Reward')}
-                          </span>
-                          <span className='text-sm font-bold tabular-nums'>
-                            +{formatCurrencyUSD(status.opened_reward_usd)}
-                          </span>
-                        </div>
-                      )}
-                      {!isEligible && box?.reason && !isOpened && (
-                        <p className='text-muted-foreground text-center text-xs'>
-                          {box.code === 'NOT_ELIGIBLE'
-                            ? t(
-                                'Weekly consumption must reach {{amount}}',
-                                {
-                                  amount: formatCurrencyUSD(
-                                    box.threshold_usd ?? 0
-                                  ),
-                                }
-                              )
-                            : resolveErrorText(box.code, box.reason)}
-                        </p>
-                      )}
-                    </div>
-
-                    <Button
-                      className='h-10 w-full font-medium'
-                      disabled={
-                        loading ||
-                        !canOpen ||
-                        opening !== null ||
-                        (blockedByOther && !unlimited)
-                      }
-                      aria-busy={opening === key}
-                      aria-label={
-                        isOpened && !unlimited
-                          ? t('Claimed This Week')
-                          : canOpen
-                            ? t('Open {{name}} chest', {
-                                name: chestRoleName(key),
-                              })
-                            : t('Cannot open chest')
-                      }
-                      onClick={() => void handleOpen(key)}
-                    >
-                      {opening === key
-                        ? t('Opening...')
-                        : isOpened && !unlimited
-                          ? t('Claimed This Week')
-                          : blockedByOther && !unlimited
-                            ? t('Another Chest Claimed')
-                            : isEligible
-                              ? t('Open Chest')
-                              : t('Threshold Not Met')}
-                    </Button>
-                  </CardContent>
-                </Card>
+                  chestKey={key}
+                  box={box}
+                  isOpened={isOpened}
+                  canOpen={canOpen}
+                  blockedByOther={blockedByOther}
+                  unlimited={unlimited}
+                  opening={opening === key}
+                  imageFailed={!!imageFailed[key]}
+                  weeklyConsumptionUsd={status.weekly_consumption_usd}
+                  claimedRewardUsd={status.opened_reward_usd}
+                  onOpen={() => void handleOpen(key)}
+                  onImageError={() =>
+                    setImageFailed((prev) => ({ ...prev, [key]: true }))
+                  }
+                />
               )
             })}
           </div>

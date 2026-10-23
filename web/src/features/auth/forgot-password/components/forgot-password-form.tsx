@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { z } from 'zod'
 
+import { GeeTestCaptcha } from '@/components/geetest-captcha'
 import { Turnstile } from '@/components/turnstile'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,6 +42,7 @@ import {
   PASSWORD_RESET_COUNTDOWN,
 } from '@/features/auth/constants'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
+import { useGeetest } from '@/features/auth/hooks/use-geetest'
 import { useCountdown } from '@/hooks/use-countdown'
 import { handleServerError } from '@/lib/handle-server-error'
 import { AuthOperationError } from '@/lib/secure-verification'
@@ -62,6 +64,14 @@ export function ForgotPasswordForm({
     validateTurnstile,
   } = useTurnstile()
   const {
+    geetestEnabled,
+    geetestCaptchaId,
+    geetestPayload,
+    setGeetestPayload,
+    resetGeetest,
+    validateGeetest,
+  } = useGeetest('password_reset')
+  const {
     secondsLeft,
     isActive,
     start: startCountdown,
@@ -71,14 +81,25 @@ export function ForgotPasswordForm({
     resolver: zodResolver(forgotPasswordFormSchema),
     defaultValues: { email: '' },
   })
-  const turnstileReady = !isTurnstileEnabled || Boolean(turnstileToken)
+  const turnstileReady =
+    (!isTurnstileEnabled || Boolean(turnstileToken)) &&
+    (!geetestEnabled || Boolean(geetestPayload))
 
   async function onSubmit(data: z.infer<typeof forgotPasswordFormSchema>) {
     if (!validateTurnstile()) return
+    if (!validateGeetest()) return
+
+    // A solved challenge is single-use, so spend it before the request.
+    const submittedGeetestPayload = geetestPayload
+    if (geetestEnabled) resetGeetest()
 
     setIsLoading(true)
     try {
-      const res = await sendPasswordResetEmail(data.email, turnstileToken)
+      const res = await sendPasswordResetEmail(
+        data.email,
+        turnstileToken,
+        submittedGeetestPayload
+      )
       if (res?.success) {
         form.reset()
         startCountdown()
@@ -136,6 +157,16 @@ export function ForgotPasswordForm({
               onVerify={setTurnstileToken}
             />
           </div>
+        )}
+
+        {geetestEnabled && (
+          <GeeTestCaptcha
+            className='mt-2'
+            captchaId={geetestCaptchaId}
+            verified={Boolean(geetestPayload)}
+            onVerify={setGeetestPayload}
+            onReset={resetGeetest}
+          />
         )}
       </form>
     </Form>

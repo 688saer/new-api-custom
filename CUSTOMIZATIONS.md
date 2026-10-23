@@ -8,7 +8,7 @@
 
 ## 一、这是什么
 
-本仓库是 [QuantumNous/new-api](https://github.com/QuantumNous/new-api) 的定制分支，在官方 **v1.0.0-rc.46** 基础上叠加了五个自有功能。
+本仓库是 [QuantumNous/new-api](https://github.com/QuantumNous/new-api) 的定制分支，在官方 **v1.0.0-rc.46** 基础上叠加了五个自有功能，外加一套自建的极验验证接入。
 
 它不是一个 fork 后随意修改的副本，而是用 **git 三向合并**维护的：
 
@@ -17,7 +17,7 @@ master ──●  rc.45 官方基线
          │
          ├──────────────┐
          │              │
-ours ────●  rc.45 + 我们的五个功能
+ours ────●  rc.45 + 我们的自定义功能
          │              │
          │              ●  theirs  rc.46 官方
          │              │
@@ -67,11 +67,15 @@ ours ────●  rc.45 + 我们的五个功能
 
 ## 三、自定义功能清单
 
-五个功能全部是**原生集成**（不是 iframe 嵌入），复用官方组件、主题和 i18n。
+六个功能全部是**原生集成**（不是 iframe 嵌入），复用官方组件、主题和 i18n。
 
 ### 3.1 幸运抽奖 `/lottery`
 
 用户每日免费抽奖，可单抽或十连抽。
+
+页面分四块：顶部「今日剩余免费次数 + 大进度条 + 余额/今日所得/已用次数」的信息条，
+左侧老虎机转盘与操作按钮，右侧按权重实时算出的**中奖概率表**，下方今日排名与中奖公示。
+概率表由权重现场归一化，管理员随便填权重（不必凑成 100）都能显示正确百分比。
 
 - **后端**：`controller/lottery.go`、`model/lottery.go`（498 行，含概率与开奖逻辑）
 - **前端**：`web/src/features/lucky-bonus/`
@@ -95,6 +99,9 @@ ours ────●  rc.45 + 我们的五个功能
 ### 3.2 福利宝箱 `/welfare-chests`
 
 按周消费额解锁的宝箱，两个档位（`xiaoshuai_ge` 小帅鸽 / `hei_dashuai` 黑大帅）。
+
+每张宝箱卡都有「本周消费 / 解锁门槛」的进度条，没达标时直接写清还差多少，
+已开出的奖励用绿色横幅显示；两档位用不同色调（小帅鸽蓝、黑大帅紫）区分。
 
 - **后端**：`controller/welfare_chest.go`、`model/welfare_chest.go`（398 行）
 - **前端**：`web/src/features/lucky-bonus/components/welfare-chests-page.tsx`
@@ -203,6 +210,60 @@ i18n 的 key 是**英文原文**，一词多义就会撞车。画布现在只用
 
 > **新增文案时**：如果英文词有歧义（draw / generate / run / open / claim…），换个更具体的说法，别和别的功能共用 key。
 
+### 3.6 极验人机验证（GeeTest V4）
+
+给注册、登录、签到、找回密码、发送邮箱验证码这五处加极验 V4 验证码，**每项可单独开关**，
+和官方自带的 Turnstile **可以并存**（两个都开时，两个都要过）。
+
+#### 后台在哪配
+
+`系统设置 → 安全 → 极验验证`（`/system-settings/security/geetest`）
+
+| 配置项 | 含义 |
+|---|---|
+| `geetest_setting.enabled` | 总开关 |
+| `geetest_setting.captcha_id` | 验证 ID（公开，会下发到浏览器） |
+| `geetest_setting.captcha_key` | 验证密钥（只在服务端签名用，**绝不下发**） |
+| `geetest_setting.on_register` | 注册时验证 |
+| `geetest_setting.on_login` | 登录时验证 |
+| `geetest_setting.on_checkin` | 签到时验证 |
+| `geetest_setting.on_password_reset` | 找回密码时验证 |
+| `geetest_setting.on_email_verify` | 发送邮箱验证码时验证 |
+
+**填好 ID 和密钥之前，总开关是禁用的**——避免配了一半导致全站被锁死。
+后端 `controller/option.go` 里也有一道同样的拦截，直接调 API 也绕不过去。
+
+#### 接入方式（V4 协议）
+
+1. 浏览器加载 `https://static.geetest.com/v4/gt4.js`，`initGeetest4({captchaId, product:'popup'})`。
+2. 用户点击按钮弹出验证码，通过后 `getValidate()` 返回四个字段：
+   `lot_number`、`captcha_output`、`pass_token`、`gen_time`。
+3. 前端把这四个字段序列化成 **JSON 字符串**，放在 `?geetest=` 查询参数里（与 Turnstile 用 `?turnstile=` 同款做法，中间件顺序不变）。
+4. 服务端 `service/geetest.go` 计算 `sign_token = HMAC-SHA256(lot_number, captcha_key)`（十六进制），
+   连同四个字段 POST 到 `https://gcaptcha4.geetest.com/validate?captcha_id=<id>`，
+   返回 `result === "success"` 才算通过。HTTP 超时 10 秒，GeeTest 挂了宁可让这一步失败也不拖住整站。
+
+#### 关键点
+
+- **票据是一次性的**：前端提交后立刻清空本地票据；请求失败用户必须重新验证。成功后的「已通过」状态显示为绿色条，带「重置」按钮。
+- **密钥不出服务端**：`/api/status` 只返回 `geetest_captcha_id`，`captcha_key` 永远留在数据库和服务端内存里。
+- **五种操作各返回一个布尔**：`geetest_register_check`、`geetest_login_check`、`geetest_checkin_check`、`geetest_password_reset_check`、`geetest_email_verify_check`，前端据此决定要不要显示验证码。
+- **签到是点按钮先弹验证框**，验证通过后自动提交签到，不用再点一次。
+
+#### 涉及文件
+
+| 文件 | 职责 |
+|---|---|
+| `setting/system_setting/geetest_setting.go` | 配置结构 + `ShouldVerify(action)` 判定 |
+| `service/geetest.go` | V4 服务端校验、HMAC 签名 |
+| `middleware/geetest-check.go` | `GeeTestCheck(action)` 中间件 |
+| `router/api-router.go` | 5 条路由挂上中间件 |
+| `controller/misc.go` | `/api/status` 下发公开配置 |
+| `controller/option.go` | 无密钥时禁止开总开关 |
+| `web/src/components/geetest-captcha.tsx` | 极验组件（加载脚本、弹窗、通过态） |
+| `web/src/features/auth/hooks/use-geetest.ts` | 各表单的票据状态 |
+| `web/src/features/system-settings/general/geetest-settings-section.tsx` | 后台配置页 |
+
 **设计决策（重要）**：
 
 1. **API 密钥不落盘**。密钥按需通过 `POST /api/token/:id/key` 取一次，只存在内存 `useRef` 的 Map 里，页面关闭即消失。这修掉了原 `infinite-canvas` 把密钥写 localStorage 的问题。
@@ -235,13 +296,14 @@ setting/operation_setting/lottery_setting.go       74
 setting/operation_setting/welfare_api_setting.go   51
 setting/operation_setting/welfare_chest_setting.go 84
 setting/operation_setting/service_status_setting.go 207
+setting/system_setting/geetest_setting.go        87
 ```
 
 **前端**
 
 ```
 web/src/features/canvas/                  ~1900 行
-web/src/features/lucky-bonus/             ~1520 行
+web/src/features/lucky-bonus/             ~1900 行
 web/src/features/service-status/          ~985 行
 web/src/features/welfare-api/             ~540 行
 web/src/features/system-settings/general/lottery-settings-section.tsx
@@ -251,6 +313,10 @@ web/src/features/system-settings/general/welfare-chest-settings-section.tsx
 web/src/features/system-settings/general/service-status-settings-section.tsx
 web/src/features/system-settings/general/service-status-target-dialog.tsx
 web/src/features/system-settings/general/service-status-target-row.tsx
+web/src/features/system-settings/general/geetest-settings-section.tsx
+web/src/components/geetest-captcha.tsx
+service/geetest.go
+middleware/geetest-check.go
 web/src/routes/_authenticated/canvas/index.tsx
 web/src/routes/_authenticated/lottery/index.tsx
 web/src/routes/_authenticated/welfare-chests/index.tsx
@@ -261,21 +327,26 @@ web/public/static/welfare-chests/        （图片资源）
 
 ### 修改的官方文件（升级时唯一可能冲突的地方）
 
-一共 **11 个**，每处改动都很小、很集中：
+一共 **14 个**，每处改动都很小、很集中：
 
 | 文件 | 改动内容 |
 |---|---|
 | `main.go` | 启动探测 worker（3 行） |
 | `model/main.go` | AutoMigrate 注册 4 张新表（4 行） |
-| `router/api-router.go` | 注册抽奖/宝箱/福利API/可用性路由（约 19 行） |
+| `router/api-router.go` | 注册抽奖/宝箱/福利API/可用性路由（约 19 行）；5 条鉴权路由挂 `GeeTestCheck` |
 | `router/web-router.go` | `WebAssets` 结构体挪到文件末尾（纯格式） |
-| `controller/option.go` | 配置变更后触发探测（4 行） |
+| `controller/option.go` | 配置变更后触发探测（4 行）；无密钥时禁止开极验总开关 |
+| `controller/misc.go` | `/api/status` 下发极验公开配置（7 行） |
 | `web/src/hooks/use-sidebar-data.ts` | 侧边栏 4 个菜单项 |
 | `web/src/hooks/use-sidebar-config.ts` | 侧边栏模块开关默认值 |
 | `web/src/lib/nav-modules.ts` | 顶部导航模块 `welfareApi`、`serviceStatus` |
 | `web/src/features/system-settings/types.ts` | 新增配置项的 TS 类型 |
+| `web/src/features/system-settings/security/*` | 注册「极验验证」设置页（`index.tsx` + `section-registry.tsx`） |
+| `web/src/features/auth/*` | 登录/注册/找回密码/邮箱验证码四处接入极验 |
 | `web/src/routeTree.gen.ts` | 路由树（构建时自动生成） |
-| `web/src/i18n/locales/*.json` × 7 | 254 条自定义文案 |
+| `web/src/i18n/locales/*.json` × 7 | 284 条自定义文案 |
+
+> `web/src/routeTree.gen.ts` 是 TanStack Router 构建时自动生成的，**不要手工改**，冲突时直接接受上游版本再跑一次 `bun run build` 即可重新生成。
 
 > `web/src/routeTree.gen.ts` 是 TanStack Router 构建时自动生成的，**不要手工改**，冲突时直接接受上游版本再跑一次 `bun run build` 即可重新生成。
 
@@ -303,9 +374,13 @@ lottery_setting.*
 welfare_chest_setting.*
 welfare_api_setting.*
 service_status_setting.*
+geetest_setting.*
 ```
 
 `service_status_samples` 会持续增长，按 `sample_retention_days` 清理（默认 30 天）。
+
+> `geetest_setting.*` 里的 `captcha_key` 是**明文存在数据库**的（和其他密钥如 SMTP 密码、渠道 key 一样），
+> 备份文件等同敏感文件，注意保管。它不会出现在 `/api/status` 返回里。
 
 ### 备份
 
@@ -542,6 +617,30 @@ curl -s -X POST "$B/v1/images/generations" \
 
 # 7. 公网
 curl -s https://<your-domain>/api/status | grep -o '"version":"[^"]*"'
+
+# 8. 极验字段是否下发（7 个，值为 false 属正常——总开关默认关）
+curl -s $B/api/status | tr ',' '\n' | grep geetest
+```
+
+### 极验功能的验证方法
+
+打开极验后（后台填好 ID + 密钥 → 开总开关），用 curl 直接打接口验证中间件真的在拦：
+
+```bash
+# A. 不带 geetest 参数 → 应返回 "Complete the human verification first"
+curl -s -X POST "$B/api/user/login" -H "Content-Type: application/json" \
+  -d '{"username":"<用户>","password":"<密码>"}'
+
+# B. geetest 参数不是 JSON → 应返回 "The human verification result could not be read"
+curl -s -X POST "$B/api/user/login?geetest=notjson" \
+  -H "Content-Type: application/json" -d '{"username":"<用户>","password":"<密码>"}'
+
+# C. 票据格式对但伪造 → 上游拒绝，应返回 "Human verification failed, please try again"
+curl -s -G -X POST "$B/api/user/login" \
+  --data-urlencode 'geetest={"lot_number":"abc","captcha_output":"x","pass_token":"y","gen_time":"1700000000"}' \
+  -H "Content-Type: application/json" -d '{"username":"<用户>","password":"<密码>"}'
+
+# D. 把对应保护关掉后，同样的请求应该正常通过
 ```
 
 > 服务器**自身出网受限**，`curl https://<your-domain>` 会返回 `000`。这是正常的，**不是故障**——请从本地浏览器或本机验证公网。
@@ -590,13 +689,16 @@ where user_id=<id> and status='active' and user_agent like 'curl/%';
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc46` |
-| 回滚镜像 | `new-api-lottery:rc45s` |
-| 前端测试 | 2364 通过 / 1 失败（`intl-locale.test.ts`，因服务器无 node） |
+| 生产镜像 | `new-api-lottery:geetest1` |
+| 回滚镜像 | `new-api-lottery:canvas1`（上一版）、`new-api-lottery:rc46`、`new-api-lottery:rc45s` |
+| 前端测试 | 2392 通过 / 1 失败（`intl-locale.test.ts`，因服务器无 node，与本次改动无关） |
 | typecheck | 通过 |
 | gofmt | 干净 |
+| Go 单测 | 极验 4 项全通过（签名、未配置、残缺票据、开关判定） |
 | 数据库迁移 | 重启两次幂等，无 panic |
+| 极验 | **代码已上线，总开关默认关闭**。等 Jack 在后台填真实验证 ID / 密钥后再打开 |
 | 可用生图模型 | `gpt-image-2`、`gpt-image-2.5`、`gpt-image-2.5-sunburst`（`-flare` 上游 500） |
+
 
 ---
 

@@ -28,6 +28,8 @@ export interface LoginPayload {
   username: string
   password: string
   turnstile?: string
+  /** Solved GeeTest V4 challenge, serialized as JSON. */
+  geetest?: string
   passwordEncryptionEnabled?: boolean
 }
 
@@ -43,16 +45,22 @@ export interface RegisterPayload {
   verification_code?: string
   aff_code?: string
   turnstile?: string
+  /** Solved GeeTest V4 challenge, serialized as JSON. */
+  geetest?: string
 }
 
 export interface PasswordResetPayload {
   email: string
   turnstile?: string
+  /** Solved GeeTest V4 challenge, serialized as JSON. */
+  geetest?: string
 }
 
 export interface EmailVerificationPayload {
   email: string
   turnstile?: string
+  /** Solved GeeTest V4 challenge, serialized as JSON. */
+  geetest?: string
 }
 
 export interface BindEmailPayload {
@@ -117,6 +125,15 @@ export interface SystemStatus {
     WeChatAccountQRCodeImageURL?: string
     turnstile_check?: boolean
     turnstile_site_key?: string
+    /** GeeTest V4 is on and both credentials are configured. */
+    geetest_check?: boolean
+    /** Public captcha id; the captcha key stays server-side. */
+    geetest_captcha_id?: string
+    geetest_register_check?: boolean
+    geetest_login_check?: boolean
+    geetest_checkin_check?: boolean
+    geetest_password_reset_check?: boolean
+    geetest_email_verify_check?: boolean
     email_verification?: boolean
     self_use_mode_enabled?: boolean
     display_in_currency?: boolean
@@ -164,6 +181,15 @@ export interface SystemStatus {
   WeChatAccountQRCodeImageURL?: string
   turnstile_check?: boolean
   turnstile_site_key?: string
+  /** GeeTest V4 is on and both credentials are configured. */
+  geetest_check?: boolean
+  /** Public captcha id; the captcha key stays server-side. */
+  geetest_captcha_id?: string
+  geetest_register_check?: boolean
+  geetest_login_check?: boolean
+  geetest_checkin_check?: boolean
+  geetest_password_reset_check?: boolean
+  geetest_email_verify_check?: boolean
   email_verification?: boolean
   self_use_mode_enabled?: boolean
   display_in_currency?: boolean
