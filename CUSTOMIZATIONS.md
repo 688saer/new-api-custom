@@ -248,7 +248,48 @@ i18n 的 key 是**英文原文**，一词多义就会撞车。画布现在只用
 - **票据是一次性的**：前端提交后立刻清空本地票据；请求失败用户必须重新验证。成功后的「已通过」状态显示为绿色条，带「重置」按钮。
 - **密钥不出服务端**：`/api/status` 只返回 `geetest_captcha_id`，`captcha_key` 永远留在数据库和服务端内存里。
 - **五种操作各返回一个布尔**：`geetest_register_check`、`geetest_login_check`、`geetest_checkin_check`、`geetest_password_reset_check`、`geetest_email_verify_check`，前端据此决定要不要显示验证码。
-- **签到是点按钮先弹验证框**，验证通过后自动提交签到，不用再点一次。
+- **签到是点按钮先展开验证区**，验证通过后自动提交签到，不用再点一次。
+
+#### 踩过的坑：验证码"点了没反应"
+
+上线后出现过「按钮在、点了没反应」。查下来是**三个独立原因叠加**，表现完全一样：
+
+1. **没传 init 层的 `onError`**。`gt4.js` 源码里是这样写的：
+
+   ```js
+   if (typeof config.onError === 'function') { config.onError({...}) }
+   else { throw new Error(errors[errorType]); }   // 未捕获异常
+   ```
+
+   资源加载一失败就抛异常，**初始化回调永远不执行**，实例根本建不起来。
+   修法：`onError` 必传，再用 15 秒看门狗兜住"既不成功也不报错"的情况。
+
+2. **按钮 `disabled` 绑在 `onReady` 上**。`onReady` 不触发时按钮永远灰着，用户只能狂点。
+   修法：加载中可点（提示"正在加载"），失败后可点（变成"重试"）。**永远不给用户一个点不动又没解释的按钮。**
+
+3. **签到把验证码放在模态 Dialog 里**。模态会给 `<body>` 设 `pointer-events: none`，
+   而极验的浮层正是挂在 `<body>` 上——浮层看得见但点不到。
+   修法：签到改成在卡片里**内联展开**验证区，不进 Dialog。
+   组件里另有一道兜底：捕获阶段监听 `pointerdown`，命中极验节点时把 `<body>` 的 `pointer-events` 改回 `auto`。
+
+#### 踩过的坑：`bind` 模式不可用
+
+试过用 `product: 'bind'` + `appendTo()` 做内嵌，实测**在当前 captcha_id 下完全不工作**：
+控件始终挂在 `<body>` 上并被设了内联 `display: none`，没有 `geetest_holder`，`appendTo` 传元素或选择器都无效。
+极验官方 demo 用的是 `float`。
+
+所以**必须用 `product: 'popup'`**。弹窗模式对手机是友好的：SDK 自己会按 UA 切换，
+iPhone UA 下 `/load` 请求带 `client_type=h5`，桌面带 `client_type=web`，
+弹层宽度实测手机 390px（正好等于视口）、桌面 750→铺满，**两端都没有横向溢出**。
+
+#### 排查手法
+
+无头浏览器**渲染不了极验控件**（官方 demo 也是 `0x0 display:none`），所以「弹层没出现」在无头下是假阴性，
+不能用它判断代码有没有 bug。可用的做法是**对照官方 demo**，比较：
+
+- 有没有 `/load` JSONP 请求、`gcaptcha4.js` / `gct4.js` / `css` / `i18n` 是否都拉到
+- `.geetest_captcha` 节点的 `class`、内联 `style`、父节点
+- 我们自己的按钮文案走到哪一步（加载中 / 可点击 / 重试）
 
 #### 涉及文件
 
@@ -689,15 +730,16 @@ where user_id=<id> and status='active' and user_agent like 'curl/%';
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:geetest1` |
-| 回滚镜像 | `new-api-lottery:canvas1`（上一版）、`new-api-lottery:rc46`、`new-api-lottery:rc45s` |
-| 前端测试 | 2392 通过 / 1 失败（`intl-locale.test.ts`，因服务器无 node，与本次改动无关） |
+| 生产镜像 | `new-api-lottery:geetest5` |
+| 回滚镜像 | `new-api-lottery:geetest4`、`:geetest3`、`:canvas1`、`:rc46`、`:rc45s` |
+| 前端测试 | 2394 通过 / 1 失败（`intl-locale.test.ts`，因服务器无 node，与本次改动无关） |
 | typecheck | 通过 |
 | gofmt | 干净 |
 | Go 单测 | 极验 4 项全通过（签名、未配置、残缺票据、开关判定） |
 | 数据库迁移 | 重启两次幂等，无 panic |
-| 极验 | **代码已上线，总开关默认关闭**。等 Jack 在后台填真实验证 ID / 密钥后再打开 |
+| 极验 | **已上线并开启**，验证 ID 已填入；桌面/手机实测正常 |
 | 可用生图模型 | `gpt-image-2`、`gpt-image-2.5`、`gpt-image-2.5-sunburst`（`-flare` 上游 500） |
+
 
 
 ---
