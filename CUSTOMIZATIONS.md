@@ -49,8 +49,8 @@ ours ────●  rc.45 + 我们的自定义功能
 
 | 项目 | 值 |
 |---|---|
-| 站点 | `https://<your-domain>/` |
-| 服务器 | `<server-address>`（BaoTa 面板） |
+| 站点 | `<你的域名>`（部署时替换） |
+| 服务器 | `<服务器地址>`（不写入仓库） |
 | 构建目录 | `/root/newapi-build` |
 | 合并仓库 | `/root/merge/work` |
 | 编排文件 | `/www/dk_project/dk_app/newapi/newapi_hC8X/docker-compose.yml` |
@@ -60,6 +60,8 @@ ours ────●  rc.45 + 我们的自定义功能
 | 缓存 | Redis |
 | 时区 | Asia/Shanghai |
 | 镜像命名 | `new-api-lottery:<tag>` |
+
+> **服务器地址、IP、域名不写入本仓库。** 需要时从你自己的部署笔记里查。
 
 > 数据库密码、管理员密码、渠道密钥**不在本仓库中**，见服务器 `docker-compose.yml` 与后台。
 
@@ -676,7 +678,7 @@ curl -s -X POST "$B/v1/images/generations" \
   --max-time 200 | head -c 100
 
 # 7. 公网
-curl -s https://<your-domain>/api/status | grep -o '"version":"[^"]*"'
+curl -s https://<你的域名>/api/status | grep -o '"version":"[^"]*"'
 
 # 8. 极验字段是否下发（7 个，值为 false 属正常——总开关默认关）
 curl -s $B/api/status | tr ',' '\n' | grep geetest
@@ -703,7 +705,7 @@ curl -s -G -X POST "$B/api/user/login" \
 # D. 把对应保护关掉后，同样的请求应该正常通过
 ```
 
-> 服务器**自身出网受限**，`curl https://<your-domain>` 会返回 `000`。这是正常的，**不是故障**——请从本地浏览器或本机验证公网。
+> 服务器**自身出网受限**，`curl https://<你的域名>` 会返回 `000`。这是正常的，**不是故障**——请从本地浏览器或本机验证公网。
 
 ---
 
