@@ -1,6 +1,6 @@
 {
   "translation": {
-      "Retry human verification": "Thử lại xác minh",
+    "Retry human verification": "Thử lại xác minh",
     "360": "360",
     "1000": "1000",
     "10000": "10000",
@@ -7619,6 +7619,32 @@
     "Only the password recovery form asks for a challenge.": "Chỉ biểu mẫu khôi phục mật khẩu yêu cầu xác minh.",
     "Require verification when sending codes": "Xác minh khi gửi mã",
     "Only the email verification code request is challenged.": "Chỉ yêu cầu gửi mã xác minh email mới cần xác minh.",
-    "Save GeeTest settings": "Lưu cài đặt GeeTest"
-}
+    "Save GeeTest settings": "Lưu cài đặt GeeTest",
+    "Site Mascot": "Linh vật trang",
+    "Show the mascot": "Hiển thị linh vật",
+    "Mascot name": "Tên linh vật",
+    "Mascot size": "Kích thước linh vật",
+    "Greeting text": "Lời chào",
+    "Placement": "Vị trí",
+    "Bottom right": "Dưới cùng bên phải",
+    "Bottom left": "Dưới cùng bên trái",
+    "Show on sign-in and sign-up": "Hiển thị ở trang đăng nhập và đăng ký",
+    "The mascot is turned off and will not appear.": "Linh vật đã tắt và sẽ không hiển thị.",
+    "Displays a small character in the corner of the console. Visitors can hide it themselves, and it never blocks page content.": "Hiển thị một nhân vật nhỏ ở góc bảng điều khiển. Người dùng có thể tự ẩn và nó không che nội dung trang.",
+    "Shown in the greeting bubble.": "Hiển thị trong bong bóng chào.",
+    "Width in pixels, between {{min}} and {{max}}.": "Chiều rộng tính bằng pixel, từ {{min}} đến {{max}}.",
+    "Leave empty to use the built-in translated greeting.": "Để trống để dùng lời chào đã dịch sẵn.",
+    "Corner of the console the mascot occupies.": "Góc bảng điều khiển mà linh vật chiếm.",
+    "Off by default so the mascot does not compete with the sign-in form.": "Mặc định tắt để không tranh chỗ với biểu mẫu đăng nhập.",
+    "Hi! Need a hand with your API keys?": "Xin chào! Cần giúp quản lý khóa API không?",
+    "Hi! I'm {{name}}. Need a hand with your API keys?": "Xin chào! Tôi là {{name}}. Cần giúp quản lý khóa API không?",
+    "Mascot": "Linh vật",
+    "Site mascot": "Linh vật trang",
+    "Say hello to {{name}}": "Chào {{name}}",
+    "Close greeting": "Đóng lời chào",
+    "Hide mascot": "Ẩn linh vật",
+    "Use these as the base URL": "Dùng các địa chỉ này làm URL gốc",
+    "Address {{index}}": "Địa chỉ {{index}}",
+    "Save mascot settings": "Lưu cài đặt linh vật"
+  }
 }

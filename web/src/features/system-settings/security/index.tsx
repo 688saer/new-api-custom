@@ -50,6 +50,12 @@ const defaultSecuritySettings: SecuritySettings = {
   'geetest_setting.on_checkin': true,
   'geetest_setting.on_password_reset': true,
   'geetest_setting.on_email_verify': true,
+  'mascot_setting.enabled': true,
+  'mascot_setting.name': '泡泡',
+  'mascot_setting.greeting': '',
+  'mascot_setting.placement': 'bottom-right',
+  'mascot_setting.show_on_auth_pages': false,
+  'mascot_setting.size': 148,
 }
 
 export function SecuritySettings() {

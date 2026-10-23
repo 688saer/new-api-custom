@@ -418,6 +418,62 @@ For commercial licensing, please contact support@quantumnous.com
     }
   }
 
+  /* Site mascot: a slow float so the character reads as alive without
+     pulling attention away from the page content. */
+  @keyframes mascot-bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+
+  @keyframes mascot-bubble-in {
+    0% {
+      opacity: 0;
+      transform: translateY(6px) scale(0.96);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes whale-tail {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    50% {
+      transform: rotate(-9deg);
+    }
+  }
+
+  @keyframes whale-fin {
+    0%,
+    100% {
+      transform: rotate(0deg);
+    }
+    50% {
+      transform: rotate(7deg);
+    }
+  }
+
+  @keyframes whale-spout {
+    0%,
+    70%,
+    100% {
+      opacity: 0.15;
+      transform: translateY(2px) scale(0.9);
+    }
+    35% {
+      opacity: 0.75;
+      transform: translateY(-3px) scale(1.05);
+    }
+  }
+
   /* Vertical scroll animation for icon lists */
   @keyframes scroll-up {
     0% {

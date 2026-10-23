@@ -1,6 +1,6 @@
 {
   "translation": {
-      "Retry human verification": "認証を再試行",
+    "Retry human verification": "認証を再試行",
     "360": "360",
     "1000": "1000",
     "10000": "10000",
@@ -7619,6 +7619,32 @@
     "Only the password recovery form asks for a challenge.": "パスワード再設定フォームのみ認証を求めます。",
     "Require verification when sending codes": "認証コード送信時に検証する",
     "Only the email verification code request is challenged.": "メール認証コードの送信時のみ認証を求めます。",
-    "Save GeeTest settings": "GeeTest 設定を保存"
-}
+    "Save GeeTest settings": "GeeTest 設定を保存",
+    "Site Mascot": "サイトマスコット",
+    "Show the mascot": "マスコットを表示",
+    "Mascot name": "マスコット名",
+    "Mascot size": "マスコットのサイズ",
+    "Greeting text": "あいさつ文",
+    "Placement": "位置",
+    "Bottom right": "右下",
+    "Bottom left": "左下",
+    "Show on sign-in and sign-up": "ログイン・登録画面にも表示",
+    "The mascot is turned off and will not appear.": "マスコットは無効のため表示されません。",
+    "Displays a small character in the corner of the console. Visitors can hide it themselves, and it never blocks page content.": "コンソールの隅に小さなキャラクターを表示します。訪問者は自分で隠せますし、ページ内容を覆うこともありません。",
+    "Shown in the greeting bubble.": "あいさつの吹き出しに表示されます。",
+    "Width in pixels, between {{min}} and {{max}}.": "幅（ピクセル）。{{min}}〜{{max}} の範囲。",
+    "Leave empty to use the built-in translated greeting.": "空欄にすると組み込みの翻訳済みあいさつを使用します。",
+    "Corner of the console the mascot occupies.": "マスコットが表示されるコンソールの隅。",
+    "Off by default so the mascot does not compete with the sign-in form.": "ログインフォームを邪魔しないよう既定ではオフです。",
+    "Hi! Need a hand with your API keys?": "こんにちは！API キーの管理でお困りですか？",
+    "Hi! I'm {{name}}. Need a hand with your API keys?": "こんにちは！{{name}}です。API キーの管理でお困りですか？",
+    "Mascot": "マスコット",
+    "Site mascot": "サイトマスコット",
+    "Say hello to {{name}}": "{{name}}にあいさつする",
+    "Close greeting": "あいさつを閉じる",
+    "Hide mascot": "マスコットを隠す",
+    "Use these as the base URL": "これらをベース URL として使用",
+    "Address {{index}}": "アドレス {{index}}",
+    "Save mascot settings": "マスコット設定を保存"
+  }
 }

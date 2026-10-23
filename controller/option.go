@@ -260,6 +260,14 @@ func UpdateOption(c *gin.Context) {
 			common.ApiErrorT(c, "Cannot enable GeeTest verification. Enter the captcha id and captcha key first.")
 			return
 		}
+	case "mascot_setting.size":
+		// Keep the mascot inside a usable range: too small is unreadable and
+		// too large covers the page it decorates.
+		size, convErr := strconv.Atoi(fmt.Sprintf("%v", option.Value))
+		if convErr != nil || size < system_setting.MascotMinSize || size > system_setting.MascotMaxSize {
+			common.ApiErrorT(c, "Mascot size must be between 96 and 220 pixels.")
+			return
+		}
 	case "TelegramOAuthEnabled":
 		if option.Value == "true" && !system_setting.GetTelegramSettings().IsConfigured() {
 			c.JSON(http.StatusOK, gin.H{

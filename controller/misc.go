@@ -48,6 +48,7 @@ func GetStatus(c *gin.Context) {
 	legalSetting := system_setting.GetLegalSettings()
 
 	geetestSetting := system_setting.GetGeeTestSetting()
+	mascotSetting := system_setting.GetMascotSetting()
 
 	data := gin.H{
 		"version":                     common.Version,
@@ -81,8 +82,15 @@ func GetStatus(c *gin.Context) {
 		"geetest_checkin_check":        geetestSetting.ShouldVerify(system_setting.GeeTestActionCheckin),
 		"geetest_password_reset_check": geetestSetting.ShouldVerify(system_setting.GeeTestActionPasswordReset),
 		"geetest_email_verify_check":   geetestSetting.ShouldVerify(system_setting.GeeTestActionEmailVerify),
-		"docs_link":                    operation_setting.GetGeneralSetting().DocsLink,
-		"quota_per_unit":               common.QuotaPerUnit,
+		// Mascot: decorative only, so the whole configuration is public.
+		"mascot_enabled":      mascotSetting.Enabled,
+		"mascot_name":         mascotSetting.Name,
+		"mascot_greeting":     mascotSetting.Greeting,
+		"mascot_placement":    string(mascotSetting.NormalizePlacement()),
+		"mascot_show_on_auth": mascotSetting.ShowOnAuthPages,
+		"mascot_size":         mascotSetting.NormalizeSize(),
+		"docs_link":           operation_setting.GetGeneralSetting().DocsLink,
+		"quota_per_unit":      common.QuotaPerUnit,
 		// 兼容旧前端：保留 display_in_currency，同时提供新的 quota_display_type
 		"display_in_currency":           operation_setting.IsCurrencyDisplay(),
 		"quota_display_type":            operation_setting.GetQuotaDisplayType(),

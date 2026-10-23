@@ -1,6 +1,6 @@
 {
   "translation": {
-      "Retry human verification": "Retry human verification",
+    "Retry human verification": "Retry human verification",
     "360": "360",
     "1000": "1000",
     "10000": "10000",
@@ -7619,6 +7619,32 @@
     "Only the password recovery form asks for a challenge.": "Only the password recovery form asks for a challenge.",
     "Require verification when sending codes": "Require verification when sending codes",
     "Only the email verification code request is challenged.": "Only the email verification code request is challenged.",
-    "Save GeeTest settings": "Save GeeTest settings"
-}
+    "Save GeeTest settings": "Save GeeTest settings",
+    "Site Mascot": "Site Mascot",
+    "Show the mascot": "Show the mascot",
+    "Mascot name": "Mascot name",
+    "Mascot size": "Mascot size",
+    "Greeting text": "Greeting text",
+    "Placement": "Placement",
+    "Bottom right": "Bottom right",
+    "Bottom left": "Bottom left",
+    "Show on sign-in and sign-up": "Show on sign-in and sign-up",
+    "The mascot is turned off and will not appear.": "The mascot is turned off and will not appear.",
+    "Displays a small character in the corner of the console. Visitors can hide it themselves, and it never blocks page content.": "Displays a small character in the corner of the console. Visitors can hide it themselves, and it never blocks page content.",
+    "Shown in the greeting bubble.": "Shown in the greeting bubble.",
+    "Width in pixels, between {{min}} and {{max}}.": "Width in pixels, between {{min}} and {{max}}.",
+    "Leave empty to use the built-in translated greeting.": "Leave empty to use the built-in translated greeting.",
+    "Corner of the console the mascot occupies.": "Corner of the console the mascot occupies.",
+    "Off by default so the mascot does not compete with the sign-in form.": "Off by default so the mascot does not compete with the sign-in form.",
+    "Hi! Need a hand with your API keys?": "Hi! Need a hand with your API keys?",
+    "Hi! I'm {{name}}. Need a hand with your API keys?": "Hi! I'm {{name}}. Need a hand with your API keys?",
+    "Mascot": "Mascot",
+    "Site mascot": "Site mascot",
+    "Say hello to {{name}}": "Say hello to {{name}}",
+    "Close greeting": "Close greeting",
+    "Hide mascot": "Hide mascot",
+    "Use these as the base URL": "Use these as the base URL",
+    "Address {{index}}": "Address {{index}}",
+    "Save mascot settings": "Save mascot settings"
+  }
 }

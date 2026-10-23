@@ -134,6 +134,13 @@ export interface SystemStatus {
     geetest_checkin_check?: boolean
     geetest_password_reset_check?: boolean
     geetest_email_verify_check?: boolean
+    /** Mascot config; decorative only, so it is part of the public status. */
+    mascot_enabled?: boolean
+    mascot_name?: string
+    mascot_greeting?: string
+    mascot_placement?: string
+    mascot_show_on_auth?: boolean
+    mascot_size?: number
     email_verification?: boolean
     self_use_mode_enabled?: boolean
     display_in_currency?: boolean
@@ -190,6 +197,13 @@ export interface SystemStatus {
   geetest_checkin_check?: boolean
   geetest_password_reset_check?: boolean
   geetest_email_verify_check?: boolean
+  /** Mascot config; decorative only, so it is part of the public status. */
+  mascot_enabled?: boolean
+  mascot_name?: string
+  mascot_greeting?: string
+  mascot_placement?: string
+  mascot_show_on_auth?: boolean
+  mascot_size?: number
   email_verification?: boolean
   self_use_mode_enabled?: boolean
   display_in_currency?: boolean

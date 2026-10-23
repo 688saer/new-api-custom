@@ -71,6 +71,33 @@ ours ────●  rc.45 + 我们的自定义功能
 
 六个功能全部是**原生集成**（不是 iframe 嵌入），复用官方组件、主题和 i18n。
 
+> 这里是七个：抽奖、福利宝箱、福利 API、渠道可用性、无限画布、极验验证，以及 3.7 的看板娘；
+> 3.0 是对官方 `/keys` 页的改造，不算独立功能。
+
+### 3.0 API 密钥页 `/keys` 的改造
+
+在官方页面上加了两块东西：
+
+**（1）顶部「API 端点」卡片**。原来地址藏在「API 地址」按钮的弹层里，新用户第一眼看不到，
+经常把 `https://<域名>` 和 `https://<域名>/v1` 搞混。现在直接把基础地址摊在列表上方，每个地址带复制按钮，
+第一个标「推荐」。
+
+**关键点：地址会自动降级。** `setting/system_setting/system_setting_old.go` 里
+`ServerAddress` 的默认值是硬编码的 `http://localhost:3000`，站点没配过就一直是它。
+对公网访客来说这是个**根本连不上的地址**。所以前端做了判断（`resolvePublicAddress`）：
+
+| 配置的地址 | 页面所在域名 | 显示 |
+|---|---|---|
+| `https://api.example.com` | 任意 | 用配置的 |
+| `http://localhost:3000` | `https://<你的域名>` | **换成当前域名** |
+| `http://localhost:3000` | `http://localhost:3000` | 保留（本地开发） |
+
+**（2）列表视觉**。沿用官方 `DataTablePage`，只把移动端卡片的间距、圆角和字号收紧，
+桌面端加了斑马纹和禁用行的淡化。**没有重写表格**——分页、筛选、列显隐、批量操作全用官方实现。
+
+> **想彻底修掉地址问题**：在后台把「服务器地址」配成真实域名，前端就不会再走降级分支。
+> 降级只是兜底，不是替代配置。
+
 ### 3.1 幸运抽奖 `/lottery`
 
 用户每日免费抽奖，可单抽或十连抽。
@@ -336,6 +363,67 @@ SDK 会建好整套 DOM 但一个像素都不显示，`showCaptcha()` 静默返�
 
 - 图片存在**浏览器本地**，换浏览器或清缓存就没了。要跨设备需要后端加表。
 - 图生图走 `/v1/images/edits`，上游偶发 `connection reset by peer`，重试即可（见第十节）。
+
+### 3.7 看板娘（站点吉祥物）
+
+登录后控制台右下角（可改左下）会出现一个**自制蓝鲸**角色，首次访问时冒一个问候气泡，点它可再打开/收起。
+每个控制台页面都有，由布局统一挂载，不需要各页面单独接入。
+
+#### 后台在哪配
+
+`系统设置 → 安全 → 看板娘`（`/system-settings/security/mascot`）
+
+| 配置项 | 含义 |
+|---|---|
+| `mascot_setting.enabled` | 总开关 |
+| `mascot_setting.name` | 名字，进问候语和按钮的可访问名 |
+| `mascot_setting.greeting` | 问候语；留空用内置的七语言默认句 |
+| `mascot_setting.placement` | `bottom-right`（默认）/ `bottom-left` |
+| `mascot_setting.show_on_auth_pages` | 是否也出现在登录/注册页，默认关 |
+| `mascot_setting.size` | 宽度像素，限制在 96–220，越界后端拒绝 |
+
+设置页带**实时预览**，用和线上同一个组件渲染，改尺寸和文案立刻能看效果。
+
+#### 为什么自己做，没用参考站的模型
+
+参考站（`site.whyapi.top`）用的是 DeepSeek 鲸鱼娘 **Live2D** 模型，
+资产 **CC BY-NC-SA 4.0（禁止商用）**，`c_0120.moc3` + 两张贴图合计约 3.8 MB，还要额外加载
+`live2dcubismcore.min.js` / `pixi.min.js` / `cubism4.min.js` 三个 SDK。
+
+本站可能商用，**不能直接搬那个模型**。所以改成**纯 SVG 手绘角色**：
+
+- 体积 ≈ 0（内联 SVG，无网络请求），不占首屏预算。
+- 描边和填充走 CSS 变量（`--primary`），跟随主题和暗色模式。
+- 认可证风险为零，将来要换有授权的 Live2D 模型时，替换 `whale-figure.tsx` 即可。
+
+#### 交互与无障碍
+
+- **只在第一次访问时问候**，`localStorage.mascot_greeted = '1'` 记账；之后要说话得点它。
+- **可以彻底关掉**：鼠标移到角色上（或键盘聚焦）出现「隐藏」，写 `localStorage.mascot_hidden = '1'`，不再出现。
+  这是**访客侧**的开关，和后台总开关互不影响。
+- 角色本身是一个 `<button>`，带 `aria-label="和<名字>打招呼"` 和 `aria-expanded`；
+  气泡是 `role="status"` + `aria-live="polite"`，不抢焦点；`Esc` 关闭。
+- 尊重 `prefers-reduced-motion`：所有飘浮、摆尾、喷水动画只在 `motion-safe` 下跑。
+- 移动端自动缩到 `min(配置尺寸, 28vw)`，不会糊住内容。
+
+#### 涉及文件
+
+| 文件 | 职责 |
+|---|---|
+| `setting/system_setting/mascot_setting.go` | 配置结构 + `NormalizeSize()` / `NormalizePlacement()` |
+| `controller/misc.go` | `/api/status` 下发 `mascot_*`（全是公开值，无密钥） |
+| `controller/option.go` | 尺寸越界直接拒绝写入 |
+| `web/src/components/mascot/whale-figure.tsx` | 角色本身（内联 SVG + CSS 动画钩子） |
+| `web/src/components/mascot/site-mascot.tsx` | 挂载点、问候气泡、隐藏逻辑、无障碍 |
+| `web/src/components/layout/components/authenticated-layout.tsx` | 在布局里挂一次 |
+| `web/src/features/system-settings/general/mascot-settings-section.tsx` | 后台配置页 + 预览 |
+
+#### 踩过的坑
+
+- **`--mascot-size` 写成 `min(148px, 28vw)` 才能同时满足「后台可配」和「手机不撑破」**。
+  只写死像素，手机上 148px 的鲸鱼会盖住半个按钮；只写 `vw`，后台配的尺寸就失效了。
+- **动画 keyframes 必须放在 `@layer utilities` 里**（`web/src/styles/index.css`），
+  放外面会被 Tailwind 的层叠顺序压掉，`animate-[...]` 不生效。
 
 ---
 
@@ -810,9 +898,9 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:gt6` |
-| 已发布版本 | `v1.0.0-rc.46-gt6`（含 Docker 镜像 + 桌面端） |
-| 回滚镜像 | `new-api-lottery:geetest5`、`:geetest4`（更早的已清理） |
+| 生产镜像 | `new-api-lottery:mascot2` |
+| 已发布版本 | `v1.0.0-rc.46-gt6`（含 Docker 镜像 + 桌面端）；本次看板娘待发 |
+| 回滚镜像 | `new-api-lottery:mascot`、`:gt6`、`:geetest5`、`:geetest4` |
 | 磁盘占用 | 29%（清理构建缓存与旧镜像后） |
 | 前端测试 | 2394 通过 / 1 失败（`intl-locale.test.ts`，因服务器无 node，与本次改动无关） |
 | typecheck | 通过 |
@@ -820,7 +908,12 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 | Go 单测 | 极验 4 项全通过（签名、未配置、残缺票据、开关判定） |
 | 数据库迁移 | 重启两次幂等，无 panic |
 | 极验 | **已上线并开启**，验证 ID 已填入；桌面/手机实测正常 |
+| 看板娘 | **已上线并默认开启**；桌面 148px、手机自动缩到 109px，无横向溢出；后台可关 |
+| API 端点卡片 | **已上线**；`server_address` 仍是默认的 `localhost:3000`，前端已降级为当前域名 |
 | 可用生图模型 | `gpt-image-2`、`gpt-image-2.5`、`gpt-image-2.5-sunburst`（`-flare` 上游 500） |
+
+> **待办**：后台「服务器地址」还空着（`ServerAddress` 用的是硬编码默认值）。
+> 去 `系统设置 → 站点与品牌` 填真实域名后，API 端点卡片就不再走降级分支。
 
 
 

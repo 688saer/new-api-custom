@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { GeeTestSettingsSection } from '../general/geetest-settings-section'
+import { MascotSettingsSection } from '../general/mascot-settings-section'
 import { RateLimitSection } from '../request-limits/rate-limit-section'
 import { SSRFSection } from '../request-limits/ssrf-section'
 import { TokenLimitSection } from '../request-limits/token-limit-section'
@@ -80,6 +81,22 @@ const SECURITY_SECTIONS = [
           onCheckin: settings['geetest_setting.on_checkin'],
           onPasswordReset: settings['geetest_setting.on_password_reset'],
           onEmailVerify: settings['geetest_setting.on_email_verify'],
+        }}
+      />
+    ),
+  },
+  {
+    id: 'mascot',
+    titleKey: 'Site Mascot',
+    build: (settings: SecuritySettings) => (
+      <MascotSettingsSection
+        defaultValues={{
+          enabled: settings['mascot_setting.enabled'],
+          name: settings['mascot_setting.name'],
+          greeting: settings['mascot_setting.greeting'],
+          placement: settings['mascot_setting.placement'],
+          showOnAuthPages: settings['mascot_setting.show_on_auth_pages'],
+          size: settings['mascot_setting.size'],
         }}
       />
     ),

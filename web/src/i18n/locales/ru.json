@@ -1,6 +1,6 @@
 {
   "translation": {
-      "Retry human verification": "Повторить проверку",
+    "Retry human verification": "Повторить проверку",
     "360": "360",
     "1000": "1000",
     "10000": "10000",
@@ -7619,6 +7619,32 @@
     "Only the password recovery form asks for a challenge.": "Проверка требуется только при восстановлении пароля.",
     "Require verification when sending codes": "Проверка при отправке кодов",
     "Only the email verification code request is challenged.": "Проверка требуется только при отправке кода на email.",
-    "Save GeeTest settings": "Сохранить настройки GeeTest"
-}
+    "Save GeeTest settings": "Сохранить настройки GeeTest",
+    "Site Mascot": "Талисман сайта",
+    "Show the mascot": "Показывать талисман",
+    "Mascot name": "Имя талисмана",
+    "Mascot size": "Размер талисмана",
+    "Greeting text": "Текст приветствия",
+    "Placement": "Расположение",
+    "Bottom right": "Справа внизу",
+    "Bottom left": "Слева внизу",
+    "Show on sign-in and sign-up": "Показывать на входе и регистрации",
+    "The mascot is turned off and will not appear.": "Талисман отключён и не будет отображаться.",
+    "Displays a small character in the corner of the console. Visitors can hide it themselves, and it never blocks page content.": "Показывает небольшого персонажа в углу консоли. Посетители могут скрыть его, и он не перекрывает содержимое страницы.",
+    "Shown in the greeting bubble.": "Отображается в приветственном облачке.",
+    "Width in pixels, between {{min}} and {{max}}.": "Ширина в пикселях, от {{min}} до {{max}}.",
+    "Leave empty to use the built-in translated greeting.": "Оставьте пустым, чтобы использовать встроенное переведённое приветствие.",
+    "Corner of the console the mascot occupies.": "Угол консоли, который занимает талисман.",
+    "Off by default so the mascot does not compete with the sign-in form.": "По умолчанию выключено, чтобы не мешать форме входа.",
+    "Hi! Need a hand with your API keys?": "Привет! Нужна помощь с ключами API?",
+    "Hi! I'm {{name}}. Need a hand with your API keys?": "Привет! Я {{name}}. Нужна помощь с ключами API?",
+    "Mascot": "Талисман",
+    "Site mascot": "Талисман сайта",
+    "Say hello to {{name}}": "Поздороваться с {{name}}",
+    "Close greeting": "Закрыть приветствие",
+    "Hide mascot": "Скрыть талисман",
+    "Use these as the base URL": "Используйте их как базовый URL",
+    "Address {{index}}": "Адрес {{index}}",
+    "Save mascot settings": "Сохранить настройки талисмана"
+  }
 }

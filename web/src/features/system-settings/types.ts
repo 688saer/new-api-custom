@@ -453,6 +453,12 @@ export type SecuritySettings = {
   'geetest_setting.on_checkin': boolean
   'geetest_setting.on_password_reset': boolean
   'geetest_setting.on_email_verify': boolean
+  'mascot_setting.enabled': boolean
+  'mascot_setting.name': string
+  'mascot_setting.greeting': string
+  'mascot_setting.placement': string
+  'mascot_setting.show_on_auth_pages': boolean
+  'mascot_setting.size': number
 }
 
 export type UpstreamChannel = {

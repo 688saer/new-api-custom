@@ -1,6 +1,6 @@
 {
   "translation": {
-      "Retry human verification": "重试人机验证",
+    "Retry human verification": "重试人机验证",
     "360": "360",
     "1000": "1000",
     "10000": "10000",
@@ -7619,6 +7619,32 @@
     "Only the password recovery form asks for a challenge.": "仅找回密码表单需要完成验证。",
     "Require verification when sending codes": "发送验证码时验证",
     "Only the email verification code request is challenged.": "仅发送邮箱验证码时需要完成验证。",
-    "Save GeeTest settings": "保存极验设置"
-}
+    "Save GeeTest settings": "保存极验设置",
+    "Site Mascot": "看板娘",
+    "Show the mascot": "显示看板娘",
+    "Mascot name": "看板娘名字",
+    "Mascot size": "看板娘尺寸",
+    "Greeting text": "问候语",
+    "Placement": "位置",
+    "Bottom right": "右下角",
+    "Bottom left": "左下角",
+    "Show on sign-in and sign-up": "在登录和注册页显示",
+    "The mascot is turned off and will not appear.": "看板娘已关闭，不会显示。",
+    "Displays a small character in the corner of the console. Visitors can hide it themselves, and it never blocks page content.": "在控制台角落显示一个小角色。访客可以自行隐藏，它不会遮挡页面内容。",
+    "Shown in the greeting bubble.": "显示在问候气泡中。",
+    "Width in pixels, between {{min}} and {{max}}.": "宽度（像素），范围 {{min}} 到 {{max}}。",
+    "Leave empty to use the built-in translated greeting.": "留空则使用内置的多语言问候语。",
+    "Corner of the console the mascot occupies.": "看板娘占据控制台的哪个角落。",
+    "Off by default so the mascot does not compete with the sign-in form.": "默认关闭，避免看板娘干扰登录表单。",
+    "Hi! Need a hand with your API keys?": "嗨！需要帮忙管理 API 密钥吗？",
+    "Hi! I'm {{name}}. Need a hand with your API keys?": "嗨！我是{{name}}，需要帮忙管理 API 密钥吗？",
+    "Mascot": "看板娘",
+    "Site mascot": "看板娘",
+    "Say hello to {{name}}": "和{{name}}打个招呼",
+    "Close greeting": "关闭问候",
+    "Hide mascot": "隐藏看板娘",
+    "Use these as the base URL": "作为基础地址使用",
+    "Address {{index}}": "地址 {{index}}",
+    "Save mascot settings": "保存看板娘设置"
+  }
 }

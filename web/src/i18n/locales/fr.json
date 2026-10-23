@@ -1,6 +1,6 @@
 {
   "translation": {
-      "Retry human verification": "Réessayer la vérification humaine",
+    "Retry human verification": "Réessayer la vérification humaine",
     "360": "360",
     "1000": "1000",
     "10000": "10000",
@@ -7619,6 +7619,32 @@
     "Only the password recovery form asks for a challenge.": "Seul le formulaire de récupération du mot de passe demande un défi.",
     "Require verification when sending codes": "Vérification lors de l'envoi de codes",
     "Only the email verification code request is challenged.": "Seule la demande de code de vérification par e-mail est soumise à un défi.",
-    "Save GeeTest settings": "Enregistrer les paramètres GeeTest"
-}
+    "Save GeeTest settings": "Enregistrer les paramètres GeeTest",
+    "Site Mascot": "Mascotte du site",
+    "Show the mascot": "Afficher la mascotte",
+    "Mascot name": "Nom de la mascotte",
+    "Mascot size": "Taille de la mascotte",
+    "Greeting text": "Texte d'accueil",
+    "Placement": "Position",
+    "Bottom right": "En bas à droite",
+    "Bottom left": "En bas à gauche",
+    "Show on sign-in and sign-up": "Afficher sur la connexion et l'inscription",
+    "The mascot is turned off and will not appear.": "La mascotte est désactivée et n'apparaîtra pas.",
+    "Displays a small character in the corner of the console. Visitors can hide it themselves, and it never blocks page content.": "Affiche un petit personnage dans un coin de la console. Les visiteurs peuvent le masquer et il ne gêne jamais le contenu.",
+    "Shown in the greeting bubble.": "Affiché dans la bulle d'accueil.",
+    "Width in pixels, between {{min}} and {{max}}.": "Largeur en pixels, entre {{min}} et {{max}}.",
+    "Leave empty to use the built-in translated greeting.": "Laisser vide pour utiliser le message d'accueil traduit intégré.",
+    "Corner of the console the mascot occupies.": "Coin de la console occupé par la mascotte.",
+    "Off by default so the mascot does not compete with the sign-in form.": "Désactivé par défaut pour ne pas gêner le formulaire de connexion.",
+    "Hi! Need a hand with your API keys?": "Salut ! Besoin d'aide avec vos clés API ?",
+    "Hi! I'm {{name}}. Need a hand with your API keys?": "Salut ! Je suis {{name}}. Besoin d'aide avec vos clés API ?",
+    "Mascot": "Mascotte",
+    "Site mascot": "Mascotte du site",
+    "Say hello to {{name}}": "Dire bonjour à {{name}}",
+    "Close greeting": "Fermer le message",
+    "Hide mascot": "Masquer la mascotte",
+    "Use these as the base URL": "Utilisez ces adresses comme URL de base",
+    "Address {{index}}": "Adresse {{index}}",
+    "Save mascot settings": "Enregistrer les réglages de la mascotte"
+  }
 }

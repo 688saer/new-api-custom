@@ -59,6 +59,14 @@ const STATUS_RELATED_KEYS = new Set([
   'geetest_setting.on_checkin',
   'geetest_setting.on_password_reset',
   'geetest_setting.on_email_verify',
+  // The mascot is read from the same cached status payload, so its copy has to
+  // be dropped whenever the operator changes it.
+  'mascot_setting.enabled',
+  'mascot_setting.name',
+  'mascot_setting.greeting',
+  'mascot_setting.placement',
+  'mascot_setting.show_on_auth_pages',
+  'mascot_setting.size',
 ])
 
 export function useUpdateOption() {
