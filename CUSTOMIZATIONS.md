@@ -250,46 +250,65 @@ i18n 的 key 是**英文原文**，一词多义就会撞车。画布现在只用
 - **五种操作各返回一个布尔**：`geetest_register_check`、`geetest_login_check`、`geetest_checkin_check`、`geetest_password_reset_check`、`geetest_email_verify_check`，前端据此决定要不要显示验证码。
 - **签到是点按钮先展开验证区**，验证通过后自动提交签到，不用再点一次。
 
-#### 踩过的坑：验证码"点了没反应"
+#### 踩过的坑：验证码"点了没反应"（真正原因）
 
-上线后出现过「按钮在、点了没反应」。查下来是**三个独立原因叠加**，表现完全一样：
+上线后反复出现「按钮在、点了没反应」，前后查了三轮才定位。**根因只有一条**：
 
-1. **没传 init 层的 `onError`**。`gt4.js` 源码里是这样写的：
+**没有调用 `appendTo()`，极验的触发按钮根本不会被渲染出来。**
+
+极验 V4 的控件结构是这样的——`initGeetest4` 建好实例后，必须调 `appendTo(容器)`
+让 SDK 把那个 260×50 的「点击按钮开始验证」按钮插进你的容器里，
+**用户点这个按钮才会弹拼图**。只调 `showCaptcha()` 而不 `appendTo`，
+SDK 会建好整套 DOM 但一个像素都不显示，`showCaptcha()` 静默返回 `undefined`，
+连网络请求都不发。表面上看就是「什么都没发生」。
+
+三种产品的实测结果（同一 captcha_id，同一 origin）：
+
+| `product` | `.geetest_captcha` | 内置触发按钮 | 结论 |
+|---|---|---|---|
+| `popup` | 1200×50 block | **260×50 可见** | ✅ 采用 |
+| `float` | 1200×50 block | **260×50 可见** | ✅ 可用 |
+| `bind` | 0×0 none | 不存在 | ❌ 不可用 |
+
+选 `popup` 而不是 `float`，是因为拼图会以居中弹窗打开，而不是极验自己的悬浮面板。
+
+#### 附带修掉的两个真实缺陷
+
+1. **没传 init 层 `onError`**。`gt4.js` 源码：
 
    ```js
    if (typeof config.onError === 'function') { config.onError({...}) }
    else { throw new Error(errors[errorType]); }   // 未捕获异常
    ```
 
-   资源加载一失败就抛异常，**初始化回调永远不执行**，实例根本建不起来。
-   修法：`onError` 必传，再用 15 秒看门狗兜住"既不成功也不报错"的情况。
+   资源加载失败就抛异常，**初始化回调永远不执行**，实例建不起来。
+   修法：`onError` 必传，再加 15 秒看门狗兜住"既不成功也不报错"。
 
-2. **按钮 `disabled` 绑在 `onReady` 上**。`onReady` 不触发时按钮永远灰着，用户只能狂点。
-   修法：加载中可点（提示"正在加载"），失败后可点（变成"重试"）。**永远不给用户一个点不动又没解释的按钮。**
-
-3. **签到把验证码放在模态 Dialog 里**。模态会给 `<body>` 设 `pointer-events: none`，
-   而极验的浮层正是挂在 `<body>` 上——浮层看得见但点不到。
+2. **签到把验证码放在模态 Dialog 里**。模态给 `<body>` 设 `pointer-events: none`，
+   而极验的弹层挂在 `<body>` 上——看得见点不到。
    修法：签到改成在卡片里**内联展开**验证区，不进 Dialog。
-   组件里另有一道兜底：捕获阶段监听 `pointerdown`，命中极验节点时把 `<body>` 的 `pointer-events` 改回 `auto`。
 
-#### 踩过的坑：`bind` 模式不可用
+#### 排查陷阱：无头浏览器是假阴性
 
-试过用 `product: 'bind'` + `appendTo()` 做内嵌，实测**在当前 captcha_id 下完全不工作**：
-控件始终挂在 `<body>` 上并被设了内联 `display: none`，没有 `geetest_holder`，`appendTo` 传元素或选择器都无效。
-极验官方 demo 用的是 `float`。
+**无头浏览器里极验的验证盒子永远不会显示，连官方 demo 都一样。**
+实测在 `geetest.com` 官方 demo 上用真实鼠标点击它自己那个可见的 300×50 按钮，
+点击后 `box_wrap` 依然是 `0x0 display:none`。
 
-所以**必须用 `product: 'popup'`**。弹窗模式对手机是友好的：SDK 自己会按 UA 切换，
-iPhone UA 下 `/load` 请求带 `client_type=h5`，桌面带 `client_type=web`，
-弹层宽度实测手机 390px（正好等于视口）、桌面 750→铺满，**两端都没有横向溢出**。
+所以「弹层没出现」在无头下**不能作为判断依据**。但**触发按钮本身是能正常渲染的**，
+这一点可以可靠验证——排查时应该看：
 
-#### 排查手法
+- `.geetest_holder` 有没有渲染出 260×50 的可见按钮（这是 `appendTo` 生效的标志）
+- 点击后 `.geetest_box` 是否变成 `340×385 display:block`（拼图打开）
+- `/load` JSONP、`gcaptcha4.js`、`css`、`i18n`、拼图图片是否都 200
 
-无头浏览器**渲染不了极验控件**（官方 demo 也是 `0x0 display:none`），所以「弹层没出现」在无头下是假阴性，
-不能用它判断代码有没有 bug。可用的做法是**对照官方 demo**，比较：
+#### 手机适配实测
 
-- 有没有 `/load` JSONP 请求、`gcaptcha4.js` / `gct4.js` / `css` / `i18n` 是否都拉到
-- `.geetest_captcha` 节点的 `class`、内联 `style`、父节点
-- 我们自己的按钮文案走到哪一步（加载中 / 可点击 / 重试）
+`popup` 模式对手机是友好的，SDK 按 UA 自动切换：
+
+| 环境 | `/load` 的 `client_type` | 拼图尺寸 | 位置 | 横向溢出 |
+|---|---|---|---|---|
+| iPhone UA / 390px | `h5` | 340×385 | `x=25` 居中 | 无 |
+| 桌面 / 1280px | `web` | 340×385 | `x=470` 居中 | 无 |
 
 #### 涉及文件
 
@@ -730,8 +749,8 @@ where user_id=<id> and status='active' and user_agent like 'curl/%';
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:geetest5` |
-| 回滚镜像 | `new-api-lottery:geetest4`、`:geetest3`、`:canvas1`、`:rc46`、`:rc45s` |
+| 生产镜像 | `new-api-lottery:gt6` |
+| 回滚镜像 | `new-api-lottery:geetest5`、`:geetest4`、`:geetest3`、`:canvas1`、`:rc46`、`:rc45s` |
 | 前端测试 | 2394 通过 / 1 失败（`intl-locale.test.ts`，因服务器无 node，与本次改动无关） |
 | typecheck | 通过 |
 | gofmt | 干净 |

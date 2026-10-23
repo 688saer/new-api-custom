@@ -37,7 +37,7 @@ interface GeeTestInstance {
   onError: (callback: (error: unknown) => void) => void
   onClose: (callback: () => void) => void
   getValidate: () => GeeTestResult | undefined
-  showCaptcha: () => void
+  appendTo: (target: HTMLElement | string) => unknown
   reset?: () => void
   destroy: () => void
 }
@@ -113,27 +113,26 @@ function geetestLanguage(language: string) {
 /**
  * GeeTest V4 challenge for one form.
  *
- * Uses the popup product: the account behind the configured captcha id only
- * supports the popup challenge, and `bind` silently leaves an empty hidden
- * widget behind instead of an inline one. A popup also keeps the form layout
- * untouched and lets GeeTest lay itself out for phones on its own.
+ * `appendTo` is what makes this work: GeeTest renders its own 260x50 "click to
+ * verify" button into the given container, and clicking that button is what
+ * opens the puzzle. Without `appendTo` the widget builds its DOM but shows
+ * nothing at all, which is why an earlier version that called `showCaptcha()`
+ * from a custom button appeared completely dead.
  *
- * Two failure modes matter more than the happy path, because both present to
- * the user as "the button does nothing":
+ * `bind` is not an option: for this captcha id it leaves a hidden 0x0 element
+ * behind and never renders a trigger. `popup` and `float` both render the
+ * inline trigger, and `popup` is used so the puzzle opens in a dialog instead
+ * of GeeTest's own floating panel.
  *
- * 1. GeeTest's loader throws an uncaught error when the init-level `onError` is
- *    missing, and its callback then never runs. So `onError` is always passed,
- *    and a watchdog surfaces a stall instead of waiting forever.
- * 2. The trigger button must never be disabled on a state the widget controls.
- *    While the challenge is still loading a press explains the wait, and after
- *    a failure the same button retries.
- *
- * The overlay is also kept usable inside a modal dialog, which sets
- * `pointer-events: none` on `<body>` where GeeTest appends itself.
+ * Failure handling matters more than the happy path. GeeTest's loader throws an
+ * uncaught error when the init-level `onError` is missing, and its callback then
+ * never runs. So: always pass `onError`, watchdog a stall, and let the user
+ * retry instead of leaving a dead widget on screen.
  */
 export function GeeTestCaptcha(props: GeeTestCaptchaProps) {
   const { t, i18n } = useTranslation()
   const instance = useRef<GeeTestInstance | null>(null)
+  const host = useRef<HTMLDivElement | null>(null)
   const [phase, setPhase] = useState<Phase>('loading')
   const [attempt, setAttempt] = useState(0)
   const captchaId = props.captchaId
@@ -148,23 +147,10 @@ export function GeeTestCaptcha(props: GeeTestCaptchaProps) {
     handlers.current = { onVerify: props.onVerify }
   })
 
-  // Keep the body-attached overlay interactive even inside a modal dialog.
-  useEffect(() => {
-    const enableOverlay = (event: Event) => {
-      const target = event.target
-      if (!(target instanceof Element)) return
-      if (!target.closest('.geetest_captcha, .geetest_popup_wrap')) return
-      const parent = target.parentElement
-      if (parent === document.body) parent.style.pointerEvents = 'auto'
-    }
-    document.addEventListener('pointerdown', enableOverlay, true)
-    return () => {
-      document.removeEventListener('pointerdown', enableOverlay, true)
-    }
-  }, [])
-
   useEffect(() => {
     if (!captchaId || props.verified) return
+    const container = host.current
+    if (!container) return
 
     let cancelled = false
     let initTimer: ReturnType<typeof setTimeout> | undefined
@@ -197,6 +183,8 @@ export function GeeTestCaptcha(props: GeeTestCaptchaProps) {
             }
             if (initTimer) clearTimeout(initTimer)
             instance.current = captcha
+            // Renders the trigger button into the container.
+            captcha.appendTo(container)
             captcha.onSuccess(() => {
               const result = captcha.getValidate()
               if (!result) {
@@ -209,8 +197,6 @@ export function GeeTestCaptcha(props: GeeTestCaptchaProps) {
             // only the load itself is treated as fatal.
             captcha.onError(() => undefined)
             captcha.onReady(() => setPhase('ready'))
-            // `onReady` can lag behind the instance; the button stays usable
-            // either way, so a late event must not strand the form.
             setPhase('ready')
           }
         )
@@ -271,40 +257,39 @@ export function GeeTestCaptcha(props: GeeTestCaptchaProps) {
     )
   }
 
-  const label = () => {
-    if (phase === 'error') return t('Retry human verification')
-    if (phase === 'ready') return t('Click to complete human verification')
-    return t('Loading human verification...')
-  }
-
   return (
     <div className={cn('space-y-1', props.className)}>
-      <Button
-        type='button'
-        variant='outline'
-        className='w-full justify-center gap-2'
+      {phase === 'loading' ? (
+        <span className='text-muted-foreground flex items-center justify-center gap-2 text-sm'>
+          <ShieldCheck className='size-4 shrink-0' />
+          {t('Loading human verification...')}
+        </span>
+      ) : null}
+      {/* GeeTest owns this node's children, so React renders nothing inside it.
+          It sizes the trigger itself and stays centred at every breakpoint. */}
+      <div
+        ref={host}
+        className='flex min-h-10 w-full items-center justify-center [&>div]:max-w-full'
         aria-busy={phase === 'loading'}
-        onClick={() => {
-          if (phase === 'error') {
-            setAttempt((value) => value + 1)
-            return
-          }
-          instance.current?.showCaptcha()
-        }}
-      >
-        {phase === 'error' ? (
-          <RefreshCw className='size-4' />
-        ) : (
-          <ShieldCheck className='size-4' />
-        )}
-        {label()}
-      </Button>
+      />
       {phase === 'error' ? (
-        <p className='text-destructive text-xs'>
-          {t(
-            'Human verification could not load. Check your network and try again.'
-          )}
-        </p>
+        <div className='space-y-1'>
+          <p className='text-destructive text-xs'>
+            {t(
+              'Human verification could not load. Check your network and try again.'
+            )}
+          </p>
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            className='w-full justify-center gap-2'
+            onClick={() => setAttempt((value) => value + 1)}
+          >
+            <RefreshCw className='size-4' />
+            {t('Retry human verification')}
+          </Button>
+        </div>
       ) : null}
     </div>
   )

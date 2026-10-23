@@ -27,13 +27,17 @@ interface FakeInstance {
   onError: (callback: () => void) => void
   onClose: (callback: () => void) => void
   getValidate: () => Record<string, string> | undefined
-  showCaptcha: ReturnType<typeof vi.fn>
+  appendTo: ReturnType<typeof vi.fn>
   destroy: () => void
   success?: () => void
   ready?: () => void
 }
 
-/** Stand-in for the GeeTest popup: the puzzle opens when asked to. */
+/**
+ * Stand-in for the GeeTest widget. `appendTo` inserts a node the way the real
+ * SDK does, because that insertion is the only thing that makes the widget
+ * visible at all.
+ */
 function installFakeGeeTest(options?: {
   noResult?: boolean
   failInit?: boolean
@@ -56,7 +60,12 @@ function installFakeGeeTest(options?: {
             pass_token: 'pass-1',
             gen_time: '1700000000',
           },
-    showCaptcha: vi.fn(),
+    appendTo: vi.fn((target: HTMLElement) => {
+      const widget = document.createElement('div')
+      widget.className = 'geetest_captcha'
+      target.appendChild(widget)
+      return instance
+    }),
     destroy: vi.fn(),
   }
 
@@ -85,6 +94,18 @@ describe('GeeTestCaptcha', () => {
     delete window.initGeetest4
   })
 
+  it('renders the widget into its own container via appendTo', async () => {
+    const { instance } = installFakeGeeTest()
+
+    render(
+      <GeeTestCaptcha captchaId='id-1' verified={false} onVerify={vi.fn()} />
+    )
+
+    await waitFor(() => expect(instance.appendTo).toHaveBeenCalledTimes(1))
+    const target = instance.appendTo.mock.calls[0][0] as HTMLElement
+    expect(target.querySelector('.geetest_captcha')).not.toBeNull()
+  })
+
   it('passes an init-level onError so a load failure cannot be swallowed', async () => {
     const { init } = installFakeGeeTest()
 
@@ -96,21 +117,6 @@ describe('GeeTestCaptcha', () => {
     const config = init.mock.calls[0][0] as Record<string, unknown>
     expect(typeof config.onError).toBe('function')
     expect(config.product).toBe('popup')
-  })
-
-  it('opens the challenge when the button is pressed', async () => {
-    const { instance } = installFakeGeeTest()
-
-    render(
-      <GeeTestCaptcha captchaId='id-1' verified={false} onVerify={vi.fn()} />
-    )
-
-    const button = await screen.findByRole('button', {
-      name: 'Click to complete human verification',
-    })
-    fireEvent.click(button)
-
-    expect(instance.showCaptcha).toHaveBeenCalledTimes(1)
   })
 
   it('hands the solved challenge back as serialized JSON', async () => {
