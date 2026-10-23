@@ -747,11 +747,71 @@ where user_id=<id> and status='active' and user_agent like 'curl/%';
 
 ---
 
-## 十二、当前已知状态
+## 十二、版本发布规范
+
+**每次上线都按版本发布资源包**，不要只推代码。版本号与上游对齐，后缀加构建标记。
+
+### 版本号规则
+
+```
+v<上游版本>-<构建标记>
+例：v1.0.0-rc.46-gt6
+```
+
+- 上游版本 = `1.0.0-rc.46`（来自 `common/version`）
+- 构建标记 = 本次改动的短名（`gt6`、`canvas1` 等），同时也是 Docker 镜像 tag
+- **不要用 `custom-` 之类的前缀**，CI 只认 `v*` 开头的 tag
+
+### 发布步骤
+
+1. 改完代码，`git commit` 并推送 `ours` / `main`
+2. 打标签并推送：
+
+   ```bash
+   git tag -a v1.0.0-rc.46-gt6 -m "Release v1.0.0-rc.46-gt6"
+   git push origin v1.0.0-rc.46-gt6
+   ```
+
+3. **推送标签会自动触发 GitHub Actions**，构建 macOS / Windows 桌面端并创建 Release（草稿态）
+4. 导出 Docker 镜像并上传到同一个 Release：
+
+   ```bash
+   docker save new-api-lottery:gt6 | gzip -1 > new-api-lottery-gt6.tar.gz
+   ```
+
+   用 `POST /repos/<owner>/<repo>/releases/<id>/assets?name=<文件名>` 上传
+5. 补写 Release 说明（变更、部署命令、SHA256），把 `draft` 改为 `false` 发布
+
+### Release 里应包含的资源
+
+| 文件 | 来源 |
+|---|---|
+| `new-api-lottery-<标记>.tar.gz` | 手工上传的 Docker 镜像 |
+| `new-api-macos-<版本>` | CI 自动构建 |
+| `new-api-<版本>.exe` | CI 自动构建 |
+| `checksums-*.txt` | CI 自动生成 |
+
+> 镜像 `docker save` 后约 84MB（gzip -1），GitHub 单文件上限 2GB，够用。
+> 仓库本身只存源码（8MB），**不要把二进制提交进 git**——历史无法删除，会让克隆越来越慢。
+
+### 大文件传输注意事项
+
+服务器到本机 `scp` 大文件容易断（实测 84MB 传到 23MB 就 reset）。稳妥做法是**分块**：
+
+```bash
+split -b 15M -d image.tar.gz part.
+# 逐块 scp，每块单独重试
+cat part.* > image.tar.gz   # 本机合并后校验 MD5
+```
+
+---
+
+## 十三、当前已知状态
 
 | 项目 | 状态 |
 |---|---|
 | 生产镜像 | `new-api-lottery:gt6` |
+| 已发布版本 | `v1.0.0-rc.46-gt6`（含 Docker 镜像 + 桌面端） |
 | 回滚镜像 | `new-api-lottery:geetest5`、`:geetest4`、`:geetest3`、`:canvas1`、`:rc46`、`:rc45s` |
 | 前端测试 | 2394 通过 / 1 失败（`intl-locale.test.ts`，因服务器无 node，与本次改动无关） |
 | typecheck | 通过 |
