@@ -22,7 +22,12 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
-import { WhaleFigure } from '@/components/mascot'
+import {
+  GREETING_PORTRAIT,
+  MASCOT_CATALOG,
+  clipUrl,
+  portraitUrl,
+} from '@/components/mascot'
 import {
   Form,
   FormControl,
@@ -307,24 +312,40 @@ export function MascotSettingsSection({
             )}
           />
 
-          {/* Live preview: the same figure the console renders, so the operator
-              can judge size and placement without leaving the page. */}
+          {/* Live preview: the real idle clip at the configured size, so the
+              operator judges the actual character instead of a stand-in. */}
           <div className='bg-muted/40 rounded-xl border p-4'>
             <p className='text-muted-foreground mb-3 text-sm'>
               {t('Preview')}
             </p>
             {enabled ? (
               <div className='flex items-center gap-4'>
-                <WhaleFigure
-                  talking
+                <video
+                  data-testid='mascot-preview-video'
+                  src={clipUrl(MASCOT_CATALOG.idle[0])}
                   className='shrink-0'
                   style={{ width: previewSize, height: previewSize }}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  aria-hidden='true'
                 />
-                <div className='bg-card rounded-2xl border p-3 text-sm shadow-sm'>
-                  {form.watch('greeting').trim() ||
-                    t("Hi! I'm {{name}}. Need a hand with your API keys?", {
-                      name: previewName.trim() || t('Mascot'),
-                    })}
+                <div className='bg-card flex items-start gap-2.5 rounded-2xl border p-3 text-sm shadow-sm'>
+                  <img
+                    src={portraitUrl(GREETING_PORTRAIT.id)}
+                    alt=''
+                    className='size-12 shrink-0 rounded-full border bg-white object-cover'
+                    width={48}
+                    height={48}
+                    aria-hidden='true'
+                  />
+                  <p className='pt-1'>
+                    {form.watch('greeting').trim() ||
+                      t("Hi! I'm {{name}}. Need a hand with your API keys?", {
+                        name: previewName.trim() || t('Mascot'),
+                      })}
+                  </p>
                 </div>
               </div>
             ) : (

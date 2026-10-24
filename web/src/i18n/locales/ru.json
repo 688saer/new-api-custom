@@ -1,9 +1,9 @@
 {
   "translation": {
-    "Retry human verification": "Повторить проверку",
     "360": "360",
     "1000": "1000",
     "10000": "10000",
+    "Retry human verification": "Повторить проверку",
     "{{count}} outside this view": "{{count}} вне текущего представления",
     "_copy": "_копировать",
     "，": ", ",

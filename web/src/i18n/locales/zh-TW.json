@@ -1,9 +1,9 @@
 {
   "translation": {
-    "Retry human verification": "重試人機驗證",
     "360": "360",
     "1000": "1000",
     "10000": "10000",
+    "Retry human verification": "重試人機驗證",
     "{{count}} outside this view": "其中 {{count}} 個不在目前檢視",
     "_copy": "_複製",
     "，": "，",

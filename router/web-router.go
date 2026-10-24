@@ -2,6 +2,7 @@ package router
 
 import (
 	"embed"
+	"mime"
 	"net/http"
 	"strings"
 
@@ -13,6 +14,11 @@ import (
 )
 
 func SetWebRouter(router *gin.Engine, assets WebAssets, pluginDispatcher gin.HandlerFunc) {
+	// Some base images map `.webm` to audio/webm in their mime.types, which makes
+	// browsers treat the mascot's transparent clips as audio and show nothing.
+	// Register the video type explicitly so the served files always declare it.
+	_ = mime.AddExtensionType(".webm", "video/webm")
+
 	frontendFS := common.EmbedFolder(assets.BuildFS, "web/dist")
 	compress := gzip.Gzip(gzip.DefaultCompression)
 

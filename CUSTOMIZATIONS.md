@@ -366,8 +366,78 @@ SDK 会建好整套 DOM 但一个像素都不显示，`showCaptcha()` 静默返�
 
 ### 3.7 看板娘（站点吉祥物）
 
-登录后控制台右下角（可改左下）会出现一个**自制蓝鲸**角色，首次访问时冒一个问候气泡，点它可再打开/收起。
+登录后控制台右下角（可改左下）会出现一只**会动的「泡泡」鲸鱼娘**。她待机时呼吸张望，
+点她会做反应动作并冒气泡，还能**用鼠标拖着走、甩出去**——扔出去会弹、落地会压扁回弹。
 每个控制台页面都有，由布局统一挂载，不需要各页面单独接入。
+
+整套交互逻辑移植自 [PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet)
+（**MIT 许可，可商用**），素材重新压缩后内置进镜像，不依赖任何外部站点。
+
+#### 为什么这次能用了，上次不行
+
+第一版是手绘内联 SVG（现在保留为兜底，见 `whale-figure.tsx`）。当时拒绝参考站的判断是成立的：
+参考站用的 DeepSeek 鲸鱼娘 **Live2D 模型是 CC BY-NC-SA 4.0（禁止商用）**，且要额外拉三个 SDK。
+
+dsh-pet 完全不同：代码与素材都是 **MIT**，允许商用，只需保留版权声明（已写进
+`web/public/mascot/CREDITS.md`）。所以这次放的是**真视频动画**，表现力远好于 SVG。
+
+#### 动画资产
+
+106 个 640×360 VP9 透明视频（一段 1.8s 上下，24fps），覆盖待机、转头、移动、点击回应，
+以及「小动作 / 玩耍 / 吃什么 / 时节 / 文字」五类共 91 个具体动作。
+
+| 项目 | 数值 |
+|---|---|
+| 原始总体积 | 53 MB |
+| 压缩后 | **12.8 MB**（106 个，平均 124 KB） |
+| 首次加载 | 只有 1 个待机片段（约 40 KB） |
+| 其余 105 个 | 点击或链式切换时才按需 `fetch`，走 `blob:` URL |
+
+压缩参数（见 `scripts/compress-pet-assets.sh`）：
+
+```bash
+ffmpeg -c:v libvpx-vp9 -i in.webm \
+  -c:v libvpx-vp9 -vf "scale=280:-2" -crf 40 -b:v 0 \
+  -an -auto-alt-ref 0 -pix_fmt yuva420p out.webm
+```
+
+#### 关键坑：alpha 会静默丢失
+
+dsh-pet 的视频带 `TAG:ALPHA_MODE=1`，透明信息存在 VP9 的 **BlockAdditional** 里。
+ffmpeg 的**原生 vp9 解码器读不到**这段，`ffprobe` 会报成 `yuv420p`，
+再编码出去就是一个**不透明黑底**的视频——体积、画质都正常，只有透明没了。
+
+**必须把 `-c:v libvpx-vp9` 同时写在输入前面当解码器**，ffmpeg 才会报 `yuva420p` 并保住 alpha。
+
+验证不能只看编码参数，要用**红底合成实测**：把视频铺在 `#ff0000` 上截图数红像素。
+正确压缩的片段透出 83.2% 红底，压坏的片段 0%（全黑）。浏览器里最终也复测了：
+角色像素 **82.6% 透明**。
+
+#### 三种素材各管什么
+
+| 素材 | 数量 | 位置 | 用途 |
+|---|---|---|---|
+| 动画片段 | 106 | `web/public/mascot/clips/` | 主角本体，全部动作 |
+| 立绘头像 | 12 | `web/public/mascot/portraits/` | 气泡里的小头像，点击时随机换表情 |
+| 兜底 SVG | 1 | `whale-figure.tsx` | 视频加载失败时 |
+
+立绘用站内生图工具（`gpt-image-2`）生成，384×384、白底，一张约 175 KB。
+**立绘和动画不是同一个形象**：动画是 dsh-pet 原角色，立绘是定制的「泡泡」。
+两者只在气泡这种小尺寸同框，已确认可接受。
+
+#### 文件名为什么是 clip-001
+
+上游动画名是中文（`东张西望.webm`）。中文名在 Linux + `http.FileServer` 下能跑通，
+但 **`go:embed` 直接编译失败**：
+
+```
+main.go:44:12: pattern web/dist: cannot embed file web/dist/mascot/clips/是啊，吃什么.webm: invalid name
+```
+
+而且仓库、Windows 检出、CDN 每一层对非 ASCII 路径的处理都要单独赌一次。
+所以统一换成 `clip-001 … clip-106` 这种 ASCII 序号，中文名到序号的映射留在
+`web/src/components/mascot/clip-files.ts`，代码和测试仍然用可读的中文名。
+顺带解决了两件事：单测能直接断言「目录引用的每个名字都有对应文件」，且不再有 URL 编码问题。
 
 #### 后台在哪配
 
@@ -382,29 +452,32 @@ SDK 会建好整套 DOM 但一个像素都不显示，`showCaptcha()` 静默返�
 | `mascot_setting.show_on_auth_pages` | 是否也出现在登录/注册页，默认关 |
 | `mascot_setting.size` | 宽度像素，限制在 96–220，越界后端拒绝 |
 
-设置页带**实时预览**，用和线上同一个组件渲染，改尺寸和文案立刻能看效果。
+设置页预览放的是**真实待机视频**，改尺寸立刻看到实际角色大小。
 
-#### 为什么自己做，没用参考站的模型
+#### 交互行为
 
-参考站（`site.whyapi.top`）用的是 DeepSeek 鲸鱼娘 **Live2D** 模型，
-资产 **CC BY-NC-SA 4.0（禁止商用）**，`c_0120.moc3` + 两张贴图合计约 3.8 MB，还要额外加载
-`live2dcubismcore.min.js` / `pixi.min.js` / `cubism4.min.js` 三个 SDK。
+- **待机**：随机在「原地待机 / 东张西望 / 走来走去 / 做个小动作」之间链式切换，不重复同一段。
+- **点击**：随机播一个点击回应（开心跃动、害羞惊讶、傲娇生气、挠痒咯咯笑、元气挥手），
+  同时开/关气泡并随机换一张立绘。
+- **拖拽**：抓住就换成「被鼠标拖拽悬空」的挣扎动作，松手按甩动速度**真的抛出去**。
+- **抛掷物理**：弹簧跟随、软限速、重力 1400、落地反弹 0.78、地面摩擦；
+  撞到左右墙反弹，可以扔出屏幕顶部再从上方落回来。
+- **压扁回弹**：落地冲击越大压得越狠，用 `--mascot-squash-x/y` 两个 CSS 变量驱动，
+  体积守恒（压扁时同时变宽），带 easeOutBack 过冲。
+- **只轻放不算抛**：`estimateReleaseVelocity` 对慢速松手返回 `null`，角色安静落回原位，
+  不会以一个滑稽的速度弹出去。
 
-本站可能商用，**不能直接搬那个模型**。所以改成**纯 SVG 手绘角色**：
+#### 无障碍与体感
 
-- 体积 ≈ 0（内联 SVG，无网络请求），不占首屏预算。
-- 描边和填充走 CSS 变量（`--primary`），跟随主题和暗色模式。
-- 认可证风险为零，将来要换有授权的 Live2D 模型时，替换 `whale-figure.tsx` 即可。
-
-#### 交互与无障碍
-
-- **只在第一次访问时问候**，`localStorage.mascot_greeted = '1'` 记账；之后要说话得点它。
-- **可以彻底关掉**：鼠标移到角色上（或键盘聚焦）出现「隐藏」，写 `localStorage.mascot_hidden = '1'`，不再出现。
-  这是**访客侧**的开关，和后台总开关互不影响。
-- 角色本身是一个 `<button>`，带 `aria-label="和<名字>打招呼"` 和 `aria-expanded`；
-  气泡是 `role="status"` + `aria-live="polite"`，不抢焦点；`Esc` 关闭。
-- 尊重 `prefers-reduced-motion`：所有飘浮、摆尾、喷水动画只在 `motion-safe` 下跑。
-- 移动端自动缩到 `min(配置尺寸, 28vw)`，不会糊住内容。
+- 角色**是拖拽面**，所以不能同时是 `<button>`（长按拖拽也会触发 click）。
+  可访问入口是一个覆盖在其上的透明按钮，键盘 Tab 可达，有 `aria-label` 和 `aria-expanded`。
+- 气泡 `role="status"` + `aria-live="polite"`，不抢焦点；`Esc` 关闭。
+- **只在第一次访问问候一次**（`localStorage.mascot_greeted = '1'`），之后要说话得点她。
+- **可以彻底关掉**：悬停（或聚焦）出现「隐藏」，写 `localStorage.mascot_hidden = '1'`。
+  这是访客侧开关，与后台总开关互不影响。
+- **尊重 `prefers-reduced-motion`**：开启时**一帧视频都不加载**，角色静止，只保留气泡。
+  系统设置切换时实时响应，不用刷新。
+- 移动端缩到 `min(配置尺寸, 26vw)`，实测 390px 宽无横向滚动。
 
 #### 涉及文件
 
@@ -413,17 +486,37 @@ SDK 会建好整套 DOM 但一个像素都不显示，`showCaptcha()` 静默返�
 | `setting/system_setting/mascot_setting.go` | 配置结构 + `NormalizeSize()` / `NormalizePlacement()` |
 | `controller/misc.go` | `/api/status` 下发 `mascot_*`（全是公开值，无密钥） |
 | `controller/option.go` | 尺寸越界直接拒绝写入 |
-| `web/src/components/mascot/whale-figure.tsx` | 角色本身（内联 SVG + CSS 动画钩子） |
-| `web/src/components/mascot/site-mascot.tsx` | 挂载点、问候气泡、隐藏逻辑、无障碍 |
-| `web/src/components/layout/components/authenticated-layout.tsx` | 在布局里挂一次 |
-| `web/src/features/system-settings/general/mascot-settings-section.tsx` | 后台配置页 + 预览 |
+| `router/web-router.go` | 显式注册 `.webm → video/webm` |
+| `web/src/components/mascot/catalog.ts` | 动画清单、五类分组、权重 |
+| `web/src/components/mascot/clip-files.ts` | 中文名 → `clip-NNN` 映射（生成文件） |
+| `web/src/components/mascot/pickers.ts` | 随机选段、镜像规避、链式推进 |
+| `web/src/components/mascot/physics.ts` | 弹簧、抛掷速度估计、飞行积分、压扁曲线 |
+| `web/src/components/mascot/use-mascot-player.ts` | 双 `<video>` 交叉淡入、懒加载、失败兜底 |
+| `web/src/components/mascot/use-mascot-drag.ts` | 指针捕获、拖拽跟随、抛掷、落地压扁 |
+| `web/src/components/mascot/portraits.ts` | 立绘清单与随机挑选 |
+| `web/src/components/mascot/site-mascot.tsx` | 编排：播放器 + 拖拽 + 气泡 + 隐藏 |
+| `web/src/components/mascot/whale-figure.tsx` | 兜底内联 SVG |
+| `web/src/features/system-settings/general/mascot-settings-section.tsx` | 后台配置页 + 视频预览 |
+| `web/public/mascot/clips/` | 106 个压缩动画 |
+| `web/public/mascot/portraits/` | 12 张立绘 |
+| `web/public/mascot/CREDITS.md` | dsh-pet 的 MIT 版权声明（**必须保留**） |
+| `scripts/compress-pet-assets.sh` | 批量压缩脚本 |
+| `scripts/generate-mascot-memes.py` | 批量生成立绘 |
 
 #### 踩过的坑
 
-- **`--mascot-size` 写成 `min(148px, 28vw)` 才能同时满足「后台可配」和「手机不撑破」**。
-  只写死像素，手机上 148px 的鲸鱼会盖住半个按钮；只写 `vw`，后台配的尺寸就失效了。
+- **alpha 静默丢失**：见上文，解码器必须显式指定 `libvpx-vp9`。
+- **`go:embed` 拒绝非 ASCII 文件名**：整个镜像构建失败，所以改成序号文件名。
+- **`.webm` 的 MIME 被基础镜像映射成 `audio/webm`**：浏览器会当音频处理，画面不显示。
+  在 `router/web-router.go` 里用 `mime.AddExtensionType` 显式纠正。
+- **拖拽面 + 按钮会双触发**：pointerup 和 click 各触发一次，气泡开了又关。
+  用 `event.detail === 0` 区分键盘激活，指针路径交给拖拽 hook。
+- **`--mascot-size` 必须是 `min(148px, 26vw)`**：写死像素手机上会盖住按钮，
+  只写 `vw` 后台配的尺寸就失效。
 - **动画 keyframes 必须放在 `@layer utilities` 里**（`web/src/styles/index.css`），
-  放外面会被 Tailwind 的层叠顺序压掉，`animate-[...]` 不生效。
+  放外面会被 Tailwind 层叠顺序压掉。
+- **逐帧 React state 会掉帧**：拖拽位置直接写 `style.transform`，
+  压扁直接写 CSS 变量，都不经过 render。
 
 ---
 

@@ -16,5 +16,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+export { MASCOT_CATALOG, allClipNames, idleChainClipNames } from './catalog'
+export type { MascotCatalog, MascotCategory, RollKind } from './catalog'
+export { MASCOT_CLIP_FILES } from './clip-files'
+export {
+  GREETING_PORTRAIT,
+  MASCOT_PORTRAITS,
+  MASCOT_PORTRAIT_BASE,
+  portraitUrl,
+  randomReactionPortrait,
+} from './portraits'
+export type { MascotPortrait } from './portraits'
 export { SiteMascot } from './site-mascot'
+export { clipUrl, MASCOT_ASSET_BASE, randomClickClip } from './use-mascot-player'
 export { WhaleFigure } from './whale-figure'
