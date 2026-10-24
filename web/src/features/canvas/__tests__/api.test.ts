@@ -127,6 +127,60 @@ describe('generateImages', () => {
     ).resolves.toEqual(['https://example.test/a.png'])
   })
 
+  it('copies a returned link into permanent bytes', async () => {
+    // A relay may answer with a URL that expires in minutes. Keeping the link
+    // would leave a picture that is already gone by the next visit.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ url: 'https://example.test/tmp.png' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        blob: async () => new Blob(['PNGDATA'], { type: 'image/png' }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const [image] = await generateImages({
+      apiKey: 'secret',
+      model: 'gpt-image-2',
+      prompt: 'a red cube',
+      size: '1024x1024',
+      count: 1,
+    })
+
+    expect(fetchMock.mock.calls[1][0]).toBe('https://example.test/tmp.png')
+    expect(image.startsWith('data:image/png;base64,')).toBe(true)
+    expect(image).not.toContain('example.test')
+  })
+
+  it('keeps the link when the bytes cannot be read', async () => {
+    // A cross-origin image the browser refuses to read cannot be copied, and a
+    // link the operator can still open beats no picture at all.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ url: 'https://example.test/tmp.png' }] }),
+      })
+      .mockRejectedValueOnce(new TypeError('CORS blocked'))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(
+      generateImages({
+        apiKey: 'secret',
+        model: 'gpt-image-2',
+        prompt: 'a red cube',
+        size: '1024x1024',
+        count: 1,
+      })
+    ).resolves.toEqual(['https://example.test/tmp.png'])
+  })
+
   it('surfaces the relay error message when the request fails', async () => {
     vi.stubGlobal(
       'fetch',

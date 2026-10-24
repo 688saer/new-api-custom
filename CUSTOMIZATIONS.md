@@ -991,11 +991,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:pet8` |
+| 生产镜像 | `new-api-lottery:canvas2` |
 | 已发布版本 | `v1.0.0-rc.46-mascot`（含 Docker 镜像 + 桌面端） |
-| 回滚镜像 | `new-api-lottery:mascot2`、`:mascot`、`:gt6`、`:geetest5`、`:geetest4` |
+| 回滚镜像 | `new-api-lottery:pet8`、`:canvas1`、`:mascot2`、`:mascot`、`:gt6`、`:geetest5`、`:geetest4` |
 | 磁盘占用 | 67%（含新旧镜像与构建缓存，`docker image prune` 可回收） |
-| 前端测试 | 2454 通过 / 1 失败（`intl-locale.test.ts`，因服务器无 node，与本次改动无关） |
+| 前端测试 | 前端全量通过（新增画布存储回归 37 个） |
 | typecheck | 通过 |
 | gofmt | 干净 |
 | Go 单测 | 极验 4 项全通过（签名、未配置、残缺票据、开关判定） |
@@ -1005,6 +1005,27 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 | 看板娘体积 | 动画 12.8MB（原 53MB）+ 立绘 2.1MB；首屏只加载 1 个待机片段 |
 | API 端点卡片 | **已上线**；`server_address` 仍是默认的 `localhost:3000`，前端已降级为当前域名 |
 | 可用生图模型 | `gpt-image-2`、`gpt-image-2.5`、`gpt-image-2.5-sunburst`（`-flare` 上游 500） |
+| 画布存储 | **已修复丢图**：布局/图片分库、图片即时落盘、同步日志兜底、配额与持久化提示 |
+
+### 画布丢图修复实测记录
+
+画布原本把「整块画布（含全部 base64）」当作一个记录写进 IndexedDB，500ms 防抖后才写，
+失败被 `.catch(() => undefined)` 吞掉；Safari 对**所有可脚本写入的存储**（含 IndexedDB）
+有「7 天未访问即清除」策略，且代码从未申请 `persist()`。生产环境三个生图模型都返回
+`b64_json`（单张 1.3–1.4MB），所以主要丢失路径是配额耗尽 + 静默失败 + 防抖期间关页。
+
+| 场景 | 修复前 | 修复后 |
+|---|---|---|
+| 存储结构 | 单库单键，一张图改动重写全部图片 | `board`（布局）/`images`（每图一条），只写新增 |
+| 旧数据 | — | v1 → v2 自动迁移，实测 `legacy prompt`、`keep me`、相机 `zoom 0.8` 全部保留，旧库已删 |
+| 新图片落盘 | 等 500ms 防抖 | 生成后立刻 `saveImage()` 写入字节 |
+| 关页/切走 | 无 flush，防抖中内容丢失 | `pagehide`/`visibilitychange` flush；IndexedDB 在 `pagehide` 无法提交，改由**同步 localStorage 日志**兜底 |
+| 实测关页 | 输入后 120ms 离开 → 内容丢失 | 点「添加便签」后 120ms 日志已含新节点；立刻离开再回来 → 便签仍在并渲染 |
+| 配额满 | 静默丢弃 | 抛 `quotaExceeded`，页面显示「存储已满，请先下载要保留的图片」 |
+| 浏览器可能清除 | 无提示 | `navigator.storage.persist()` 协商；未获授权时提示「此浏览器可能清除画布数据」 |
+| 临时链接生图 | 直接保存供应商 `url`（分钟级过期） | 取回字节转 data URL 永久保存；跨域不可读时保留链接 |
+
+> **注意**：布局日志只存节点元数据，不含图片字节（`localStorage` 配额小，图片在 IndexedDB）。
 
 ### 看板娘实测记录
 
@@ -1027,6 +1048,10 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 > **注意**：动画里的角色是 dsh-pet 原作者形象，气泡立绘是定制的「泡泡」，
 > 两者不是同一个角色（已确认可接受）。详见 3.7 节。
+
+> **注意**：画布的内容只存在**当前浏览器**，没有服务端副本。清理浏览器数据、换设备、
+> 无痕窗口都会看不到；Safari 甚至会在 7 天未访问后自行清除。要长期保存请用图片节点
+> 菜单里的「Download image」。
 
 ---
 

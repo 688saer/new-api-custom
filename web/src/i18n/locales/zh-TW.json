@@ -7645,6 +7645,10 @@
     "Hide mascot": "隱藏看板娘",
     "Use these as the base URL": "作為基礎位址使用",
     "Address {{index}}": "位址 {{index}}",
-    "Save mascot settings": "儲存看板娘設定"
+    "Save mascot settings": "儲存看板娘設定",
+    "The canvas could not be saved. These changes stay only until you close this page.": "畫布儲存失敗，這些改動只保留到關閉本頁為止。",
+    "The saved canvas could not be restored.": "無法還原已儲存的畫布。",
+    "Browser storage is full. Download the pictures you want to keep, then delete some from the canvas.": "瀏覽器儲存空間已滿。請先下載要保留的圖片，再從畫布上刪除一些。",
+    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "此瀏覽器可能在一段時間後清除已儲存的畫布資料。請下載需要保留的圖片。"
   }
 }

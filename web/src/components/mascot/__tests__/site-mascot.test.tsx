@@ -179,6 +179,38 @@ describe('site mascot', () => {
     expect(screen.getByTestId('site-mascot-bubble')).toHaveTextContent('你好呀')
   })
 
+  it('stops the running clip when reduced motion is turned on mid-session', async () => {
+    // The preference can change while the page is open. Guarding the clip chain
+    // alone would let an already-playing clip keep running, so the player has to
+    // pause the elements that are already on screen.
+    let reduceMotion = false
+    const listeners: Array<() => void> = []
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockReturnValue({
+        get matches() {
+          return reduceMotion
+        },
+        addEventListener: (_event: string, handler: () => void) => listeners.push(handler),
+        removeEventListener: vi.fn(),
+      })
+    )
+
+    renderMascot({ mascot_enabled: true, mascot_name: '泡泡' })
+
+    // jsdom has no media pipeline, so watch the calls the player makes instead.
+    const pauseSpy = vi
+      .spyOn(window.HTMLMediaElement.prototype, 'pause')
+      .mockImplementation(() => {})
+
+    reduceMotion = true
+    await act(async () => {
+      for (const listener of listeners) listener()
+    })
+
+    expect(pauseSpy).toHaveBeenCalled()
+  })
+
   it('closes the bubble on Escape', async () => {
     const user = userEvent.setup()
     renderMascot({ mascot_enabled: true, mascot_name: '泡泡' })

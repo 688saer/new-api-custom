@@ -7645,6 +7645,10 @@
     "Hide mascot": "Скрыть талисман",
     "Use these as the base URL": "Используйте их как базовый URL",
     "Address {{index}}": "Адрес {{index}}",
-    "Save mascot settings": "Сохранить настройки талисмана"
+    "Save mascot settings": "Сохранить настройки талисмана",
+    "The canvas could not be saved. These changes stay only until you close this page.": "Не удалось сохранить холст. Эти изменения сохранятся только до закрытия страницы.",
+    "The saved canvas could not be restored.": "Не удалось восстановить сохранённый холст.",
+    "Browser storage is full. Download the pictures you want to keep, then delete some from the canvas.": "Хранилище браузера заполнено. Скачайте нужные изображения, затем удалите часть с холста.",
+    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "Этот браузер может удалить сохранённые данные холста через некоторое время. Скачайте изображения, которые нужно сохранить."
   }
 }

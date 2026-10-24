@@ -109,9 +109,9 @@ export async function generateImages(params: {
     signal: params.signal,
   })
 
-  const body = (await response.json().catch(() => null)) as
-    | ImageGenerationResponse
-    | null
+  const body = (await response
+    .json()
+    .catch(() => null)) as ImageGenerationResponse | null
 
   if (!response.ok) {
     throw new Error(body?.error?.message ?? `HTTP ${response.status}`)
@@ -125,6 +125,36 @@ async function toImageBlob(source: string): Promise<Blob> {
   const response = await fetch(source)
   if (!response.ok) throw new Error('Could not read the reference image.')
   return response.blob()
+}
+
+/** Read bytes back as a data URL, so they no longer depend on the network. */
+function toDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () =>
+      reject(reader.error ?? new Error('Unreadable image.'))
+    reader.readAsDataURL(blob)
+  })
+}
+
+/**
+ * Copy a returned link into the response itself.
+ *
+ * Some relays answer with a URL that expires within minutes. Storing that link
+ * on the board would leave a picture that is gone by the next visit, with no
+ * hint that it was ever there, so the bytes are fetched once and kept.
+ *
+ * A cross-origin image the browser refuses to read cannot be copied, and the
+ * link is all that is left; the caller keeps it rather than lose the picture
+ * outright.
+ */
+async function inlineRemoteImage(url: string): Promise<string> {
+  try {
+    return await toDataUrl(await toImageBlob(url))
+  } catch {
+    return url
+  }
 }
 
 /**
@@ -155,9 +185,9 @@ export async function editImage(params: {
     signal: params.signal,
   })
 
-  const body = (await response.json().catch(() => null)) as
-    | ImageGenerationResponse
-    | null
+  const body = (await response
+    .json()
+    .catch(() => null)) as ImageGenerationResponse | null
 
   if (!response.ok) {
     throw new Error(body?.error?.message ?? `HTTP ${response.status}`)
@@ -167,7 +197,9 @@ export async function editImage(params: {
 }
 
 /** Base64 payloads win when present; otherwise fall back to returned links. */
-function readImageResults(body: ImageGenerationResponse | null): string[] {
+async function readImageResults(
+  body: ImageGenerationResponse | null
+): Promise<string[]> {
   const base64 = (body?.data ?? [])
     .map((item) => item.b64_json)
     .filter((item): item is string => Boolean(item))
@@ -180,6 +212,9 @@ function readImageResults(body: ImageGenerationResponse | null): string[] {
     .map((item) => item.url)
     .filter((item): item is string => Boolean(item))
 
-  if (remote.length > 0) return remote
+  if (remote.length > 0) {
+    // Keep the pictures, not the links that point at them.
+    return await Promise.all(remote.map(inlineRemoteImage))
+  }
   throw new Error(body?.error?.message ?? 'The site returned no image.')
 }

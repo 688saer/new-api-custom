@@ -7645,6 +7645,10 @@
     "Hide mascot": "Ẩn linh vật",
     "Use these as the base URL": "Dùng các địa chỉ này làm URL gốc",
     "Address {{index}}": "Địa chỉ {{index}}",
-    "Save mascot settings": "Lưu cài đặt linh vật"
+    "Save mascot settings": "Lưu cài đặt linh vật",
+    "The canvas could not be saved. These changes stay only until you close this page.": "Không thể lưu canvas. Những thay đổi này chỉ được giữ cho đến khi bạn đóng trang này.",
+    "The saved canvas could not be restored.": "Không thể khôi phục canvas đã lưu.",
+    "Browser storage is full. Download the pictures you want to keep, then delete some from the canvas.": "Bộ nhớ trình duyệt đã đầy. Hãy tải xuống những ảnh muốn giữ, rồi xoá bớt trên canvas.",
+    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "Trình duyệt này có thể xoá dữ liệu canvas đã lưu sau một thời gian. Hãy tải xuống những ảnh bạn muốn giữ."
   }
 }

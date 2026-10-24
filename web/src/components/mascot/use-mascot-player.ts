@@ -93,12 +93,46 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
   const mountedRef = useRef(true)
   const blobUrlsRef = useRef<Record<'a' | 'b', string | null>>({ a: null, b: null })
   const chainTimerRef = useRef<number | null>(null)
+  // Lets the pause/resume effect above reach `advanceChain`, which is declared
+  // after it and therefore cannot be referenced directly.
+  const advanceChainRef = useRef<(() => void) | null>(null)
 
   const onFacingChangeRef = useRef(options.onFacingChange)
   onFacingChangeRef.current = options.onFacingChange
 
   useEffect(() => {
     pausedRef.current = options.paused
+  }, [options.paused])
+
+  // Stop or resume playback when the motion preference changes mid-session.
+  //
+  // Guarding `advanceChain` alone is not enough: it only stops *new* clips from
+  // starting, so a clip already on screen kept running after the user turned on
+  // reduced motion. Pausing has to reach the elements themselves.
+  useEffect(() => {
+    if (options.paused) {
+      if (chainTimerRef.current !== null) {
+        window.clearTimeout(chainTimerRef.current)
+        chainTimerRef.current = null
+      }
+      for (const slot of ['a', 'b'] as const) {
+        const video = slot === 'a' ? frontRef.current : backRef.current
+        video?.pause()
+      }
+      return
+    }
+
+    // Resuming restarts the idle chain rather than replaying the paused element:
+    // whatever was on screen may be a one-shot response that already finished,
+    // and the chain timer that would normally move on was cleared on pause.
+    const resume = window.setTimeout(() => {
+      if (pausedRef.current) return
+      // A paused one-shot would otherwise leave the character frozen on its last
+      // frame, so drop it and let the chain pick a fresh idle clip.
+      currentRef.current = null
+      advanceChainRef.current?.()
+    }, 0)
+    return () => window.clearTimeout(resume)
   }, [options.paused])
 
   useEffect(() => {
@@ -228,6 +262,7 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
   )
 
   playRef.current = play
+  advanceChainRef.current = advanceChain
 
   const playOnce = useCallback(
     (name: string) => {

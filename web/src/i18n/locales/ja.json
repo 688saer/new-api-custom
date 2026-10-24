@@ -7645,6 +7645,10 @@
     "Hide mascot": "マスコットを隠す",
     "Use these as the base URL": "これらをベース URL として使用",
     "Address {{index}}": "アドレス {{index}}",
-    "Save mascot settings": "マスコット設定を保存"
+    "Save mascot settings": "マスコット設定を保存",
+    "The canvas could not be saved. These changes stay only until you close this page.": "キャンバスを保存できませんでした。これらの変更はこのページを閉じるまでのみ保持されます。",
+    "The saved canvas could not be restored.": "保存されたキャンバスを復元できませんでした。",
+    "Browser storage is full. Download the pictures you want to keep, then delete some from the canvas.": "ブラウザの保存領域がいっぱいです。残したい画像をダウンロードしてから、キャンバス上で一部を削除してください。",
+    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "このブラウザは一定期間後に保存したキャンバスデータを削除する場合があります。残したい画像はダウンロードしてください。"
   }
 }

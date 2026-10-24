@@ -7645,6 +7645,10 @@
     "Hide mascot": "Masquer la mascotte",
     "Use these as the base URL": "Utilisez ces adresses comme URL de base",
     "Address {{index}}": "Adresse {{index}}",
-    "Save mascot settings": "Enregistrer les réglages de la mascotte"
+    "Save mascot settings": "Enregistrer les réglages de la mascotte",
+    "The canvas could not be saved. These changes stay only until you close this page.": "Le canevas n’a pas pu être enregistré. Ces modifications ne seront conservées que jusqu’à la fermeture de cette page.",
+    "The saved canvas could not be restored.": "Le canevas enregistré n’a pas pu être restauré.",
+    "Browser storage is full. Download the pictures you want to keep, then delete some from the canvas.": "Le stockage du navigateur est plein. Téléchargez les images à conserver, puis supprimez-en du canevas.",
+    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "Ce navigateur peut supprimer les données de canevas stockées après un certain temps. Téléchargez les images à conserver."
   }
 }
