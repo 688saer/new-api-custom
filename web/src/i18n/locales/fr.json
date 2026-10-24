@@ -7649,6 +7649,20 @@
     "The canvas could not be saved. These changes stay only until you close this page.": "Le canevas n’a pas pu être enregistré. Ces modifications ne seront conservées que jusqu’à la fermeture de cette page.",
     "The saved canvas could not be restored.": "Le canevas enregistré n’a pas pu être restauré.",
     "Browser storage is full. Download the pictures you want to keep, then delete some from the canvas.": "Le stockage du navigateur est plein. Téléchargez les images à conserver, puis supprimez-en du canevas.",
-    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "Ce navigateur peut supprimer les données de canevas stockées après un certain temps. Téléchargez les images à conserver."
+    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "Ce navigateur peut supprimer les données de canevas stockées après un certain temps. Téléchargez les images à conserver.",
+    "Platform notices and update history": "Annonces de la plateforme et historique des mises à jour",
+    "Ongoing": "En cours",
+    "Unread": "Non lue",
+    "Severity": "Gravité",
+    "Search announcements": "Rechercher des annonces",
+    "Mark all as read": "Tout marquer comme lu",
+    "{{count}} unread": "{{count}} non lue(s)",
+    "Showing {{shown}} of {{total}}": "{{shown}} sur {{total}} affichées",
+    "Announcements are turned off": "Les annonces sont désactivées",
+    "The site operator has disabled the announcements panel.": "L'opérateur du site a désactivé le panneau des annonces.",
+    "New notices from the site operator will appear here.": "Les nouvelles annonces de l'opérateur du site apparaîtront ici.",
+    "No announcements match your filters": "Aucune annonce ne correspond à vos filtres",
+    "Try a different keyword or severity.": "Essayez un autre mot-clé ou une autre gravité.",
+    "View all": "Tout voir"
   }
 }

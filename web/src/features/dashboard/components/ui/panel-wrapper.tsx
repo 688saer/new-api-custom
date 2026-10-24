@@ -86,7 +86,11 @@ export function PanelWrapper(props: PanelWrapperProps) {
   if (props.empty) {
     return (
       <div className={frameClassName}>
-        <PanelHeader title={props.title} description={props.description} />
+        <PanelHeader
+          title={props.title}
+          description={props.description}
+          actions={props.headerActions}
+        />
         <div
           className={cn(
             'text-muted-foreground flex items-center justify-center px-4 text-sm',

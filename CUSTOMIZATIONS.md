@@ -69,9 +69,9 @@ ours ────●  rc.45 + 我们的自定义功能
 
 ## 三、自定义功能清单
 
-六个功能全部是**原生集成**（不是 iframe 嵌入），复用官方组件、主题和 i18n。
+八个功能全部是**原生集成**（不是 iframe 嵌入），复用官方组件、主题和 i18n。
 
-> 这里是七个：抽奖、福利宝箱、福利 API、渠道可用性、无限画布、极验验证，以及 3.7 的看板娘；
+> 这里是八个：公告中心、抽奖、福利宝箱、福利 API、渠道可用性、无限画布、极验验证，以及 3.8 的看板娘；
 > 3.0 是对官方 `/keys` 页的改造，不算独立功能。
 
 ### 3.0 API 密钥页 `/keys` 的改造
@@ -196,8 +196,29 @@ if option.Key == "service_status_setting.targets" || option.Key == "service_stat
 }
 ```
 
-### 3.5 无限画布 `/canvas`
+### 3.5 公告中心 `/announcements`
 
+平台公告的独立阅读页。数据完全复用官方已有的 `console_setting.announcements`（`/api/status` 下发），
+**没有新增后端字段或数据表**，所以后台「内容管理 → 公告」编辑器照旧维护即可。
+
+- **后端**：无（沿用 `setting/console_setting`）
+- **前端**：`web/src/features/announcements/`（约 660 行）
+
+| 文件 | 职责 |
+|---|---|
+| `components/announcements-page.tsx` | 页面：列表、搜索、级别筛选、未读计数、全部已读、空状态 |
+| `components/announcement-list-item.tsx` | 单条公告：级别徽章、未读标记、相对时间、完整正文、附加信息 |
+| `components/announcement-detail-dialog.tsx` | 详情弹窗（看板与公告页共用，原在看板里） |
+| `lib/announcements.ts` | 已读键、倒序排序、关键词/级别过滤、未读统计 |
+| `types.ts` | `AnnouncementItem`、`AnnouncementType`、`toAnnouncementType()` |
+
+**为什么另开一页**：看板公告卡片只显示一行预览（`line-clamp-1`），通知铃铛把列表截到 20 条，
+长维护公告没有地方完整读。这个页面直接铺全文，并和铃铛共享同一份已读状态（`notification-storage`）。
+
+**已读键规则**：有 `id` 用 `id:<n>`，没有就用「发布时间 + 正文 + 附加信息 + 级别」的指纹哈希——
+公告是管理员手写 JSON，`id` 是少数情况；没有指纹的话，改了正文仍然会被算作已读。
+
+### 3.6 无限画布 `/canvas`
 基于本站模型的 AI 绘图工作台，可拖拽、缩放、加便签、图生图。
 
 - **后端**：无（纯前端，直接调 `/v1/images/*`）
@@ -239,7 +260,7 @@ i18n 的 key 是**英文原文**，一词多义就会撞车。画布现在只用
 
 > **新增文案时**：如果英文词有歧义（draw / generate / run / open / claim…），换个更具体的说法，别和别的功能共用 key。
 
-### 3.6 极验人机验证（GeeTest V4）
+### 3.7 极验人机验证（GeeTest V4）
 
 给注册、登录、签到、找回密码、发送邮箱验证码这五处加极验 V4 验证码，**每项可单独开关**，
 和官方自带的 Turnstile **可以并存**（两个都开时，两个都要过）。
@@ -364,7 +385,7 @@ SDK 会建好整套 DOM 但一个像素都不显示，`showCaptcha()` 静默返�
 - 图片存在**浏览器本地**，换浏览器或清缓存就没了。要跨设备需要后端加表。
 - 图生图走 `/v1/images/edits`，上游偶发 `connection reset by peer`，重试即可（见第十节）。
 
-### 3.7 看板娘（站点吉祥物）
+### 3.8 看板娘（站点吉祥物）
 
 登录后控制台右下角（可改左下）会出现一只**会动的「泡泡」鲸鱼娘**。她待机时呼吸张望，
 点她会做反应动作并冒气泡，还能**用鼠标拖着走、甩出去**——扔出去会弹、落地会压扁回弹。
@@ -545,6 +566,7 @@ setting/system_setting/geetest_setting.go        87
 **前端**
 
 ```
+web/src/features/announcements/           ~660 行
 web/src/features/canvas/                  ~1900 行
 web/src/features/lucky-bonus/             ~1900 行
 web/src/features/service-status/          ~985 行
@@ -560,6 +582,7 @@ web/src/features/system-settings/general/geetest-settings-section.tsx
 web/src/components/geetest-captcha.tsx
 service/geetest.go
 middleware/geetest-check.go
+web/src/routes/_authenticated/announcements/index.tsx
 web/src/routes/_authenticated/canvas/index.tsx
 web/src/routes/_authenticated/lottery/index.tsx
 web/src/routes/_authenticated/welfare-chests/index.tsx
@@ -570,7 +593,7 @@ web/public/static/welfare-chests/        （图片资源）
 
 ### 修改的官方文件（升级时唯一可能冲突的地方）
 
-一共 **14 个**，每处改动都很小、很集中：
+一共 **17 个**，每处改动都很小、很集中：
 
 | 文件 | 改动内容 |
 |---|---|
@@ -580,18 +603,25 @@ web/public/static/welfare-chests/        （图片资源）
 | `router/web-router.go` | `WebAssets` 结构体挪到文件末尾（纯格式） |
 | `controller/option.go` | 配置变更后触发探测（4 行）；无密钥时禁止开极验总开关 |
 | `controller/misc.go` | `/api/status` 下发极验公开配置（7 行） |
-| `web/src/hooks/use-sidebar-data.ts` | 侧边栏 4 个菜单项 |
-| `web/src/hooks/use-sidebar-config.ts` | 侧边栏模块开关默认值 |
+| `web/src/hooks/use-sidebar-data.ts` | 侧边栏 5 个菜单项（含公告） |
+| `web/src/hooks/use-sidebar-config.ts` | 侧边栏模块开关默认值（含公告） |
 | `web/src/lib/nav-modules.ts` | 顶部导航模块 `welfareApi`、`serviceStatus` |
 | `web/src/features/system-settings/types.ts` | 新增配置项的 TS 类型 |
 | `web/src/features/system-settings/security/*` | 注册「极验验证」设置页（`index.tsx` + `section-registry.tsx`） |
+| `web/src/features/system-settings/maintenance/sidebar-modules-section.tsx` | 后台侧边栏模块新增「公告」开关说明 |
+| `web/src/features/profile/components/sidebar-modules-card.tsx` | 用户个人设置里的侧边栏模块新增「公告」 |
+| `web/src/features/dashboard/components/overview/announcements-panel.tsx` | 公告卡片改为复用公告模块的详情弹窗，右上角加「查看全部」 |
+| `web/src/features/dashboard/components/ui/panel-wrapper.tsx` | 空状态下也渲染 `headerActions`（否则「查看全部」在无公告时消失） |
 | `web/src/features/auth/*` | 登录/注册/找回密码/邮箱验证码四处接入极验 |
 | `web/src/routeTree.gen.ts` | 路由树（构建时自动生成） |
-| `web/src/i18n/locales/*.json` × 7 | 284 条自定义文案 |
+| `web/src/i18n/locales/*.json` × 7 | 284 条自定义文案 + 公告页 14 条 |
+
+> 原本的 `web/src/features/dashboard/components/overview/announcement-detail-dialog.tsx`（82 行）已**删除**，
+> 弹窗迁到 `web/src/features/announcements/components/announcement-detail-dialog.tsx` 由看板与公告页共用。
 
 > `web/src/routeTree.gen.ts` 是 TanStack Router 构建时自动生成的，**不要手工改**，冲突时直接接受上游版本再跑一次 `bun run build` 即可重新生成。
-
-> `web/src/routeTree.gen.ts` 是 TanStack Router 构建时自动生成的，**不要手工改**，冲突时直接接受上游版本再跑一次 `bun run build` 即可重新生成。
+> 仓库里的 `routeTree.gen.ts` 若缺少某个新路由，`bun run typecheck` 会报 `createFileRoute` 的参数不匹配——
+> 可以用 `@tanstack/router-generator` 的 `Generator` 类单独跑一次生成，不必整包构建。
 
 ---
 
@@ -991,11 +1021,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:canvas2` |
+| 生产镜像 | `new-api-lottery:ann2` |
 | 已发布版本 | `v1.0.0-rc.46-mascot`（含 Docker 镜像 + 桌面端） |
-| 回滚镜像 | `new-api-lottery:pet8`、`:canvas1`、`:mascot2`、`:mascot`、`:gt6`、`:geetest5`、`:geetest4` |
+| 回滚镜像 | `new-api-lottery:canvas2`、`:pet8`、`:canvas1`、`:mascot2`、`:mascot`、`:gt6`、`:geetest5`、`:geetest4` |
 | 磁盘占用 | 67%（含新旧镜像与构建缓存，`docker image prune` 可回收） |
-| 前端测试 | 前端全量通过（新增画布存储回归 37 个） |
+| 前端测试 | 前端全量通过（新增画布存储回归 37 个、公告页 16 个） |
 | typecheck | 通过 |
 | gofmt | 干净 |
 | Go 单测 | 极验 4 项全通过（签名、未配置、残缺票据、开关判定） |
@@ -1006,6 +1036,7 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 | API 端点卡片 | **已上线**；`server_address` 仍是默认的 `localhost:3000`，前端已降级为当前域名 |
 | 可用生图模型 | `gpt-image-2`、`gpt-image-2.5`、`gpt-image-2.5-sunburst`（`-flare` 上游 500） |
 | 画布存储 | **已修复丢图**：布局/图片分库、图片即时落盘、同步日志兜底、配额与持久化提示 |
+| 公告页 | **已上线** `/announcements`：全文列表、关键词搜索、级别筛选、未读计数、全部已读 |
 
 ### 画布丢图修复实测记录
 
@@ -1027,6 +1058,31 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 > **注意**：布局日志只存节点元数据，不含图片字节（`localStorage` 配额小，图片在 IndexedDB）。
 
+### 公告页实测记录
+
+参照 `site.whyapi.top/announcements` 的形态实现：列表直接显示**完整正文**（不是看板里的一行预览），
+按发布时间倒序，点开单条进详情弹窗。数据仍走既有的 `console_setting.announcements` + `/api/status`，
+没有新增后端字段，所以后台「内容管理 → 公告」编辑器照旧可用。
+
+| 场景 | 结果 |
+|---|---|
+| 列表排序 | 后端已倒序，前端仍按 `publishDate` 重排（`status` 有 localStorage 缓存，旧副本不保证有序） |
+| 未读计数 | 进入页面显示「N 条未读」，点开单条即计为已读，`全部标为已读` 后角标消失且按钮置灰 |
+| 已读持久 | 复用 `notification-storage`（与通知铃铛同一份），刷新后仍为已读，实测 `readAnnouncementKeys: ["id:3","id:2","id:1"]` |
+| 搜索 | 匹配正文与附加信息，不区分大小写；命中 1 条时显示「显示 1 / 3 条」 |
+| 无 id 的公告 | 用正文指纹做已读键，编辑正文后会重新算作未读 |
+| 级别筛选 | 五档（默认/进行中/成功/警告/错误）+ 全部；默认档也包含未填级别的条目 |
+| 空状态 | 无公告时显示「暂无公告 / 站点管理员发布的新公告会显示在这里」 |
+| 面板被关 | `announcements_enabled=false` 时显示「公告功能已关闭」，搜索与已读按钮一并隐藏 |
+| 详情弹窗 | 标题「公告详情」+ 发布时间 + 正文（Markdown）+ 附加信息 |
+| 看板入口 | 概览看板公告卡片右上角新增「查看全部」→ `/announcements`，实测点击后落在公告页 |
+| 布局 | 桌面 1440px 条目宽 1190、手机 390px 宽 364，`scrollWidth == clientWidth`，无横向溢出 |
+| 侧边栏 | 个人分组首位；后台「侧边栏模块」可单独关闭，用户个人设置里也能关 |
+
+> **踩坑记录**：`SectionPageLayout` 只渲染 `Title`/`Actions`/`Content`/`Breadcrumb` 四个插槽，
+> 其它子节点会被静默丢弃——弹窗一开始写在插槽旁边，测试里 `findByRole('dialog')` 永远等不到。
+> 需要与页面并列渲染的浮层必须放在 `<SectionPageLayout>` 外面。
+
 ### 看板娘实测记录
 
 | 场景 | 结果 |
@@ -1047,7 +1103,7 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 > 去 `系统设置 → 站点与品牌` 填真实域名后，API 端点卡片就不再走降级分支。
 
 > **注意**：动画里的角色是 dsh-pet 原作者形象，气泡立绘是定制的「泡泡」，
-> 两者不是同一个角色（已确认可接受）。详见 3.7 节。
+> 两者不是同一个角色（已确认可接受）。详见 3.8 节。
 
 > **注意**：画布的内容只存在**当前浏览器**，没有服务端副本。清理浏览器数据、换设备、
 > 无痕窗口都会看不到；Safari 甚至会在 7 天未访问后自行清除。要长期保存请用图片节点

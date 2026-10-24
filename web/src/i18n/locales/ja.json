@@ -7649,6 +7649,20 @@
     "The canvas could not be saved. These changes stay only until you close this page.": "キャンバスを保存できませんでした。これらの変更はこのページを閉じるまでのみ保持されます。",
     "The saved canvas could not be restored.": "保存されたキャンバスを復元できませんでした。",
     "Browser storage is full. Download the pictures you want to keep, then delete some from the canvas.": "ブラウザの保存領域がいっぱいです。残したい画像をダウンロードしてから、キャンバス上で一部を削除してください。",
-    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "このブラウザは一定期間後に保存したキャンバスデータを削除する場合があります。残したい画像はダウンロードしてください。"
+    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "このブラウザは一定期間後に保存したキャンバスデータを削除する場合があります。残したい画像はダウンロードしてください。",
+    "Platform notices and update history": "プラットフォームのお知らせと更新履歴",
+    "Ongoing": "進行中",
+    "Unread": "未読",
+    "Severity": "重要度",
+    "Search announcements": "お知らせを検索",
+    "Mark all as read": "すべて既読にする",
+    "{{count}} unread": "未読 {{count}} 件",
+    "Showing {{shown}} of {{total}}": "{{total}} 件中 {{shown}} 件を表示",
+    "Announcements are turned off": "お知らせは無効になっています",
+    "The site operator has disabled the announcements panel.": "サイト運営者がお知らせパネルを無効にしています。",
+    "New notices from the site operator will appear here.": "サイト運営者からの新しいお知らせがここに表示されます。",
+    "No announcements match your filters": "フィルターに一致するお知らせはありません",
+    "Try a different keyword or severity.": "別のキーワードや重要度をお試しください。",
+    "View all": "すべて表示"
   }
 }

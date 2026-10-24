@@ -117,6 +117,11 @@ export function SidebarModulesCard() {
       description: t('User personal functions'),
       modules: [
         {
+          key: 'announcements',
+          title: t('Announcements'),
+          description: t('Platform notices and update history'),
+        },
+        {
           key: 'topup',
           title: t('Wallet Management'),
           description: t('Balance and top-up management'),

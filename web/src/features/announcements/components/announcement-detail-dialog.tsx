@@ -23,32 +23,30 @@ import { RichContent } from '@/components/rich-content'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatDateTimeObject } from '@/lib/time'
 
-interface AnnouncementDetailModalProps {
+import type { AnnouncementItem } from '../types'
+
+interface AnnouncementDetailDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  announcement: {
-    title?: string
-    content?: string
-    tag?: string
-    publishDate?: string
-    extra?: string
-  } | null
+  announcement: AnnouncementItem | null
 }
 
-export function AnnouncementDetailModal({
-  open,
-  onOpenChange,
-  announcement,
-}: AnnouncementDetailModalProps) {
+/**
+ * Full announcement body, shared by the dashboard panel and the announcements
+ * page so a notice reads identically wherever it is opened from.
+ */
+export function AnnouncementDetailDialog(props: AnnouncementDetailDialogProps) {
   const { t } = useTranslation()
+  const publishDate = props.announcement?.publishDate
+
   return (
     <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
+      open={props.open}
+      onOpenChange={props.onOpenChange}
       title={t('Announcement Details')}
       description={
-        announcement?.publishDate
-          ? `${t('Published:')} ${formatDateTimeObject(new Date(announcement.publishDate))}`
+        publishDate
+          ? `${t('Published:')} ${formatDateTimeObject(new Date(publishDate))}`
           : undefined
       }
       contentClassName='sm:max-w-lg'
@@ -57,20 +55,20 @@ export function AnnouncementDetailModal({
     >
       <ScrollArea className='max-h-[min(58vh,520px)] pr-4'>
         <div className='space-y-4'>
-          {announcement?.content && (
+          {props.announcement?.content && (
             <div>
               <h4 className='mb-2 font-medium'>{t('Content')}</h4>
-              <RichContent breaks content={announcement.content} />
+              <RichContent breaks content={props.announcement.content} />
             </div>
           )}
-          {announcement?.extra && (
+          {props.announcement?.extra && (
             <div>
               <h4 className='mb-2 font-medium'>
                 {t('Additional Information')}
               </h4>
               <RichContent
                 breaks
-                content={announcement.extra}
+                content={props.announcement.extra}
                 className='text-muted-foreground'
               />
             </div>

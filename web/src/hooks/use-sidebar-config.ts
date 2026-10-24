@@ -53,6 +53,7 @@ const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
   },
   personal: {
     enabled: true,
+    announcements: true,
     lottery: true,
     welfare: true,
     serviceStatus: true,
@@ -113,7 +114,8 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/usage-logs/drawing': { section: 'console', module: 'midjourney' },
   '/usage-logs/task': { section: 'console', module: 'task' },
   '/wallet': { section: 'personal', module: 'topup' },
-  // 幸运抽奖 / 福利宝箱归入 personal 区域，受后台「侧边栏模块」开关控制。
+  // 公告 / 幸运抽奖 / 福利宝箱归入 personal 区域，受后台「侧边栏模块」开关控制。
+  '/announcements': { section: 'personal', module: 'announcements' },
   '/lottery': { section: 'personal', module: 'lottery' },
   '/welfare-chests': { section: 'personal', module: 'welfare' },
   '/service-status': { section: 'personal', module: 'serviceStatus' },

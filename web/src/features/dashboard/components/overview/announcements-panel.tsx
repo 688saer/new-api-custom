@@ -16,12 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Megaphone } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
+import { ArrowRight, Megaphone } from 'lucide-react'
 import { memo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Button } from '@/components/ui/button'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { AnnouncementDetailDialog } from '@/features/announcements'
 import { useAnnouncements } from '@/features/dashboard/hooks/use-status-data'
 import { getPreviewText } from '@/features/dashboard/lib'
 import type { AnnouncementItem } from '@/features/dashboard/types'
@@ -30,7 +33,6 @@ import { formatDateTimeObject } from '@/lib/time'
 import { cn } from '@/lib/utils'
 
 import { PanelWrapper } from '../ui/panel-wrapper'
-import { AnnouncementDetailModal } from './announcement-detail-dialog'
 
 const AnnouncementStatusDot = memo(function AnnouncementStatusDot(props: {
   type?: string
@@ -73,6 +75,17 @@ export function AnnouncementsPanel() {
       emptyMessage={t('No announcements at this time')}
       height='h-72'
       contentClassName='p-0'
+      headerActions={
+        <Button
+          variant='ghost'
+          size='sm'
+          className='h-7 gap-1 px-2 text-xs'
+          render={<Link to='/announcements' />}
+        >
+          {t('View all')}
+          <ArrowRight className='size-3.5' aria-hidden='true' />
+        </Button>
+      }
     >
       <ScrollArea className='h-72'>
         <div>
@@ -112,7 +125,7 @@ export function AnnouncementsPanel() {
         </div>
       </ScrollArea>
 
-      <AnnouncementDetailModal
+      <AnnouncementDetailDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         announcement={selectedAnnouncement}

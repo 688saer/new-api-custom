@@ -124,6 +124,10 @@ export function SidebarModulesSection({
       },
     },
     personal: {
+      announcements: {
+        title: t('Announcements'),
+        description: t('Platform notices and update history'),
+      },
       lottery: {
         title: t('Lucky Draw'),
         description: t('Daily free draws and quota prizes.'),

@@ -7649,6 +7649,20 @@
     "The canvas could not be saved. These changes stay only until you close this page.": "Không thể lưu canvas. Những thay đổi này chỉ được giữ cho đến khi bạn đóng trang này.",
     "The saved canvas could not be restored.": "Không thể khôi phục canvas đã lưu.",
     "Browser storage is full. Download the pictures you want to keep, then delete some from the canvas.": "Bộ nhớ trình duyệt đã đầy. Hãy tải xuống những ảnh muốn giữ, rồi xoá bớt trên canvas.",
-    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "Trình duyệt này có thể xoá dữ liệu canvas đã lưu sau một thời gian. Hãy tải xuống những ảnh bạn muốn giữ."
+    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "Trình duyệt này có thể xoá dữ liệu canvas đã lưu sau một thời gian. Hãy tải xuống những ảnh bạn muốn giữ.",
+    "Platform notices and update history": "Thông báo nền tảng và lịch sử cập nhật",
+    "Ongoing": "Đang diễn ra",
+    "Unread": "Chưa đọc",
+    "Severity": "Mức độ",
+    "Search announcements": "Tìm kiếm thông báo",
+    "Mark all as read": "Đánh dấu tất cả là đã đọc",
+    "{{count}} unread": "{{count}} chưa đọc",
+    "Showing {{shown}} of {{total}}": "Hiển thị {{shown}} trên {{total}}",
+    "Announcements are turned off": "Thông báo đã bị tắt",
+    "The site operator has disabled the announcements panel.": "Người vận hành trang đã tắt bảng thông báo.",
+    "New notices from the site operator will appear here.": "Thông báo mới từ người vận hành trang sẽ xuất hiện ở đây.",
+    "No announcements match your filters": "Không có thông báo nào khớp với bộ lọc",
+    "Try a different keyword or severity.": "Hãy thử từ khóa hoặc mức độ khác.",
+    "View all": "Xem tất cả"
   }
 }

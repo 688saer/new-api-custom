@@ -7649,6 +7649,20 @@
     "The canvas could not be saved. These changes stay only until you close this page.": "畫布儲存失敗，這些改動只保留到關閉本頁為止。",
     "The saved canvas could not be restored.": "無法還原已儲存的畫布。",
     "Browser storage is full. Download the pictures you want to keep, then delete some from the canvas.": "瀏覽器儲存空間已滿。請先下載要保留的圖片，再從畫布上刪除一些。",
-    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "此瀏覽器可能在一段時間後清除已儲存的畫布資料。請下載需要保留的圖片。"
+    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "此瀏覽器可能在一段時間後清除已儲存的畫布資料。請下載需要保留的圖片。",
+    "Platform notices and update history": "平台公告與更新記錄",
+    "Ongoing": "進行中",
+    "Unread": "未讀",
+    "Severity": "級別",
+    "Search announcements": "搜尋公告",
+    "Mark all as read": "全部標為已讀",
+    "{{count}} unread": "{{count}} 條未讀",
+    "Showing {{shown}} of {{total}}": "顯示 {{shown}} / {{total}} 條",
+    "Announcements are turned off": "公告功能已關閉",
+    "The site operator has disabled the announcements panel.": "站點管理員已關閉公告面板。",
+    "New notices from the site operator will appear here.": "站點管理員發布的新公告會顯示在這裡。",
+    "No announcements match your filters": "沒有符合篩選條件的公告",
+    "Try a different keyword or severity.": "試試其他關鍵字或級別。",
+    "View all": "查看全部"
   }
 }

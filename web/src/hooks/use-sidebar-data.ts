@@ -28,6 +28,7 @@ import {
   LayoutDashboard,
   Layers,
   ListTodo,
+  Megaphone,
   MessageSquare,
   PartyPopper,
   PlugZap,
@@ -114,6 +115,11 @@ export function useSidebarData(): SidebarData {
         id: 'personal',
         title: t('Personal'),
         items: [
+          {
+            title: t('Announcements'),
+            url: '/announcements',
+            icon: Megaphone,
+          },
           {
             title: t('Lucky Draw'),
             url: '/lottery',

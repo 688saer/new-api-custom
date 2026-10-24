@@ -7649,6 +7649,20 @@
     "The canvas could not be saved. These changes stay only until you close this page.": "The canvas could not be saved. These changes stay only until you close this page.",
     "The saved canvas could not be restored.": "The saved canvas could not be restored.",
     "Browser storage is full. Download the pictures you want to keep, then delete some from the canvas.": "Browser storage is full. Download the pictures you want to keep, then delete some from the canvas.",
-    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "This browser can delete stored canvas data after a while. Download any picture you want to keep."
+    "This browser can delete stored canvas data after a while. Download any picture you want to keep.": "This browser can delete stored canvas data after a while. Download any picture you want to keep.",
+    "Platform notices and update history": "Platform notices and update history",
+    "Ongoing": "Ongoing",
+    "Unread": "Unread",
+    "Severity": "Severity",
+    "Search announcements": "Search announcements",
+    "Mark all as read": "Mark all as read",
+    "{{count}} unread": "{{count}} unread",
+    "Showing {{shown}} of {{total}}": "Showing {{shown}} of {{total}}",
+    "Announcements are turned off": "Announcements are turned off",
+    "The site operator has disabled the announcements panel.": "The site operator has disabled the announcements panel.",
+    "New notices from the site operator will appear here.": "New notices from the site operator will appear here.",
+    "No announcements match your filters": "No announcements match your filters",
+    "Try a different keyword or severity.": "Try a different keyword or severity.",
+    "View all": "View all"
   }
 }

@@ -84,6 +84,7 @@ describe('security sidebar visibility', () => {
         .find((group) => group.id === 'personal')
         ?.items.map((item) => item.title)
     ).toEqual([
+      'Announcements',
       'Lucky Draw',
       'Welfare Chests',
       'Channel availability',
@@ -126,6 +127,38 @@ describe('security sidebar visibility', () => {
         .some((item) => item.title === 'Security & Access')
     ).toBe(true)
   })
+})
+
+describe('announcements sidebar entry', () => {
+  it('legacy configurations show Announcements at the top of the personal group', () => {
+    const { result } = sidebarFor(
+      { personal: { enabled: true, topup: true } },
+      { personal: { enabled: true, topup: true } }
+    )
+    const items =
+      result.current.find((group) => group.id === 'personal')?.items ?? []
+
+    expect(items[0]).toMatchObject({
+      title: 'Announcements',
+      url: '/announcements',
+    })
+  })
+
+  it.each([
+    [{ personal: { enabled: true, announcements: false } }, undefined],
+    [{ personal: { enabled: false } }, { personal: { announcements: true } }],
+    [undefined, { personal: { enabled: true, announcements: false } }],
+  ])(
+    'admin or user disablement hides Announcements (%j, %j)',
+    (admin, user) => {
+      const { result } = sidebarFor(admin, user)
+      expect(
+        result.current
+          .flatMap((group) => group.items)
+          .some((item) => item.title === 'Announcements')
+      ).toBe(false)
+    }
+  )
 })
 
 describe('audit log sidebar entry', () => {
