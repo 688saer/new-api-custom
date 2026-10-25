@@ -292,4 +292,68 @@ func TestPreviewRewardCampaignRejectsInvalidDraft(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Equal(t, "REWARD_INVALID_EXPIRY", rewardErrorCode(err))
+
+	_, err = PreviewRewardCampaign(RewardCampaignDraft{
+		Name:           "Inverted random range",
+		RewardMode:     RewardModeRandom,
+		RandomMinQuota: 2000,
+		RandomMaxQuota: 1000,
+	})
+	require.Error(t, err)
+	assert.Equal(t, "REWARD_INVALID_AMOUNT", rewardErrorCode(err))
+}
+
+// 随机模式的区间必须闭合：任何一位用户抽到的额度都落在 [min, max] 内，
+// 且发放结果在发放时固化，重复读取不变化。
+func TestIssueRewardCampaignRandomStaysInRange(t *testing.T) {
+	resetRewardTables(t)
+	enableRewardSetting(t)
+
+	userIds := []int{911001, 911002, 911003, 911004, 911005, 911006}
+	for _, id := range userIds {
+		insertRewardUser(t, id, fmt.Sprintf("random-%d", id), 0)
+	}
+
+	draft := RewardCampaignDraft{
+		Name:           "Random campaign",
+		Style:          operation_setting.RewardStyleAurora,
+		Audience:       RewardAudienceDraft{Scope: RewardScopeSpecific, UserIds: userIds},
+		RewardMode:     RewardModeRandom,
+		RandomMinQuota: 100,
+		RandomMaxQuota: 500,
+	}
+
+	preview, err := PreviewRewardCampaign(draft)
+	require.NoError(t, err)
+	assert.Equal(t, len(userIds), preview.Count)
+	assert.Equal(t, 100, preview.MinQuota)
+	assert.Equal(t, 500, preview.MaxQuota)
+	assert.True(t, preview.Estimated)
+	assert.Equal(t, len(userIds)*300, preview.TotalQuota)
+
+	summary, err := IssueRewardCampaign(draft, 1)
+	require.NoError(t, err)
+	assert.Equal(t, RewardModeRandom, summary.RewardMode)
+	assert.Equal(t, 100, summary.RandomMinQuota)
+	assert.Equal(t, 500, summary.RandomMaxQuota)
+
+	var grants []RewardGrant
+	require.NoError(t, DB.Where("campaign_id = ?", summary.Id).Find(&grants).Error)
+	require.Len(t, grants, len(userIds))
+
+	total := 0
+	for _, grant := range grants {
+		assert.GreaterOrEqual(t, grant.AmountQuota, 100)
+		assert.LessOrEqual(t, grant.AmountQuota, 500)
+		total += grant.AmountQuota
+	}
+	// 活动总额取自落库的发放明细之和
+	assert.Equal(t, total, summary.TotalQuota)
+
+	// 再次读取明细，额度不再变化
+	var reread []RewardGrant
+	require.NoError(t, DB.Where("campaign_id = ?", summary.Id).Order("id ASC").Find(&reread).Error)
+	for i := range grants {
+		assert.Equal(t, grants[i].AmountQuota, reread[i].AmountQuota)
+	}
 }

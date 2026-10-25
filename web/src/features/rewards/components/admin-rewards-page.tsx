@@ -32,6 +32,7 @@ import {
   previewRewardCampaign,
   revokeRewardCampaign,
 } from '../api'
+import { createEmptyDraft } from '../lib/reward-draft'
 import type {
   RewardCampaignDraft,
   RewardCampaignList,
@@ -39,7 +40,7 @@ import type {
   RewardPreview,
 } from '../types'
 import { AdminRewardCampaigns } from './admin-reward-campaigns'
-import { AdminRewardForm, createEmptyDraft } from './admin-reward-form'
+import { AdminRewardForm } from './admin-reward-form'
 import { AdminRewardGrantsDialog } from './admin-reward-grants-dialog'
 
 const PAGE_SIZE = 20
@@ -168,10 +169,18 @@ export function AdminRewardsPage() {
         <SectionPageLayout.Actions>
           {preview != null && (
             <span className='text-muted-foreground text-sm'>
-              {t('{{count}} users match, total {{amount}}', {
-                count: preview.count,
-                amount: formatQuota(preview.total_quota),
-              })}
+              {preview.estimated
+                ? t(
+                    '{{count}} users match, total about {{amount}} (random amounts are drawn at issue time)',
+                    {
+                      count: preview.count,
+                      amount: formatQuota(preview.total_quota),
+                    }
+                  )
+                : t('{{count}} users match, total {{amount}}', {
+                    count: preview.count,
+                    amount: formatQuota(preview.total_quota),
+                  })}
             </span>
           )}
         </SectionPageLayout.Actions>

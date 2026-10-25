@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Gift } from 'lucide-react'
+import { Clock, Gift } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -179,9 +179,9 @@ export function RewardsPage() {
   const renderPending = () => {
     if (pendingLoading && !pending) {
       return (
-        <div className='grid gap-8 sm:grid-cols-2'>
-          <Skeleton className='aspect-[741/425] w-full rounded-lg' />
-          <Skeleton className='aspect-[741/425] w-full rounded-lg' />
+        <div className='grid gap-6 sm:grid-cols-2 xl:grid-cols-3'>
+          <Skeleton className='aspect-[741/425] w-full rounded-xl' />
+          <Skeleton className='aspect-[741/425] w-full rounded-xl' />
         </div>
       )
     }
@@ -216,27 +216,36 @@ export function RewardsPage() {
     }
 
     return (
-      <div className='grid gap-8 sm:grid-cols-2'>
+      <div className='grid gap-6 sm:grid-cols-2 xl:grid-cols-3'>
         {items.map((item) => {
           const claimable = isRewardClaimable(item.status, item.expires_at)
           return (
-            <article key={item.id} className='max-w-[600px] min-w-0 space-y-3'>
+            <article
+              key={item.id}
+              className='group/ticket max-w-[600px] min-w-0 space-y-3'
+            >
               <RewardTicket
                 style={item.style}
                 copy={item.copy}
                 amount={formatQuota(item.amount_quota)}
               />
-              <p className='text-muted-foreground text-sm'>
-                {item.expires_at > 0
-                  ? t('Valid until {{date}}', {
-                      date: formatDateTimeObject(
-                        new Date(item.expires_at * 1000)
-                      ),
-                    })
-                  : t('Long-term valid')}
-              </p>
+              <div className='flex items-center justify-between gap-3'>
+                <span className='text-muted-foreground inline-flex min-w-0 items-center gap-1.5 text-xs'>
+                  <Clock aria-hidden='true' className='size-3.5 shrink-0' />
+                  <span className='truncate'>
+                    {item.expires_at > 0
+                      ? t('Valid until {{date}}', {
+                          date: formatDateTimeObject(
+                            new Date(item.expires_at * 1000)
+                          ),
+                        })
+                      : t('Long-term valid')}
+                  </span>
+                </span>
+              </div>
               <Button
                 className='w-full'
+                variant={claimable ? 'default' : 'outline'}
                 disabled={!claimable}
                 onClick={() => handleOpenClaim(item)}
               >
@@ -290,21 +299,43 @@ export function RewardsPage() {
 
         <SectionPageLayout.Content>
           <div className='space-y-8'>
-            <div className='flex flex-wrap items-center gap-6'>
-              <span className='text-muted-foreground text-sm'>
-                {t('{{count}} rewards to claim', {
-                  count: pending?.count ?? 0,
-                })}
-              </span>
-              <strong className='text-2xl font-semibold tabular-nums'>
-                {formatQuota(pending?.total_quota ?? 0)}
-              </strong>
+            <div className='from-primary/12 via-primary/6 relative overflow-hidden rounded-xl border bg-gradient-to-br to-transparent p-5 sm:p-6'>
+              <span
+                aria-hidden='true'
+                className='pointer-events-none absolute -end-6 -top-8 size-32 rounded-full bg-current opacity-[0.04]'
+              />
+              <div className='relative flex flex-wrap items-end justify-between gap-6'>
+                <div className='space-y-1.5'>
+                  <p className='text-muted-foreground text-xs tracking-wide uppercase'>
+                    {t('Available to claim')}
+                  </p>
+                  <strong
+                    data-testid='reward-pending-total'
+                    className='block text-3xl leading-none font-bold tabular-nums sm:text-4xl'
+                  >
+                    {formatQuota(pending?.total_quota ?? 0)}
+                  </strong>
+                </div>
+                <span className='bg-background/70 text-muted-foreground inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium'>
+                  <Gift aria-hidden='true' className='size-3.5' />
+                  {t('{{count}} rewards to claim', {
+                    count: pending?.count ?? 0,
+                  })}
+                </span>
+              </div>
             </div>
 
             <section className='space-y-4'>{renderPending()}</section>
 
             <section className='space-y-4 border-t pt-6'>
-              <h3 className='font-semibold'>{t('Claim history')}</h3>
+              <div className='flex items-center justify-between gap-3'>
+                <h3 className='font-semibold'>{t('Claim history')}</h3>
+                {history != null && history.total > 0 && (
+                  <span className='text-muted-foreground text-xs tabular-nums'>
+                    {t('{{count}} records', { count: history.total })}
+                  </span>
+                )}
+              </div>
               {renderHistory()}
             </section>
           </div>

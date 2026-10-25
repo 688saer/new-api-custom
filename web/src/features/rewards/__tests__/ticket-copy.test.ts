@@ -22,9 +22,11 @@ import {
   clampStubFontSize,
   getRewardStatusVariant,
   isRewardClaimable,
+  REWARD_MODE_LABEL_KEYS,
   resolveTicketCopy,
   splitStubText,
   toRewardGrantStatus,
+  toRewardMode,
 } from '../lib/rewards'
 import type { RewardTicketCopy } from '../types'
 
@@ -42,6 +44,19 @@ describe('reward ticket helpers', () => {
   it('falls back to pending for an unknown status', () => {
     expect(toRewardGrantStatus('pending')).toBe('pending')
     expect(toRewardGrantStatus('refunded')).toBe('pending')
+  })
+
+  it('keeps every known reward mode and falls back to fixed for unknown ones', () => {
+    expect(toRewardMode('random')).toBe('random')
+    expect(toRewardMode('percentage')).toBe('percentage')
+    expect(toRewardMode('fixed')).toBe('fixed')
+    expect(toRewardMode('tiered')).toBe('fixed')
+  })
+
+  it('labels the random mode distinctly from fixed and percentage', () => {
+    const labels = Object.values(REWARD_MODE_LABEL_KEYS)
+    expect(new Set(labels).size).toBe(labels.length)
+    expect(REWARD_MODE_LABEL_KEYS.random).toBe('Random amount per user')
   })
 
   it('maps each status to a distinct badge variant', () => {

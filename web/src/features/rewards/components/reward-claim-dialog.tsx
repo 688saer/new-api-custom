@@ -87,7 +87,9 @@ export function RewardClaimDialog(props: RewardClaimDialogProps) {
             className='size-10 text-emerald-600 dark:text-emerald-400'
           />
           <h3 className='text-lg font-semibold'>
-            {claimed.already_claimed ? t('Already claimed') : t('Reward credited')}
+            {claimed.already_claimed
+              ? t('Already claimed')
+              : t('Reward credited')}
           </h3>
           <p className='text-3xl font-bold tabular-nums'>
             {formatQuota(claimed.amount_quota)}
@@ -95,7 +97,10 @@ export function RewardClaimDialog(props: RewardClaimDialogProps) {
           <p className='text-muted-foreground text-sm'>
             {t('Account balance')} {formatQuota(claimed.balance)}
           </p>
-          <Button className='mt-2 w-full' onClick={() => handleOpenChange(false)}>
+          <Button
+            className='mt-2 w-full'
+            onClick={() => handleOpenChange(false)}
+          >
             {t('Done')}
           </Button>
         </div>

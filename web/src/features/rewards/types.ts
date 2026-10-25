@@ -85,8 +85,8 @@ export interface RewardClaimResult {
 /** 发放范围。 */
 export type RewardAudienceScope = 'all' | 'active' | 'spend' | 'specific'
 
-/** 计算方式。 */
-export type RewardMode = 'fixed' | 'percentage'
+/** 计算方式。random 表示每位用户在自己区间内抽取一个额度。 */
+export type RewardMode = 'fixed' | 'percentage' | 'random'
 
 /** 发放范围草稿。 */
 export interface RewardAudienceDraft {
@@ -107,6 +107,9 @@ export interface RewardCampaignDraft {
   fixed_quota: number
   percent: number
   cap_quota: number
+  /** 随机模式的每人额度区间（含端点）。 */
+  random_min_quota: number
+  random_max_quota: number
   expires_at: number
 }
 
@@ -125,6 +128,11 @@ export interface RewardPreview {
   quota_per_unit: number
   sample: RewardRecipient[]
   truncated: boolean
+  /** 随机模式下的每人额度区间。 */
+  min_quota: number
+  max_quota: number
+  /** 总额只是按区间中值估算时为 true。 */
+  estimated: boolean
 }
 
 /** 发放记录条目。 */
@@ -134,6 +142,11 @@ export interface RewardCampaignSummary {
   style: RewardStyle
   audience_scope: RewardAudienceScope
   reward_mode: RewardMode
+  fixed_quota: number
+  percent: number
+  cap_quota: number
+  random_min_quota: number
+  random_max_quota: number
   target_count: number
   claimed_count: number
   total_quota: number

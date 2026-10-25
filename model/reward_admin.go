@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -26,6 +27,9 @@ const (
 const (
 	RewardModeFixed      = "fixed"
 	RewardModePercentage = "percentage"
+	// RewardModeRandom 每位用户在自己区间内抽取一个额度，抽取结果在发放时固化，
+	// 因此活动总额、明细与撤回金额都是确定的，可审计。
+	RewardModeRandom = "random"
 )
 
 // maxRewardRecipients 单次发放人数上限，避免误操作把整站用户一次性写进来
@@ -50,7 +54,10 @@ type RewardCampaignDraft struct {
 	FixedQuota int                                `json:"fixed_quota"`
 	Percent    int                                `json:"percent"`
 	CapQuota   int                                `json:"cap_quota"`
-	ExpiresAt  int64                              `json:"expires_at"`
+	// RandomMinQuota / RandomMaxQuota 随机模式的每人额度区间
+	RandomMinQuota int   `json:"random_min_quota"`
+	RandomMaxQuota int   `json:"random_max_quota"`
+	ExpiresAt      int64 `json:"expires_at"`
 }
 
 // RewardRecipient 解析出的单个接收人
@@ -68,23 +75,34 @@ type RewardPreview struct {
 	QuotaPerUnit float64           `json:"quota_per_unit"`
 	Sample       []RewardRecipient `json:"sample"`
 	Truncated    bool              `json:"truncated"`
+
+	// 随机模式下总额无法事先确定：MinQuota/MaxQuota 是每人区间，
+	// TotalQuota 按区间中值估算，Estimated 标记该数值只是估算。
+	MinQuota  int  `json:"min_quota"`
+	MaxQuota  int  `json:"max_quota"`
+	Estimated bool `json:"estimated"`
 }
 
 // RewardCampaignSummary 发放记录条目
 type RewardCampaignSummary struct {
-	Id            int     `json:"id"`
-	Name          string  `json:"name"`
-	Style         string  `json:"style"`
-	AudienceScope string  `json:"audience_scope"`
-	RewardMode    string  `json:"reward_mode"`
-	TargetCount   int     `json:"target_count"`
-	ClaimedCount  int     `json:"claimed_count"`
-	TotalQuota    int     `json:"total_quota"`
-	ClaimedQuota  int     `json:"claimed_quota"`
-	ExpiresAt     int64   `json:"expires_at"`
-	CreatedAt     int64   `json:"created_at"`
-	Status        string  `json:"status"`
-	QuotaPerUnit  float64 `json:"quota_per_unit"`
+	Id             int     `json:"id"`
+	Name           string  `json:"name"`
+	Style          string  `json:"style"`
+	AudienceScope  string  `json:"audience_scope"`
+	RewardMode     string  `json:"reward_mode"`
+	FixedQuota     int     `json:"fixed_quota"`
+	Percent        int     `json:"percent"`
+	CapQuota       int     `json:"cap_quota"`
+	RandomMinQuota int     `json:"random_min_quota"`
+	RandomMaxQuota int     `json:"random_max_quota"`
+	TargetCount    int     `json:"target_count"`
+	ClaimedCount   int     `json:"claimed_count"`
+	TotalQuota     int     `json:"total_quota"`
+	ClaimedQuota   int     `json:"claimed_quota"`
+	ExpiresAt      int64   `json:"expires_at"`
+	CreatedAt      int64   `json:"created_at"`
+	Status         string  `json:"status"`
+	QuotaPerUnit   float64 `json:"quota_per_unit"`
 }
 
 // RewardCampaignList 发放记录分页
@@ -153,6 +171,13 @@ func normalizeRewardDraft(draft *RewardCampaignDraft) error {
 		}
 		if draft.CapQuota <= 0 {
 			return newRewardError("REWARD_INVALID_AMOUNT", "A per-user cap is required for percentage rewards")
+		}
+	case RewardModeRandom:
+		if draft.RandomMinQuota <= 0 {
+			return newRewardError("REWARD_INVALID_AMOUNT", "The minimum random amount must be greater than zero")
+		}
+		if draft.RandomMaxQuota < draft.RandomMinQuota {
+			return newRewardError("REWARD_INVALID_AMOUNT", "The maximum random amount must not be lower than the minimum")
 		}
 	default:
 		return newRewardError("REWARD_INVALID_AMOUNT", "Unsupported reward calculation")
@@ -268,10 +293,31 @@ func loadRewardConsumptionQuota(userIds []int) (map[int]int64, error) {
 	return consumed, nil
 }
 
-// rewardAmountFor 按计算方式得出单人额度，0 表示不发放
-func rewardAmountFor(draft *RewardCampaignDraft, consumedQuota int64) int {
-	if draft.RewardMode == RewardModeFixed {
+// rewardRandomMidpoint 随机模式的估算额度（区间中值）
+func rewardRandomMidpoint(draft *RewardCampaignDraft) int {
+	return (draft.RandomMinQuota + draft.RandomMaxQuota) / 2
+}
+
+// rewardRandomAmount 在区间内均匀抽取一个额度。区间退化为单点时不抽签。
+func rewardRandomAmount(draft *RewardCampaignDraft, rnd *rand.Rand) int {
+	if draft.RandomMaxQuota <= draft.RandomMinQuota {
+		return draft.RandomMinQuota
+	}
+	span := draft.RandomMaxQuota - draft.RandomMinQuota + 1
+	return draft.RandomMinQuota + int(rnd.Int63n(int64(span)))
+}
+
+// rewardAmountFor 按计算方式得出单人额度，0 表示不发放。
+// rnd 仅在随机模式下使用，为 nil 时取区间中值（用于预览估算）。
+func rewardAmountFor(draft *RewardCampaignDraft, consumedQuota int64, rnd *rand.Rand) int {
+	switch draft.RewardMode {
+	case RewardModeFixed:
 		return draft.FixedQuota
+	case RewardModeRandom:
+		if rnd == nil {
+			return rewardRandomMidpoint(draft)
+		}
+		return rewardRandomAmount(draft, rnd)
 	}
 	amount := int(float64(consumedQuota) * float64(draft.Percent) / 100)
 	if draft.CapQuota > 0 && amount > draft.CapQuota {
@@ -283,8 +329,9 @@ func rewardAmountFor(draft *RewardCampaignDraft, consumedQuota int64) int {
 	return amount
 }
 
-// resolveRewardRecipients 解析接收人及其额度
-func resolveRewardRecipients(draft *RewardCampaignDraft) ([]RewardRecipient, error) {
+// resolveRewardRecipients 解析接收人及其额度。rnd 为 nil 时随机模式按区间中值
+// 估算，用于预览；正式发放必须传入真实随机源，使每人额度当场固化。
+func resolveRewardRecipients(draft *RewardCampaignDraft, rnd *rand.Rand) ([]RewardRecipient, error) {
 	userIds, err := rewardScopeUserIds(draft.Audience)
 	if err != nil {
 		return nil, err
@@ -306,7 +353,7 @@ func resolveRewardRecipients(draft *RewardCampaignDraft) ([]RewardRecipient, err
 
 	recipients := make([]RewardRecipient, 0, len(userIds))
 	for i := range userIds {
-		amount := rewardAmountFor(draft, consumers[userIds[i]])
+		amount := rewardAmountFor(draft, consumers[userIds[i]], rnd)
 		if amount <= 0 {
 			continue
 		}
@@ -337,12 +384,38 @@ func resolveRewardRecipients(draft *RewardCampaignDraft) ([]RewardRecipient, err
 	return recipients, nil
 }
 
+// rewardCampaignSummaryOf 把活动行映射为对外的摘要结构。
+// 发放、列表、撤回三处都要输出同一份字段，集中在这里避免各写一遍。
+func rewardCampaignSummaryOf(campaign *RewardCampaign, claimedQuota int) RewardCampaignSummary {
+	return RewardCampaignSummary{
+		Id:             campaign.Id,
+		Name:           campaign.Name,
+		Style:          campaign.Style,
+		AudienceScope:  campaign.AudienceScope,
+		RewardMode:     campaign.RewardMode,
+		FixedQuota:     campaign.FixedQuota,
+		Percent:        campaign.Percent,
+		CapQuota:       campaign.CapQuota,
+		RandomMinQuota: campaign.RandomMinQuota,
+		RandomMaxQuota: campaign.RandomMaxQuota,
+		TargetCount:    campaign.TargetCount,
+		ClaimedCount:   campaign.ClaimedCount,
+		TotalQuota:     campaign.TotalQuota,
+		ClaimedQuota:   claimedQuota,
+		ExpiresAt:      campaign.ExpiresAt,
+		CreatedAt:      campaign.CreatedAt,
+		Status:         campaign.Status,
+		QuotaPerUnit:   common.QuotaPerUnit,
+	}
+}
+
 // PreviewRewardCampaign 预览发放人数、总额与前若干位名单
 func PreviewRewardCampaign(draft RewardCampaignDraft) (*RewardPreview, error) {
 	if err := normalizeRewardDraft(&draft); err != nil {
 		return nil, err
 	}
-	recipients, err := resolveRewardRecipients(&draft)
+	// 预览用区间中值估算随机额度，不消耗真实随机源。
+	recipients, err := resolveRewardRecipients(&draft, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -354,6 +427,11 @@ func PreviewRewardCampaign(draft RewardCampaignDraft) (*RewardPreview, error) {
 	}
 	for i := range recipients {
 		preview.TotalQuota += recipients[i].AmountQuota
+	}
+	if draft.RewardMode == RewardModeRandom {
+		preview.MinQuota = draft.RandomMinQuota
+		preview.MaxQuota = draft.RandomMaxQuota
+		preview.Estimated = draft.RandomMaxQuota > draft.RandomMinQuota
 	}
 	const sampleSize = 20
 	if len(recipients) > sampleSize {
@@ -370,7 +448,13 @@ func IssueRewardCampaign(draft RewardCampaignDraft, adminId int) (*RewardCampaig
 	if err := normalizeRewardDraft(&draft); err != nil {
 		return nil, err
 	}
-	recipients, err := resolveRewardRecipients(&draft)
+	// 随机模式在发放这一刻抽定每人额度并写进 reward_grants，
+	// 之后的活动总额、明细与撤回金额都以落库值为准，不随重算变化。
+	var rnd *rand.Rand
+	if draft.RewardMode == RewardModeRandom {
+		rnd = rand.New(rand.NewSource(time.Now().UnixNano() ^ int64(adminId)<<17))
+	}
+	recipients, err := resolveRewardRecipients(&draft, rnd)
 	if err != nil {
 		return nil, err
 	}
@@ -385,19 +469,21 @@ func IssueRewardCampaign(draft RewardCampaignDraft, adminId int) (*RewardCampaig
 
 	now := time.Now().Unix()
 	campaign := &RewardCampaign{
-		Name:          draft.Name,
-		Style:         draft.Style,
-		Copy:          string(copyBytes),
-		AudienceScope: draft.Audience.Scope,
-		RewardMode:    draft.RewardMode,
-		FixedQuota:    draft.FixedQuota,
-		Percent:       draft.Percent,
-		CapQuota:      draft.CapQuota,
-		ExpiresAt:     draft.ExpiresAt,
-		TargetCount:   len(recipients),
-		CreatedBy:     adminId,
-		CreatedAt:     now,
-		Status:        RewardCampaignActive,
+		Name:           draft.Name,
+		Style:          draft.Style,
+		Copy:           string(copyBytes),
+		AudienceScope:  draft.Audience.Scope,
+		RewardMode:     draft.RewardMode,
+		FixedQuota:     draft.FixedQuota,
+		Percent:        draft.Percent,
+		CapQuota:       draft.CapQuota,
+		RandomMinQuota: draft.RandomMinQuota,
+		RandomMaxQuota: draft.RandomMaxQuota,
+		ExpiresAt:      draft.ExpiresAt,
+		TargetCount:    len(recipients),
+		CreatedBy:      adminId,
+		CreatedAt:      now,
+		Status:         RewardCampaignActive,
 	}
 	for i := range recipients {
 		campaign.TotalQuota += recipients[i].AmountQuota
@@ -424,19 +510,8 @@ func IssueRewardCampaign(draft RewardCampaignDraft, adminId int) (*RewardCampaig
 		return nil, err
 	}
 
-	return &RewardCampaignSummary{
-		Id:            campaign.Id,
-		Name:          campaign.Name,
-		Style:         campaign.Style,
-		AudienceScope: campaign.AudienceScope,
-		RewardMode:    campaign.RewardMode,
-		TargetCount:   campaign.TargetCount,
-		TotalQuota:    campaign.TotalQuota,
-		ExpiresAt:     campaign.ExpiresAt,
-		CreatedAt:     campaign.CreatedAt,
-		Status:        campaign.Status,
-		QuotaPerUnit:  common.QuotaPerUnit,
-	}, nil
+	summary := rewardCampaignSummaryOf(campaign, 0)
+	return &summary, nil
 }
 
 // ListRewardCampaigns 发放记录分页
@@ -487,21 +562,8 @@ func ListRewardCampaigns(page, pageSize int) (*RewardCampaignList, error) {
 
 	for i := range campaigns {
 		campaign := campaigns[i]
-		result.Items = append(result.Items, RewardCampaignSummary{
-			Id:            campaign.Id,
-			Name:          campaign.Name,
-			Style:         campaign.Style,
-			AudienceScope: campaign.AudienceScope,
-			RewardMode:    campaign.RewardMode,
-			TargetCount:   campaign.TargetCount,
-			ClaimedCount:  campaign.ClaimedCount,
-			TotalQuota:    campaign.TotalQuota,
-			ClaimedQuota:  claimedQuota[campaign.Id],
-			ExpiresAt:     campaign.ExpiresAt,
-			CreatedAt:     campaign.CreatedAt,
-			Status:        campaign.Status,
-			QuotaPerUnit:  common.QuotaPerUnit,
-		})
+		result.Items = append(result.Items,
+			rewardCampaignSummaryOf(&campaign, claimedQuota[campaign.Id]))
 	}
 	return result, nil
 }
@@ -603,21 +665,8 @@ func RevokeRewardCampaign(campaignId int) (*RewardCampaignSummary, error) {
 		return nil, err
 	}
 
-	return &RewardCampaignSummary{
-		Id:            campaign.Id,
-		Name:          campaign.Name,
-		Style:         campaign.Style,
-		AudienceScope: campaign.AudienceScope,
-		RewardMode:    campaign.RewardMode,
-		TargetCount:   campaign.TargetCount,
-		ClaimedCount:  campaign.ClaimedCount,
-		TotalQuota:    campaign.TotalQuota,
-		ClaimedQuota:  claimedQuota,
-		ExpiresAt:     campaign.ExpiresAt,
-		CreatedAt:     campaign.CreatedAt,
-		Status:        campaign.Status,
-		QuotaPerUnit:  common.QuotaPerUnit,
-	}, nil
+	summary := rewardCampaignSummaryOf(&campaign, claimedQuota)
+	return &summary, nil
 }
 
 // SearchRewardUsers 按邮箱或用户名搜索可选用户

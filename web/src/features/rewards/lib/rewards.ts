@@ -16,7 +16,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { RewardGrantStatus, RewardTicketCopy } from '../types'
+import type { RewardGrantStatus, RewardMode, RewardTicketCopy } from '../types'
+
+/** 计算方式的展示文案键。 */
+export const REWARD_MODE_LABEL_KEYS: Record<RewardMode, string> = {
+  fixed: 'Fixed amount per user',
+  percentage: 'Percentage of spend',
+  random: 'Random amount per user',
+}
+
+/** 计算方式未知时回落到 fixed，避免后端新增模式时渲染崩溃。 */
+export function toRewardMode(value: string): RewardMode {
+  if (value === 'percentage' || value === 'random') return value
+  return 'fixed'
+}
 
 /** 领取状态徽章的展示配置。
  *

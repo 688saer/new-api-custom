@@ -31,6 +31,7 @@ import {
 import { formatQuota } from '@/lib/format'
 import { formatDateTimeObject } from '@/lib/time'
 
+import { REWARD_MODE_LABEL_KEYS, toRewardMode } from '../lib/rewards'
 import type { RewardCampaignSummary } from '../types'
 
 interface AdminRewardCampaignsProps {
@@ -75,6 +76,7 @@ export function AdminRewardCampaigns(props: AdminRewardCampaignsProps) {
           <TableHeader>
             <TableRow>
               <TableHead>{t('Campaign')}</TableHead>
+              <TableHead>{t('Calculation')}</TableHead>
               <TableHead>{t('Recipients')}</TableHead>
               <TableHead>{t('Total amount')}</TableHead>
               <TableHead>{t('Claimed')}</TableHead>
@@ -90,6 +92,11 @@ export function AdminRewardCampaigns(props: AdminRewardCampaignsProps) {
                 <TableRow key={campaign.id}>
                   <TableCell className='min-w-[160px] font-medium'>
                     {campaign.name}
+                  </TableCell>
+                  <TableCell className='text-muted-foreground whitespace-nowrap'>
+                    {t(
+                      REWARD_MODE_LABEL_KEYS[toRewardMode(campaign.reward_mode)]
+                    )}
                   </TableCell>
                   <TableCell className='tabular-nums'>
                     {campaign.claimed_count} / {campaign.target_count}

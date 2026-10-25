@@ -61,7 +61,7 @@ export function RewardHistoryTable(props: RewardHistoryTableProps) {
           <TableHeader>
             <TableRow>
               <TableHead>{t('Campaign')}</TableHead>
-              <TableHead>{t('Amount')}</TableHead>
+              <TableHead className='text-right'>{t('Amount')}</TableHead>
               <TableHead>{t('Status')}</TableHead>
               <TableHead>{t('Claimed at')}</TableHead>
             </TableRow>
@@ -74,7 +74,7 @@ export function RewardHistoryTable(props: RewardHistoryTableProps) {
                   <TableCell className='min-w-[160px] font-medium'>
                     {item.campaign_name}
                   </TableCell>
-                  <TableCell className='tabular-nums'>
+                  <TableCell className='text-right font-medium tabular-nums'>
                     {formatQuota(item.amount_quota)}
                   </TableCell>
                   <TableCell>

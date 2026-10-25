@@ -62,12 +62,16 @@ type RewardCampaign struct {
 	// AudienceScope 发放范围：all | active | spend | specific
 	AudienceScope string `json:"audience_scope" gorm:"type:varchar(16);not null;default:'all'"`
 
-	// RewardMode 计算方式：fixed（每人固定）| percentage（按累计消费比例）
+	// RewardMode 计算方式：fixed（每人固定）| percentage（按累计消费比例）| random（每人随机）
 	RewardMode string `json:"reward_mode" gorm:"type:varchar(16);not null;default:'fixed'"`
 
 	FixedQuota int `json:"fixed_quota" gorm:"not null;default:0"` // 每人固定额度
 	Percent    int `json:"percent" gorm:"not null;default:0"`     // 比例（%）
 	CapQuota   int `json:"cap_quota" gorm:"not null;default:0"`   // 比例模式每人封顶额度
+
+	// RandomMinQuota / RandomMaxQuota 随机模式的每人额度区间（含端点）
+	RandomMinQuota int `json:"random_min_quota" gorm:"not null;default:0"`
+	RandomMaxQuota int `json:"random_max_quota" gorm:"not null;default:0"`
 
 	// ExpiresAt 领取截止时间（Unix 秒），0 表示长期有效
 	ExpiresAt int64 `json:"expires_at" gorm:"bigint;not null;default:0"`

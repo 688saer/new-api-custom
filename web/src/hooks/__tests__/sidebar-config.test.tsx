@@ -87,6 +87,7 @@ describe('security sidebar visibility', () => {
       'Announcements',
       'Lucky Draw',
       'Welfare Chests',
+      'My rewards',
       'Channel availability',
       'Infinite canvas',
       'Wallet',
