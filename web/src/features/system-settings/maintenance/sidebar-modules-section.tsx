@@ -156,6 +156,10 @@ export function SidebarModulesSection({
         title: t('Security & Access'),
         description: t('Manage your security settings and account access'),
       },
+      rewards: {
+        title: t('My rewards'),
+        description: t('Claimable reward tickets issued by the operator.'),
+      },
     },
     admin: {
       channel: {
@@ -169,6 +173,10 @@ export function SidebarModulesSection({
       redemption: {
         title: t('Redeem codes'),
         description: t('Create and review invite or credit codes.'),
+      },
+      rewards: {
+        title: t('Reward management'),
+        description: t('Issue and withdraw reward tickets.'),
       },
       user: {
         title: t('Users'),

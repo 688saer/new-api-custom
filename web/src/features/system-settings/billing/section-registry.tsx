@@ -23,6 +23,10 @@ import { LotterySettingsSection } from '../general/lottery-settings-section'
 import { PricingSection } from '../general/pricing-section'
 import { QuotaSettingsSection } from '../general/quota-settings-section'
 import {
+  RewardSettingsSection,
+  type RewardSectionDefaults,
+} from '../general/reward-settings-section'
+import {
   WelfareChestSettingsSection,
   type WelfareChestBoxDefaults,
 } from '../general/welfare-chest-settings-section'
@@ -47,9 +51,54 @@ const DEFAULT_HEI_DASHUAI: WelfareChestBoxDefaults = {
   medianUsd: 0.4,
 }
 
+const DEFAULT_REWARD_SETTING: RewardSectionDefaults = {
+  enabled: false,
+  maxQuotaLimit: 0,
+  historyPageSize: 20,
+  copy: {
+    label: 'New API',
+    title: '感谢你的支持',
+    subtitle: '每一次创造，都值得被支持。',
+    footer: '奖励金可用于本站模型调用',
+    stubText: '专属奖励',
+    stubFontSize: 28,
+    buttonText: '领取奖励金',
+  },
+}
+
 const toFiniteNumber = (value: unknown, fallback: number): number => {
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : fallback
+}
+
+const toText = (value: unknown, fallback: string): string =>
+  typeof value === 'string' && value.trim() !== '' ? value : fallback
+
+/**
+ * Read the ticket-copy option into the shape the admin form edits. A blank or
+ * unparsable value falls back to the shipped defaults.
+ */
+function parseRewardCopy(raw: string): RewardSectionDefaults['copy'] {
+  const fallback = DEFAULT_REWARD_SETTING.copy
+  let copy: Record<string, unknown> = {}
+  try {
+    const value = JSON.parse(raw)
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      copy = value as Record<string, unknown>
+    }
+  } catch {
+    return { ...fallback }
+  }
+
+  return {
+    label: toText(copy.label, fallback.label),
+    title: toText(copy.title, fallback.title),
+    subtitle: toText(copy.subtitle, fallback.subtitle),
+    footer: toText(copy.footer, fallback.footer),
+    stubText: toText(copy.stub_text, fallback.stubText),
+    stubFontSize: toFiniteNumber(copy.stub_font_size, fallback.stubFontSize),
+    buttonText: toText(copy.button_text, fallback.buttonText),
+  }
 }
 
 /**
@@ -80,7 +129,6 @@ function parseChestBox(
     medianUsd: toFiniteNumber(parsed.median_usd, fallback.medianUsd),
   }
 }
-
 
 const getModelDefaults = (settings: BillingSettings) => ({
   ModelPrice: settings.ModelPrice,
@@ -287,7 +335,8 @@ const BILLING_SECTIONS = [
           enabled: settings['welfare_chest_setting.enabled'],
           canOpenAny: settings['welfare_chest_setting.can_open_any'],
           unlimitedOpen: settings['welfare_chest_setting.unlimited_open'],
-          chooseOnePerWeek: settings['welfare_chest_setting.choose_one_per_week'],
+          chooseOnePerWeek:
+            settings['welfare_chest_setting.choose_one_per_week'],
           maxQuotaLimit: settings['welfare_chest_setting.max_quota_limit'],
           xiaoshuaiGe: parseChestBox(
             settings['welfare_chest_setting.xiaoshuai_ge'],
@@ -300,6 +349,21 @@ const BILLING_SECTIONS = [
         }}
         rawXiaoshuaiGe={settings['welfare_chest_setting.xiaoshuai_ge']}
         rawHeiDashuai={settings['welfare_chest_setting.hei_dashuai']}
+      />
+    ),
+  },
+  {
+    id: 'rewards',
+    titleKey: 'Rewards',
+    build: (settings: BillingSettings) => (
+      <RewardSettingsSection
+        defaultValues={{
+          enabled: settings['reward_setting.enabled'],
+          maxQuotaLimit: settings['reward_setting.max_quota_limit'],
+          historyPageSize: settings['reward_setting.history_page_size'],
+          copy: parseRewardCopy(settings['reward_setting.default_copy'] ?? ''),
+        }}
+        rawCopy={settings['reward_setting.default_copy'] ?? ''}
       />
     ),
   },

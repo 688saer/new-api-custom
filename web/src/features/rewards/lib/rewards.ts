@@ -1,0 +1,104 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+import type { RewardGrantStatus, RewardTicketCopy } from '../types'
+
+/** 领取状态徽章的展示配置。
+ *
+ * 待领取特意不用通用的 `Pending`（该键在订单等其他场景译作「待确认」），
+ * 否则领取记录里会显示成与业务无关的措辞。
+ */
+export const REWARD_STATUS_LABEL_KEYS: Record<RewardGrantStatus, string> = {
+  pending: 'Waiting to claim',
+  claimed: 'Claimed',
+  cancelled: 'Withdrawn',
+  expired: 'Expired',
+}
+
+const REWARD_STATUS_VARIANTS: Record<
+  RewardGrantStatus,
+  'default' | 'secondary' | 'destructive' | 'outline'
+> = {
+  pending: 'default',
+  claimed: 'secondary',
+  cancelled: 'outline',
+  expired: 'outline',
+}
+
+export function getRewardStatusVariant(
+  status: RewardGrantStatus
+): 'default' | 'secondary' | 'destructive' | 'outline' {
+  return REWARD_STATUS_VARIANTS[status] ?? 'outline'
+}
+
+/** 未知状态回落到 pending，避免后端新增状态时渲染崩溃。 */
+export function toRewardGrantStatus(value: string): RewardGrantStatus {
+  if (
+    value === 'pending' ||
+    value === 'claimed' ||
+    value === 'cancelled' ||
+    value === 'expired'
+  ) {
+    return value
+  }
+  return 'pending'
+}
+
+/** 竖排票根文字的字号收敛在 14–56px，与后端校验一致。 */
+export function clampStubFontSize(size: number | undefined): number {
+  if (!Number.isFinite(size)) return 28
+  return Math.min(56, Math.max(14, Math.round(size as number)))
+}
+
+/**
+ * 拼出券面最终文案。
+ *
+ * 后端返回的 copy 已用默认值补齐；这里再兜一层，避免历史数据缺字段时
+ * 券面出现空白。
+ */
+export function resolveTicketCopy(copy: RewardTicketCopy): RewardTicketCopy {
+  return {
+    label: copy.label ?? '',
+    title: copy.title ?? '',
+    subtitle: copy.subtitle ?? '',
+    footer: copy.footer ?? '',
+    stub_text: copy.stub_text ?? '',
+    stub_font_size: clampStubFontSize(copy.stub_font_size),
+    button_text: copy.button_text ?? '',
+  }
+}
+
+/** 票根文字按字符竖排，空白字符不占位。 */
+export function splitStubText(text: string): string[] {
+  return Array.from(text).filter((character) => character.trim() !== '')
+}
+
+/** 奖励是否还能领取。
+ *
+ * 后端在领取时才做最终判定，这里只用于提前把按钮置灰，并把过期/撤回的
+ * 券标注出来。
+ */
+export function isRewardClaimable(
+  status: RewardGrantStatus,
+  expiresAt: number,
+  now: number = Date.now()
+): boolean {
+  if (status !== 'pending') return false
+  if (expiresAt <= 0) return true
+  return expiresAt * 1000 > now
+}

@@ -150,6 +150,18 @@ const defaultBillingSettings: BillingSettings = {
     closed_image: '/static/welfare-chests/hei-dashuai-closed.png',
     opened_image: '/static/welfare-chests/hei-dashuai-opened.png',
   }),
+  'reward_setting.enabled': false,
+  'reward_setting.max_quota_limit': 0,
+  'reward_setting.history_page_size': 20,
+  'reward_setting.default_copy': JSON.stringify({
+    label: 'New API',
+    title: '感谢你的支持',
+    subtitle: '每一次创造，都值得被支持。',
+    footer: '奖励金可用于本站模型调用',
+    stub_text: '专属奖励',
+    stub_font_size: 28,
+    button_text: '领取奖励金',
+  }),
 }
 
 export function BillingSettings() {

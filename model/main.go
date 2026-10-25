@@ -379,6 +379,8 @@ func migrateDB() error {
 		&LotteryDraw{},
 		&LotteryRound{},
 		&WelfareChestClaim{},
+		&RewardCampaign{},
+		&RewardGrant{},
 		&ServiceStatusSample{},
 	)
 	if err != nil {

@@ -122,6 +122,11 @@ export function SidebarModulesCard() {
           description: t('Platform notices and update history'),
         },
         {
+          key: 'rewards',
+          title: t('My rewards'),
+          description: t('Claimable reward tickets issued by the operator.'),
+        },
+        {
           key: 'topup',
           title: t('Wallet Management'),
           description: t('Balance and top-up management'),

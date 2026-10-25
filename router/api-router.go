@@ -159,6 +159,11 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/welfare-chests/open", middleware.CriticalRateLimit(), controller.OpenWelfareChest)
 				selfRoute.GET("/welfare-chests/ranking", controller.GetWelfareChestsRanking)
 
+				// Reward routes
+				selfRoute.GET("/rewards/pending", controller.GetMyRewardsPending)
+				selfRoute.GET("/rewards/history", controller.GetMyRewardsHistory)
+				selfRoute.POST("/rewards/:id/claim", middleware.CriticalRateLimit(), controller.ClaimMyReward)
+
 				// Custom OAuth bindings
 				selfRoute.GET("/oauth/bindings", controller.GetUserOAuthBindings)
 				selfRoute.DELETE("/oauth/bindings/:provider_id", controller.UnbindCustomOAuth)
@@ -171,6 +176,14 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.GET("/topup", controller.GetAllTopUps)
 				adminRoute.POST("/topup/complete", controller.AdminCompleteTopUp)
 				adminRoute.GET("/search", controller.SearchUsers)
+
+				// Admin reward routes
+				adminRoute.GET("/rewards/users", controller.SearchRewardUsers)
+				adminRoute.POST("/rewards/campaigns/preview", controller.PreviewRewardCampaign)
+				adminRoute.POST("/rewards/campaigns", controller.IssueRewardCampaign)
+				adminRoute.GET("/rewards/campaigns", controller.ListRewardCampaigns)
+				adminRoute.GET("/rewards/campaigns/:id/grants", controller.ListRewardCampaignGrants)
+				adminRoute.POST("/rewards/campaigns/:id/revoke", controller.RevokeRewardCampaign)
 				adminRoute.GET("/:id/oauth/bindings", controller.GetUserOAuthBindingsByAdmin)
 				adminRoute.DELETE("/:id/oauth/bindings/:provider_id", controller.UnbindCustomOAuthByAdmin)
 				adminRoute.DELETE("/:id/bindings/:binding_type", controller.AdminClearUserBinding)

@@ -386,6 +386,10 @@ export type BillingSettings = {
   'welfare_chest_setting.max_quota_limit': number
   'welfare_chest_setting.xiaoshuai_ge': string
   'welfare_chest_setting.hei_dashuai': string
+  'reward_setting.enabled': boolean
+  'reward_setting.max_quota_limit': number
+  'reward_setting.history_page_size': number
+  'reward_setting.default_copy': string
 }
 
 export type OperationsSettings = {

@@ -24,6 +24,7 @@ import {
   FileText,
   FlaskConical,
   Gift,
+  HandCoins,
   Key,
   LayoutDashboard,
   Layers,
@@ -131,6 +132,11 @@ export function useSidebarData(): SidebarData {
             icon: Gift,
           },
           {
+            title: t('My rewards'),
+            url: '/rewards',
+            icon: HandCoins,
+          },
+          {
             title: t('Channel availability'),
             url: '/service-status',
             icon: Activity,
@@ -175,6 +181,12 @@ export function useSidebarData(): SidebarData {
             title: t('Users'),
             url: '/users',
             icon: Users,
+          },
+          {
+            title: t('Reward management'),
+            url: '/rewards/admin',
+            icon: HandCoins,
+            requiredRole: ROLE.ADMIN,
           },
           {
             title: t('Redemption Codes'),
