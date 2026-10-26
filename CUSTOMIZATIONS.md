@@ -51,10 +51,10 @@ git apply --3way /tmp/up.patch                                  # 带三向合�
 | 上游提交 | `e835b1b` upstream v1.0.0-rc.47 |
 | 上手方式 | `git apply --3way`（rc.47 与本地重叠 9 个文件，仅 7 个 locale 冲突） |
 | 合并提交 | `c103906` chore(upstream): 无损合并官方 v1.0.0-rc.47 |
-| 发布提交 | `85ce240` feat(rewards): 随机额度发放 + 券面样式与页面 UI 优化（tag `v1.0.0-rc.47-random`） |
-| 发布后修正 | 仅本文档与两个脚本执行位，代码与镜像未变 |
-| 文件数 | 2916 |
-| 代码树哈希 | `f2fa906`（发布提交的 tree，线上镜像已核对一致） |
+| 发布提交 | `708744c` style(rewards): 用 if-else 替换嵌套三元表达式（tag `v1.0.0-rc.47-claimwindow`） |
+| 发布后修正 | 无 |
+| 文件数 | 2917 |
+| 代码树哈希 | `5ebf0f4`（发布提交的 tree，线上镜像已核对一致） |
 | Go 版本 | 1.26.10（rc.46 起强制，见 CVE-2026-111943） |
 | 前端依赖 | rc.47 更新了 axios / i18next / react-i18next / input-otp，升级后必须重跑 `bun install` |
 
