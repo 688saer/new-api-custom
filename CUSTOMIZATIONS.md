@@ -567,6 +567,7 @@ main.go:44:12: pattern web/dist: cannot embed file web/dist/mascot/clips/是啊�
 - 券面固定长宽比 `741/425`，正文与票根按 `76% : 24%` 分栏，中间是**打孔线 + 上下各一个 22px 撕口**。
 - 四种配色 `aurora / citrus / sunrise / nocturne`，各带网点底纹、光效层与悬停高光。
 - 金额 36px 独立成块；有效期前置时钟图标；未到期用主色按钮，已过期置灰。
+- 未到领取开始时间的券显示「未开始」，按钮置灰并提示「{{date}} 起可领取」。
 - 下方是领取记录表（金额右对齐），**只列已结算**（`status <> pending`），避免和上方待领取重复。
 
 #### 领取流程
@@ -577,9 +578,24 @@ main.go:44:12: pattern web/dist: cannot embed file web/dist/mascot/clips/是啊�
 | 确认领取 | `POST /api/user/rewards/:id/claim`，事务内 `lockForUpdate` 锁住该条记录 |
 | 成功 | 弹窗显示「奖励已到账 / 金额 / 账户余额」，列表自动移除该券并刷新记录 |
 | 重复领取 | 返回 `already_claimed`，不再加钱 |
+| 未到开始时间 | 返回 `REWARD_NOT_STARTED`，券保持待领取 |
 | 已撤回/已过期 | 分别返回 `REWARD_CANCELLED` / `REWARD_EXPIRED` |
 
 **过期是惰性的**：没有定时任务，读取待领取列表时顺手把过期的置为 `expired`。
+
+#### 领取窗口
+
+发放时可以指定**领取开始时间**与**领取截止时间**（`claim_start_at` / `expires_at`，Unix 秒）：
+
+| 取值 | 含义 |
+|---|---|
+| 开始时间为 0 | 发放后立即可领（默认） |
+| 截止时间为 0 | 长期有效（默认） |
+| 开始时间 ≥ 截止时间 | 直接拒绝，`REWARD_INVALID_CLAIM_WINDOW` |
+
+未到开始时间就领取返回 `REWARD_NOT_STARTED`，券仍保持 `pending`，到点后可正常领取。
+待领取接口同时返回全量（`count` / `total_quota`）与当下可领（`claimable_count` / `claimable_quota`），
+页面顶部的「可领取」金额只算后者，避免把预约发放的额度算成已到手。
 
 #### 三种额度计算方式
 
@@ -613,6 +629,7 @@ main.go:44:12: pattern web/dist: cannot embed file web/dist/mascot/clips/是啊�
 | `web/src/features/rewards/` | 前端模块，2792 行 |
 | `web/src/features/rewards/components/reward-ticket.tsx` | 券面组件（四种配色） |
 | `web/src/features/rewards/components/reward-amount-fields.tsx` | 三种计算方式的表单分区 |
+| `web/src/features/rewards/components/reward-window-fields.tsx` | 领取开始/截止时间表单分区 |
 | `web/src/features/system-settings/general/reward-settings-section.tsx` | 后台配置页 |
 
 后台位置：`系统设置 → 计费 → 我的奖励`。
