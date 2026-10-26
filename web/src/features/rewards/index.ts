@@ -21,6 +21,7 @@ export { RewardTicket } from './components/reward-ticket'
 export { RewardsPage } from './components/rewards-page'
 export {
   clampStubFontSize,
+  getRewardClaimState,
   getRewardStatusVariant,
   isRewardClaimable,
   REWARD_STATUS_LABEL_KEYS,

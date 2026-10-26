@@ -101,17 +101,37 @@ export function splitStubText(text: string): string[] {
   return Array.from(text).filter((character) => character.trim() !== '')
 }
 
-/** 奖励是否还能领取。
+/** 券的领取状态：可领、未到开始时间、已过期、已失效。 */
+export type RewardClaimState =
+  | 'claimable'
+  | 'scheduled'
+  | 'expired'
+  | 'unavailable'
+
+/**
+ * 奖励当前的领取状态。
  *
- * 后端在领取时才做最终判定，这里只用于提前把按钮置灰，并把过期/撤回的
- * 券标注出来。
+ * 后端在领取时才做最终判定，这里只用于提前置灰按钮并给出对应文案。
+ * 开始时间为 0 表示发放后立即可领，截止时间为 0 表示长期有效。
  */
+export function getRewardClaimState(
+  status: RewardGrantStatus,
+  claimStartAt: number,
+  expiresAt: number,
+  now: number = Date.now()
+): RewardClaimState {
+  if (status !== 'pending') return 'unavailable'
+  const nowSeconds = Math.floor(now / 1000)
+  if (claimStartAt > nowSeconds) return 'scheduled'
+  if (expiresAt > 0 && expiresAt <= nowSeconds) return 'expired'
+  return 'claimable'
+}
+
+/** 奖励是否还能领取（可领状态即为 true）。 */
 export function isRewardClaimable(
   status: RewardGrantStatus,
   expiresAt: number,
   now: number = Date.now()
 ): boolean {
-  if (status !== 'pending') return false
-  if (expiresAt <= 0) return true
-  return expiresAt * 1000 > now
+  return getRewardClaimState(status, 0, expiresAt, now) === 'claimable'
 }

@@ -29,7 +29,7 @@ export const DEFAULT_REWARD_COPY: RewardTicketCopy = {
   button_text: '领取奖励金',
 }
 
-/** 一张空白草稿：固定额度、发给全体用户、长期有效。 */
+/** 一张空白草稿：固定额度、发给全体用户、发放后立即可领且长期有效。 */
 export function createEmptyDraft(): RewardCampaignDraft {
   return {
     name: '',
@@ -48,6 +48,7 @@ export function createEmptyDraft(): RewardCampaignDraft {
     cap_quota: 500000,
     random_min_quota: 100000,
     random_max_quota: 500000,
+    claim_start_at: 0,
     expires_at: 0,
   }
 }

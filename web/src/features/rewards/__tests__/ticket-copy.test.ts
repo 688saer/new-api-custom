@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   clampStubFontSize,
+  getRewardClaimState,
   getRewardStatusVariant,
   isRewardClaimable,
   REWARD_MODE_LABEL_KEYS,
@@ -106,5 +107,24 @@ describe('reward ticket helpers', () => {
     expect(isRewardClaimable('claimed', 0)).toBe(false)
     expect(isRewardClaimable('cancelled', 0)).toBe(false)
     expect(isRewardClaimable('expired', 0)).toBe(false)
+  })
+
+  it('reports a pending reward as scheduled until its claim start time', () => {
+    const now = 1_800_000_000_000
+    expect(getRewardClaimState('pending', 1_800_000_600, 0, now)).toBe(
+      'scheduled'
+    )
+    expect(getRewardClaimState('pending', 1_800_000_000, 0, now)).toBe(
+      'claimable'
+    )
+    expect(getRewardClaimState('pending', 0, 0, now)).toBe('claimable')
+  })
+
+  it('keeps the deadline ahead of the claim state once the window closes', () => {
+    const now = 1_800_000_000_000
+    expect(getRewardClaimState('pending', 0, 1_799_999_000, now)).toBe(
+      'expired'
+    )
+    expect(getRewardClaimState('claimed', 0, 0, now)).toBe('unavailable')
   })
 })

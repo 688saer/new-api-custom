@@ -29,6 +29,7 @@ import {
 } from 'vitest'
 
 import { RewardsPage } from '../components/rewards-page'
+import { getRewardClaimState } from '../lib/rewards'
 import type {
   RewardClaimResult,
   RewardHistoryResult,
@@ -88,6 +89,7 @@ function makeReward(overrides: Partial<RewardItem> = {}): RewardItem {
     style: 'aurora',
     copy: { ...COPY },
     amount_quota: 500000,
+    claim_start_at: 0,
     expires_at: 0,
     created_at: 1_760_000_000,
     claimed_at: 0,
@@ -96,10 +98,20 @@ function makeReward(overrides: Partial<RewardItem> = {}): RewardItem {
 }
 
 function makePending(items: RewardItem[], enabled = true): RewardPendingResult {
+  const claimable = items.filter(
+    (item) =>
+      getRewardClaimState(item.status, item.claim_start_at, item.expires_at) ===
+      'claimable'
+  )
   return {
     enabled,
     count: items.length,
     total_quota: items.reduce((sum, item) => sum + item.amount_quota, 0),
+    claimable_count: claimable.length,
+    claimable_quota: claimable.reduce(
+      (sum, item) => sum + item.amount_quota,
+      0
+    ),
     items,
     quota_per_unit: 500000,
   }
@@ -185,6 +197,51 @@ describe('RewardsPage', () => {
 
     const button = await screen.findByRole('button', { name: 'Expired' })
     expect(button).toBeDisabled()
+  })
+
+  it('shows a scheduled reward without letting the user claim it early', async () => {
+    const startAt = Math.floor(Date.now() / 1000) + 3600
+    mockSuccess(makePending([makeReward({ claim_start_at: startAt })]))
+
+    render(<RewardsPage />)
+
+    const button = await screen.findByRole('button', { name: 'Not Started' })
+    expect(button).toBeDisabled()
+    expect(screen.getByTestId('reward-ticket')).toBeInTheDocument()
+    expect(
+      screen.getByText(/^Claimable from \d{4}-\d{2}-\d{2}/)
+    ).toBeInTheDocument()
+  })
+
+  it('leaves scheduled rewards out of the claimable total', async () => {
+    const startAt = Math.floor(Date.now() / 1000) + 3600
+    mockSuccess(
+      makePending([
+        makeReward({ id: 1, amount_quota: 500000 }),
+        makeReward({ id: 2, amount_quota: 1000000, claim_start_at: startAt }),
+      ])
+    )
+
+    render(<RewardsPage />)
+
+    // 只有一张现在就能领，页头金额不能把预约的那张算进去
+    expect(await screen.findByTestId('reward-pending-total')).toHaveTextContent(
+      '$1'
+    )
+    expect(screen.getByTestId('reward-pending-total')).not.toHaveTextContent(
+      '$3'
+    )
+    expect(
+      screen.getByText('{{count}} rewards to claim'.replace('{{count}}', '1'))
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        '{{count}} more rewards will open for claiming later'.replace(
+          '{{count}}',
+          '1'
+        )
+      )
+    ).toBeInTheDocument()
   })
 
   it('claims a reward, reports the new balance, and drops the ticket', async () => {

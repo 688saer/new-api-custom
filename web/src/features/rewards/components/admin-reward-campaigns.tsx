@@ -80,6 +80,7 @@ export function AdminRewardCampaigns(props: AdminRewardCampaignsProps) {
               <TableHead>{t('Recipients')}</TableHead>
               <TableHead>{t('Total amount')}</TableHead>
               <TableHead>{t('Claimed')}</TableHead>
+              <TableHead>{t('Claim window')}</TableHead>
               <TableHead>{t('Created at')}</TableHead>
               <TableHead>{t('Status')}</TableHead>
               <TableHead className='text-right'>{t('Actions')}</TableHead>
@@ -106,6 +107,22 @@ export function AdminRewardCampaigns(props: AdminRewardCampaignsProps) {
                   </TableCell>
                   <TableCell className='tabular-nums'>
                     {formatQuota(campaign.claimed_quota)}
+                  </TableCell>
+                  <TableCell className='text-muted-foreground min-w-[200px] text-xs'>
+                    <span className='block'>
+                      {campaign.claim_start_at > 0
+                        ? formatDateTimeObject(
+                            new Date(campaign.claim_start_at * 1000)
+                          )
+                        : t('Immediately')}
+                    </span>
+                    <span className='block'>
+                      {campaign.expires_at > 0
+                        ? formatDateTimeObject(
+                            new Date(campaign.expires_at * 1000)
+                          )
+                        : t('Long-term valid')}
+                    </span>
                   </TableCell>
                   <TableCell className='text-muted-foreground whitespace-nowrap'>
                     {formatDateTimeObject(new Date(campaign.created_at * 1000))}

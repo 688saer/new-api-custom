@@ -33,6 +33,7 @@ const (
 	RewardCodeNotFound       = "REWARD_NOT_FOUND"
 	RewardCodeAlreadyClaimed = "REWARD_ALREADY_CLAIMED"
 	RewardCodeCancelled      = "REWARD_CANCELLED"
+	RewardCodeNotStarted     = "REWARD_NOT_STARTED"
 	RewardCodeExpired        = "REWARD_EXPIRED"
 	RewardCodeQuotaExceeded  = "REWARD_QUOTA_LIMIT_EXCEEDED"
 	RewardCodeQuotaInvalid   = "REWARD_QUOTA_UNAVAILABLE"
@@ -73,6 +74,9 @@ type RewardCampaign struct {
 	RandomMinQuota int `json:"random_min_quota" gorm:"not null;default:0"`
 	RandomMaxQuota int `json:"random_max_quota" gorm:"not null;default:0"`
 
+	// ClaimStartAt 领取开始时间（Unix 秒），0 表示发放后立即可领
+	ClaimStartAt int64 `json:"claim_start_at" gorm:"bigint;not null;default:0"`
+
 	// ExpiresAt 领取截止时间（Unix 秒），0 表示长期有效
 	ExpiresAt int64 `json:"expires_at" gorm:"bigint;not null;default:0"`
 
@@ -98,8 +102,9 @@ type RewardGrant struct {
 
 	Status string `json:"status" gorm:"type:varchar(16);not null;default:'pending';index:idx_reward_grant_user_status,priority:2"`
 
-	AmountQuota int   `json:"amount_quota" gorm:"not null;default:0"`
-	ExpiresAt   int64 `json:"expires_at" gorm:"bigint;not null;default:0"`
+	AmountQuota  int   `json:"amount_quota" gorm:"not null;default:0"`
+	ClaimStartAt int64 `json:"claim_start_at" gorm:"bigint;not null;default:0"`
+	ExpiresAt    int64 `json:"expires_at" gorm:"bigint;not null;default:0"`
 
 	CreatedAt   int64 `json:"created_at" gorm:"bigint;index"`
 	ClaimedAt   int64 `json:"claimed_at" gorm:"bigint;not null;default:0"`
@@ -112,24 +117,31 @@ func (RewardGrant) TableName() string {
 
 // RewardItem 用户侧一条奖励（券面所需字段已展开）
 type RewardItem struct {
-	Id          int                                `json:"id"`
-	Status      string                             `json:"status"`
-	Name        string                             `json:"campaign_name"`
-	Style       string                             `json:"style"`
-	Copy        operation_setting.RewardTicketCopy `json:"copy"`
-	AmountQuota int                                `json:"amount_quota"`
-	ExpiresAt   int64                              `json:"expires_at"`
-	CreatedAt   int64                              `json:"created_at"`
-	ClaimedAt   int64                              `json:"claimed_at"`
+	Id           int                                `json:"id"`
+	Status       string                             `json:"status"`
+	Name         string                             `json:"campaign_name"`
+	Style        string                             `json:"style"`
+	Copy         operation_setting.RewardTicketCopy `json:"copy"`
+	AmountQuota  int                                `json:"amount_quota"`
+	ClaimStartAt int64                              `json:"claim_start_at"`
+	ExpiresAt    int64                              `json:"expires_at"`
+	CreatedAt    int64                              `json:"created_at"`
+	ClaimedAt    int64                              `json:"claimed_at"`
 }
 
 // RewardPendingResult 待领取奖励汇总
+//
+// Count/TotalQuota 覆盖全部待领取的券（含尚未到领取开始时间的），
+// ClaimableCount/ClaimableQuota 只统计当前就能领取的部分，页面顶部的
+// 「可领取」金额用后者，避免把预约发放的额度算成已到手。
 type RewardPendingResult struct {
-	Enabled      bool         `json:"enabled"`
-	Count        int          `json:"count"`
-	TotalQuota   int          `json:"total_quota"`
-	Items        []RewardItem `json:"items"`
-	QuotaPerUnit float64      `json:"quota_per_unit"`
+	Enabled        bool         `json:"enabled"`
+	Count          int          `json:"count"`
+	TotalQuota     int          `json:"total_quota"`
+	ClaimableCount int          `json:"claimable_count"`
+	ClaimableQuota int          `json:"claimable_quota"`
+	Items          []RewardItem `json:"items"`
+	QuotaPerUnit   float64      `json:"quota_per_unit"`
 }
 
 // RewardHistoryResult 领取记录分页
@@ -184,13 +196,14 @@ func buildRewardItems(grants []RewardGrant) ([]RewardItem, error) {
 		grant := grants[i]
 		campaign := byId[grant.CampaignId]
 		item := RewardItem{
-			Id:          grant.Id,
-			Status:      grant.Status,
-			Style:       operation_setting.RewardStyleAurora,
-			AmountQuota: grant.AmountQuota,
-			ExpiresAt:   grant.ExpiresAt,
-			CreatedAt:   grant.CreatedAt,
-			ClaimedAt:   grant.ClaimedAt,
+			Id:           grant.Id,
+			Status:       grant.Status,
+			Style:        operation_setting.RewardStyleAurora,
+			AmountQuota:  grant.AmountQuota,
+			ClaimStartAt: grant.ClaimStartAt,
+			ExpiresAt:    grant.ExpiresAt,
+			CreatedAt:    grant.CreatedAt,
+			ClaimedAt:    grant.ClaimedAt,
 		}
 		if campaign != nil {
 			item.Name = campaign.Name
@@ -232,8 +245,14 @@ func GetUserPendingRewards(userId int) (*RewardPendingResult, error) {
 	}
 	result.Items = items
 	result.Count = len(items)
+	now := time.Now().Unix()
 	for i := range items {
 		result.TotalQuota += items[i].AmountQuota
+		if items[i].ClaimStartAt > now {
+			continue
+		}
+		result.ClaimableCount++
+		result.ClaimableQuota += items[i].AmountQuota
 	}
 	return result, nil
 }
@@ -340,6 +359,10 @@ func ClaimRewardGrant(userId, grantId int) (*ClaimRewardResult, error) {
 			return newRewardError(RewardCodeCancelled, "This reward has been withdrawn")
 		case RewardGrantExpired:
 			return newRewardError(RewardCodeExpired, "This reward has expired")
+		}
+
+		if grant.ClaimStartAt > now {
+			return newRewardError(RewardCodeNotStarted, "This reward cannot be claimed yet")
 		}
 
 		if grant.ExpiresAt > 0 && grant.ExpiresAt < now {

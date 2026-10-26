@@ -294,6 +294,16 @@ func TestPreviewRewardCampaignRejectsInvalidDraft(t *testing.T) {
 	assert.Equal(t, "REWARD_INVALID_EXPIRY", rewardErrorCode(err))
 
 	_, err = PreviewRewardCampaign(RewardCampaignDraft{
+		Name:         "Inverted claim window",
+		RewardMode:   RewardModeFixed,
+		FixedQuota:   1000,
+		ClaimStartAt: time.Now().Unix() + 7200,
+		ExpiresAt:    time.Now().Unix() + 3600,
+	})
+	require.Error(t, err)
+	assert.Equal(t, "REWARD_INVALID_CLAIM_WINDOW", rewardErrorCode(err))
+
+	_, err = PreviewRewardCampaign(RewardCampaignDraft{
 		Name:           "Inverted random range",
 		RewardMode:     RewardModeRandom,
 		RandomMinQuota: 2000,
@@ -356,4 +366,81 @@ func TestIssueRewardCampaignRandomStaysInRange(t *testing.T) {
 	for i := range grants {
 		assert.Equal(t, grants[i].AmountQuota, reread[i].AmountQuota)
 	}
+}
+
+// 领取开始时间要同时落到活动与明细上：活动用于后台展示，明细用于领取时的
+// 独立判定，两者都不能依赖对方补算。
+func TestIssueRewardCampaignStoresClaimWindow(t *testing.T) {
+	resetRewardTables(t)
+	enableRewardSetting(t)
+	userId := 912001
+	insertRewardUser(t, userId, "window-issue", 0)
+
+	start := time.Now().Unix() + 3600
+	deadline := start + 86400
+	summary, err := IssueRewardCampaign(RewardCampaignDraft{
+		Name:         "Window campaign",
+		Audience:     RewardAudienceDraft{Scope: RewardScopeSpecific, UserIds: []int{userId}},
+		RewardMode:   RewardModeFixed,
+		FixedQuota:   1000,
+		ClaimStartAt: start,
+		ExpiresAt:    deadline,
+	}, 1)
+	require.NoError(t, err)
+	assert.Equal(t, start, summary.ClaimStartAt)
+	assert.Equal(t, deadline, summary.ExpiresAt)
+
+	var grant RewardGrant
+	require.NoError(t, DB.Where("campaign_id = ?", summary.Id).First(&grant).Error)
+	assert.Equal(t, start, grant.ClaimStartAt)
+	assert.Equal(t, deadline, grant.ExpiresAt)
+
+	// 未到开始时间：券已经发出，可以提前看到，但不计入可领取金额
+	pending, err := GetUserPendingRewards(userId)
+	require.NoError(t, err)
+	require.Len(t, pending.Items, 1)
+	assert.Equal(t, start, pending.Items[0].ClaimStartAt)
+	assert.Equal(t, 1000, pending.TotalQuota)
+	assert.Equal(t, 0, pending.ClaimableCount)
+	assert.Equal(t, 0, pending.ClaimableQuota)
+}
+
+func TestClaimRewardGrantRejectsBeforeClaimStart(t *testing.T) {
+	resetRewardTables(t)
+	enableRewardSetting(t)
+	userId := 912002
+	campaign := insertRewardCampaign(t, 0)
+	grant := insertRewardGrant(t, campaign.Id, userId, RewardGrantPending, 0)
+	insertRewardUser(t, userId, "window-pending", 500)
+	require.NoError(t, DB.Model(&RewardGrant{}).Where("id = ?", grant.Id).
+		Update("claim_start_at", time.Now().Unix()+3600).Error)
+
+	_, err := ClaimRewardGrant(userId, grant.Id)
+	require.Error(t, err)
+	assert.Equal(t, RewardCodeNotStarted, rewardErrorCode(err))
+
+	// 被拒后额度不变，券仍是待领取，等开始时间到了还能领
+	var storedUser User
+	require.NoError(t, DB.Where("id = ?", userId).First(&storedUser).Error)
+	assert.Equal(t, 500, storedUser.Quota)
+
+	var storedGrant RewardGrant
+	require.NoError(t, DB.Where("id = ?", grant.Id).First(&storedGrant).Error)
+	assert.Equal(t, RewardGrantPending, storedGrant.Status)
+}
+
+func TestClaimRewardGrantAcceptsAfterClaimStart(t *testing.T) {
+	resetRewardTables(t)
+	enableRewardSetting(t)
+	userId := 912003
+	campaign := insertRewardCampaign(t, 0)
+	grant := insertRewardGrant(t, campaign.Id, userId, RewardGrantPending, 0)
+	insertRewardUser(t, userId, "window-open", 0)
+	require.NoError(t, DB.Model(&RewardGrant{}).Where("id = ?", grant.Id).
+		Update("claim_start_at", time.Now().Unix()-60).Error)
+
+	result, err := ClaimRewardGrant(userId, grant.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 1000, result.AmountQuota)
+	assert.Equal(t, 1000, result.Balance)
 }

@@ -28,7 +28,7 @@ import { formatQuota } from '@/lib/format'
 import { formatDateTimeObject } from '@/lib/time'
 
 import { getPendingRewards, getRewardHistory } from '../api'
-import { isRewardClaimable } from '../lib/rewards'
+import { getRewardClaimState } from '../lib/rewards'
 import type {
   RewardClaimResult,
   RewardHistoryResult,
@@ -55,6 +55,8 @@ function useRewardErrorText() {
           return t('This reward has already been claimed')
         case 'REWARD_CANCELLED':
           return t('This reward has been withdrawn')
+        case 'REWARD_NOT_STARTED':
+          return t('This reward cannot be claimed yet')
         case 'REWARD_EXPIRED':
           return t('This reward has expired')
         case 'REWARD_QUOTA_LIMIT_EXCEEDED':
@@ -152,11 +154,24 @@ export function RewardsPage() {
       setPending((current) => {
         if (!current) return current
         const items = current.items.filter((item) => item.id !== selected?.id)
+        const claimable = items.filter(
+          (item) =>
+            getRewardClaimState(
+              item.status,
+              item.claim_start_at,
+              item.expires_at
+            ) === 'claimable'
+        )
         return {
           ...current,
           items,
           count: items.length,
           total_quota: items.reduce((sum, item) => sum + item.amount_quota, 0),
+          claimable_count: claimable.length,
+          claimable_quota: claimable.reduce(
+            (sum, item) => sum + item.amount_quota,
+            0
+          ),
         }
       })
       setPage(1)
@@ -218,7 +233,12 @@ export function RewardsPage() {
     return (
       <div className='grid gap-6 sm:grid-cols-2 xl:grid-cols-3'>
         {items.map((item) => {
-          const claimable = isRewardClaimable(item.status, item.expires_at)
+          const state = getRewardClaimState(
+            item.status,
+            item.claim_start_at,
+            item.expires_at
+          )
+          const claimable = state === 'claimable'
           return (
             <article
               key={item.id}
@@ -233,13 +253,19 @@ export function RewardsPage() {
                 <span className='text-muted-foreground inline-flex min-w-0 items-center gap-1.5 text-xs'>
                   <Clock aria-hidden='true' className='size-3.5 shrink-0' />
                   <span className='truncate'>
-                    {item.expires_at > 0
-                      ? t('Valid until {{date}}', {
+                    {state === 'scheduled'
+                      ? t('Claimable from {{date}}', {
                           date: formatDateTimeObject(
-                            new Date(item.expires_at * 1000)
+                            new Date(item.claim_start_at * 1000)
                           ),
                         })
-                      : t('Long-term valid')}
+                      : item.expires_at > 0
+                        ? t('Valid until {{date}}', {
+                            date: formatDateTimeObject(
+                              new Date(item.expires_at * 1000)
+                            ),
+                          })
+                        : t('Long-term valid')}
                   </span>
                 </span>
               </div>
@@ -252,7 +278,9 @@ export function RewardsPage() {
                 <Gift aria-hidden='true' className='size-4' />
                 {claimable
                   ? item.copy.button_text || t('Claim reward')
-                  : t('Expired')}
+                  : state === 'scheduled'
+                    ? t('Not Started')
+                    : t('Expired')}
               </Button>
             </article>
           )
@@ -313,16 +341,24 @@ export function RewardsPage() {
                     data-testid='reward-pending-total'
                     className='block text-3xl leading-none font-bold tabular-nums sm:text-4xl'
                   >
-                    {formatQuota(pending?.total_quota ?? 0)}
+                    {formatQuota(pending?.claimable_quota ?? 0)}
                   </strong>
                 </div>
                 <span className='bg-background/70 text-muted-foreground inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium'>
                   <Gift aria-hidden='true' className='size-3.5' />
                   {t('{{count}} rewards to claim', {
-                    count: pending?.count ?? 0,
+                    count: pending?.claimable_count ?? 0,
                   })}
                 </span>
               </div>
+              {(pending?.count ?? 0) > (pending?.claimable_count ?? 0) && (
+                <p className='text-muted-foreground relative mt-3 text-xs'>
+                  {t('{{count}} more rewards will open for claiming later', {
+                    count:
+                      (pending?.count ?? 0) - (pending?.claimable_count ?? 0),
+                  })}
+                </p>
+              )}
             </div>
 
             <section className='space-y-4'>{renderPending()}</section>

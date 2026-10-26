@@ -29,6 +29,7 @@ import { RewardAmountFields } from './reward-amount-fields'
 import { RewardAudienceFields } from './reward-audience-fields'
 import { RewardCopyFields } from './reward-copy-fields'
 import { RewardTicket } from './reward-ticket'
+import { RewardWindowFields } from './reward-window-fields'
 
 interface AdminRewardFormProps {
   draft: RewardCampaignDraft
@@ -92,6 +93,8 @@ export function AdminRewardForm(props: AdminRewardFormProps) {
         />
 
         <RewardAmountFields draft={draft} onDraftChange={props.onDraftChange} />
+
+        <RewardWindowFields draft={draft} onDraftChange={props.onDraftChange} />
 
         <RewardCopyFields
           style={draft.style}

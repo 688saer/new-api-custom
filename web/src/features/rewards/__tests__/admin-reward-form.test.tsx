@@ -94,3 +94,57 @@ describe('admin reward form random mode', () => {
     ).toBeInTheDocument()
   })
 })
+
+describe('admin reward form claim window', () => {
+  it('defaults to claiming immediately with no deadline', () => {
+    render(<Harness />)
+    expect(
+      screen.getByText('Claimable immediately after issuing')
+    ).toBeInTheDocument()
+    expect(screen.getByText('Long-term valid')).toBeInTheDocument()
+  })
+
+  it('reflects a claim start time typed into the start field', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+
+    const start = screen.getByLabelText('Claim start time')
+    await user.type(start, '2030-01-02T03:04:05')
+
+    expect(
+      screen.getByText(
+        'Claimable from {{date}}'.replace('{{date}}', '2030-01-02 03:04:05')
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('flags a window whose start is not before the deadline', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+
+    await user.type(
+      screen.getByLabelText('Claim start time'),
+      '2030-01-02T03:04:05'
+    )
+    await user.type(
+      screen.getByLabelText('Claim deadline'),
+      '2030-01-02T03:04:05'
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Claim start time must be earlier than the deadline'
+    )
+  })
+
+  it('clears the deadline hint when the field is emptied', async () => {
+    const user = userEvent.setup()
+    render(<Harness />)
+
+    const deadline = screen.getByLabelText('Claim deadline')
+    await user.type(deadline, '2030-01-02T03:04:05')
+    expect(screen.queryByText('Long-term valid')).not.toBeInTheDocument()
+
+    await user.clear(deadline)
+    expect(screen.getByText('Long-term valid')).toBeInTheDocument()
+  })
+})

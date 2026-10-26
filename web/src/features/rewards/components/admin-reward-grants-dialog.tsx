@@ -122,6 +122,7 @@ export function AdminRewardGrantsDialog(props: AdminRewardGrantsDialogProps) {
                   <TableHead>{t('User')}</TableHead>
                   <TableHead>{t('Amount')}</TableHead>
                   <TableHead>{t('Status')}</TableHead>
+                  <TableHead>{t('Claim start time')}</TableHead>
                   <TableHead>{t('Claimed at')}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -140,6 +141,13 @@ export function AdminRewardGrantsDialog(props: AdminRewardGrantsDialogProps) {
                       <Badge variant={getRewardStatusVariant(grant.status)}>
                         {t(REWARD_STATUS_LABEL_KEYS[grant.status])}
                       </Badge>
+                    </TableCell>
+                    <TableCell className='text-muted-foreground whitespace-nowrap'>
+                      {grant.claim_start_at > 0
+                        ? formatDateTimeObject(
+                            new Date(grant.claim_start_at * 1000)
+                          )
+                        : t('Immediately')}
                     </TableCell>
                     <TableCell className='text-muted-foreground whitespace-nowrap'>
                       {grant.claimed_at > 0

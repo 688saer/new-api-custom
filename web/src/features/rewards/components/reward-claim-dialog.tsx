@@ -23,8 +23,10 @@ import { useTranslation } from 'react-i18next'
 import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
 import { formatQuota } from '@/lib/format'
+import { formatDateTimeObject } from '@/lib/time'
 
 import { claimReward } from '../api'
+import { getRewardClaimState } from '../lib/rewards'
 import type { RewardClaimResult, RewardItem } from '../types'
 import { RewardTicket } from './reward-ticket'
 
@@ -109,6 +111,13 @@ export function RewardClaimDialog(props: RewardClaimDialogProps) {
 
     if (!props.reward) return null
 
+    const claimable =
+      getRewardClaimState(
+        props.reward.status,
+        props.reward.claim_start_at,
+        props.reward.expires_at
+      ) === 'claimable'
+
     return (
       <div className='space-y-4'>
         <RewardTicket
@@ -120,11 +129,19 @@ export function RewardClaimDialog(props: RewardClaimDialogProps) {
         <p className='text-muted-foreground text-center text-sm'>
           {t('Reward balance')} {formatQuota(props.reward.amount_quota)}
           {' · '}
-          {props.reward.expires_at > 0
-            ? t('Valid until {{date}}', {
-                date: new Date(props.reward.expires_at * 1000).toLocaleString(),
+          {props.reward.claim_start_at > 0
+            ? t('Claimable from {{date}}', {
+                date: formatDateTimeObject(
+                  new Date(props.reward.claim_start_at * 1000)
+                ),
               })
-            : t('Long-term valid')}
+            : props.reward.expires_at > 0
+              ? t('Valid until {{date}}', {
+                  date: formatDateTimeObject(
+                    new Date(props.reward.expires_at * 1000)
+                  ),
+                })
+              : t('Long-term valid')}
         </p>
         {error != null && (
           <p role='alert' className='text-destructive text-sm'>
@@ -135,10 +152,12 @@ export function RewardClaimDialog(props: RewardClaimDialogProps) {
           <Button variant='outline' onClick={() => handleOpenChange(false)}>
             {t('Claim later')}
           </Button>
-          <Button onClick={handleClaim} disabled={claiming}>
+          <Button onClick={handleClaim} disabled={claiming || !claimable}>
             {claiming
               ? t('Claiming…')
-              : props.reward.copy.button_text || t('Claim reward')}
+              : claimable
+                ? props.reward.copy.button_text || t('Claim reward')
+                : t('Not Started')}
           </Button>
         </div>
       </div>

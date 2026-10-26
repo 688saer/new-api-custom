@@ -52,6 +52,9 @@ export interface RewardItem {
   style: RewardStyle
   copy: RewardTicketCopy
   amount_quota: number
+  /** 领取开始时间（Unix 秒），0 表示发放后立即可领。 */
+  claim_start_at: number
+  /** 领取截止时间（Unix 秒），0 表示长期有效。 */
   expires_at: number
   created_at: number
   claimed_at: number
@@ -62,6 +65,9 @@ export interface RewardPendingResult {
   enabled: boolean
   count: number
   total_quota: number
+  /** 当前就能领取的张数与金额，不含还没到开始时间的券。 */
+  claimable_count: number
+  claimable_quota: number
   items: RewardItem[]
   quota_per_unit: number
 }
@@ -110,6 +116,9 @@ export interface RewardCampaignDraft {
   /** 随机模式的每人额度区间（含端点）。 */
   random_min_quota: number
   random_max_quota: number
+  /** 领取开始时间（Unix 秒），0 表示发放后立即可领。 */
+  claim_start_at: number
+  /** 领取截止时间（Unix 秒），0 表示长期有效。 */
   expires_at: number
 }
 
@@ -151,6 +160,9 @@ export interface RewardCampaignSummary {
   claimed_count: number
   total_quota: number
   claimed_quota: number
+  /** 领取开始时间（Unix 秒），0 表示发放后立即可领。 */
+  claim_start_at: number
+  /** 领取截止时间（Unix 秒），0 表示长期有效。 */
   expires_at: number
   created_at: number
   status: RewardCampaignStatus
@@ -174,6 +186,7 @@ export interface RewardGrantRow {
   amount_quota: number
   status: RewardGrantStatus
   claimed_at: number
+  claim_start_at: number
   expires_at: number
 }
 

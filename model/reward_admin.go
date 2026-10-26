@@ -55,9 +55,11 @@ type RewardCampaignDraft struct {
 	Percent    int                                `json:"percent"`
 	CapQuota   int                                `json:"cap_quota"`
 	// RandomMinQuota / RandomMaxQuota 随机模式的每人额度区间
-	RandomMinQuota int   `json:"random_min_quota"`
-	RandomMaxQuota int   `json:"random_max_quota"`
-	ExpiresAt      int64 `json:"expires_at"`
+	RandomMinQuota int `json:"random_min_quota"`
+	RandomMaxQuota int `json:"random_max_quota"`
+	// ClaimStartAt 领取开始时间（Unix 秒），0 表示发放后立即可领
+	ClaimStartAt int64 `json:"claim_start_at"`
+	ExpiresAt    int64 `json:"expires_at"`
 }
 
 // RewardRecipient 解析出的单个接收人
@@ -99,6 +101,7 @@ type RewardCampaignSummary struct {
 	ClaimedCount   int     `json:"claimed_count"`
 	TotalQuota     int     `json:"total_quota"`
 	ClaimedQuota   int     `json:"claimed_quota"`
+	ClaimStartAt   int64   `json:"claim_start_at"`
 	ExpiresAt      int64   `json:"expires_at"`
 	CreatedAt      int64   `json:"created_at"`
 	Status         string  `json:"status"`
@@ -115,14 +118,15 @@ type RewardCampaignList struct {
 
 // RewardGrantRow 领取明细条目
 type RewardGrantRow struct {
-	Id          int    `json:"id"`
-	UserId      int    `json:"user_id"`
-	Username    string `json:"username"`
-	Email       string `json:"email"`
-	AmountQuota int    `json:"amount_quota"`
-	Status      string `json:"status"`
-	ClaimedAt   int64  `json:"claimed_at"`
-	ExpiresAt   int64  `json:"expires_at"`
+	Id           int    `json:"id"`
+	UserId       int    `json:"user_id"`
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	AmountQuota  int    `json:"amount_quota"`
+	Status       string `json:"status"`
+	ClaimStartAt int64  `json:"claim_start_at"`
+	ClaimedAt    int64  `json:"claimed_at"`
+	ExpiresAt    int64  `json:"expires_at"`
 }
 
 // RewardGrantList 领取明细分页
@@ -153,11 +157,17 @@ func normalizeRewardDraft(draft *RewardCampaignDraft) error {
 	draft.Style = operation_setting.NormalizeRewardStyle(draft.Style)
 	draft.Copy = operation_setting.NormalizeRewardTicketCopy(draft.Copy)
 
+	if draft.ClaimStartAt < 0 {
+		draft.ClaimStartAt = 0
+	}
 	if draft.ExpiresAt < 0 {
 		draft.ExpiresAt = 0
 	}
 	if draft.ExpiresAt > 0 && draft.ExpiresAt <= time.Now().Unix() {
 		return newRewardError("REWARD_INVALID_EXPIRY", "Claim deadline must be in the future")
+	}
+	if draft.ClaimStartAt > 0 && draft.ExpiresAt > 0 && draft.ClaimStartAt >= draft.ExpiresAt {
+		return newRewardError("REWARD_INVALID_CLAIM_WINDOW", "Claim start time must be earlier than the deadline")
 	}
 
 	switch draft.RewardMode {
@@ -402,6 +412,7 @@ func rewardCampaignSummaryOf(campaign *RewardCampaign, claimedQuota int) RewardC
 		ClaimedCount:   campaign.ClaimedCount,
 		TotalQuota:     campaign.TotalQuota,
 		ClaimedQuota:   claimedQuota,
+		ClaimStartAt:   campaign.ClaimStartAt,
 		ExpiresAt:      campaign.ExpiresAt,
 		CreatedAt:      campaign.CreatedAt,
 		Status:         campaign.Status,
@@ -479,6 +490,7 @@ func IssueRewardCampaign(draft RewardCampaignDraft, adminId int) (*RewardCampaig
 		CapQuota:       draft.CapQuota,
 		RandomMinQuota: draft.RandomMinQuota,
 		RandomMaxQuota: draft.RandomMaxQuota,
+		ClaimStartAt:   draft.ClaimStartAt,
 		ExpiresAt:      draft.ExpiresAt,
 		TargetCount:    len(recipients),
 		CreatedBy:      adminId,
@@ -496,12 +508,13 @@ func IssueRewardCampaign(draft RewardCampaignDraft, adminId int) (*RewardCampaig
 		grants := make([]RewardGrant, 0, len(recipients))
 		for i := range recipients {
 			grants = append(grants, RewardGrant{
-				CampaignId:  campaign.Id,
-				UserId:      recipients[i].UserId,
-				Status:      RewardGrantPending,
-				AmountQuota: recipients[i].AmountQuota,
-				ExpiresAt:   draft.ExpiresAt,
-				CreatedAt:   now,
+				CampaignId:   campaign.Id,
+				UserId:       recipients[i].UserId,
+				Status:       RewardGrantPending,
+				AmountQuota:  recipients[i].AmountQuota,
+				ClaimStartAt: draft.ClaimStartAt,
+				ExpiresAt:    draft.ExpiresAt,
+				CreatedAt:    now,
 			})
 		}
 		return tx.CreateInBatches(grants, 200).Error
@@ -612,12 +625,13 @@ func ListRewardGrants(campaignId, page, pageSize int) (*RewardGrantList, error) 
 	for i := range grants {
 		grant := grants[i]
 		row := RewardGrantRow{
-			Id:          grant.Id,
-			UserId:      grant.UserId,
-			AmountQuota: grant.AmountQuota,
-			Status:      grant.Status,
-			ClaimedAt:   grant.ClaimedAt,
-			ExpiresAt:   grant.ExpiresAt,
+			Id:           grant.Id,
+			UserId:       grant.UserId,
+			AmountQuota:  grant.AmountQuota,
+			Status:       grant.Status,
+			ClaimStartAt: grant.ClaimStartAt,
+			ClaimedAt:    grant.ClaimedAt,
+			ExpiresAt:    grant.ExpiresAt,
 		}
 		if user, ok := byId[grant.UserId]; ok {
 			row.Username = user.Username
