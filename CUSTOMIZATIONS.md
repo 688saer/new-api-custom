@@ -8,40 +8,55 @@
 
 ## 一、这是什么
 
-本仓库是 [QuantumNous/new-api](https://github.com/QuantumNous/new-api) 的定制分支，在官方 **v1.0.0-rc.46** 基础上叠加了五个自有功能，外加一套自建的极验验证接入。
+本仓库是 [QuantumNous/new-api](https://github.com/QuantumNous/new-api) 的定制分支，在官方 **v1.0.0-rc.47** 基础上叠加了九个自有功能（含一套自建的极验验证接入）。
 
-它不是一个 fork 后随意修改的副本，而是用 **git 三向合并**维护的：
+它不是随意拷贝改动的副本，而是把上游版本作为**独立基线**维护的：
 
 ```
 master ──●  rc.45 官方基线
          │
-         ├──────────────┐
-         │              │
 ours ────●  rc.45 + 我们的自定义功能
-         │              │
-         │              ●  theirs  rc.46 官方
-         │              │
-         └──────●  merge  ← 当前 HEAD（rc.46 + 我们的功能）
+         │
+         │  theirs ──●  rc.46 官方（压缩导入，与本仓库无共同祖先）
+         │            │
+         │            ●  rc.47 官方
+         │            │
+         └──────●  c103906  以补丁方式应用 rc.46→rc.47 的 176 个文件改动
+                 │
+                 ●  85ce240  发布提交（rc.47 + 我们的功能，tag v1.0.0-rc.47-random）
 ```
 
-好处：以后官方每发一版，只要把新版本提交到 `theirs` 分支再 merge，**上游改动和我们的改动自动合到一起**，不需要人工比对哪个文件是谁改的。
+**为什么不用 `git merge`**：rc.46 当初是以压缩导入方式进入本仓库的，`theirs` 分支与本仓库没有共同祖先，
+`git merge` 会直接报 `refusing to merge unrelated histories`。所以升级 rc.47 时改用：
+
+```bash
+git diff --binary --output=/tmp/up.patch theirs v1.0.0-rc.47   # 生成上游增量
+git apply --3way /tmp/up.patch                                  # 带三向合并地应用
+```
+
+好处不变：上游改了什么、我们改了什么，都由 git 自己算，不需要人工比对。只有 7 个 i18n locale
+文件需要额外处理（见 6.3）。
 
 | 分支 | 含义 | 谁维护 |
 |---|---|---|
 | `master` | 最初的上游基线（rc.45） | 冻结，不再使用 |
 | `theirs` | **上游镜像**，永远等于最新官方版本 | 每次升级时更新 |
-| `ours` | **我们的工作分支**，= 上游 + 五个自定义功能 | 日常提交都在这 |
+| `ours` | **我们的工作分支**，= 上游 + 九个自定义功能 | 日常提交都在这 |
 
 当前状态：
 
 | 项目 | 值 |
 |---|---|
-| 官方版本 | v1.0.0-rc.46 |
-| 上游提交 | `e82f634` upstream v1.0.0-rc.46 |
-| 合并提交 | `2566df2` merge upstream v1.0.0-rc.46 into our customizations |
-| 当前 HEAD | `31c2cef` test: update sidebar assertion for custom menu items |
-| 文件数 | 2722 |
+| 官方版本 | v1.0.0-rc.47 |
+| 上游提交 | `e835b1b` upstream v1.0.0-rc.47 |
+| 上手方式 | `git apply --3way`（rc.47 与本地重叠 9 个文件，仅 7 个 locale 冲突） |
+| 合并提交 | `c103906` chore(upstream): 无损合并官方 v1.0.0-rc.47 |
+| 发布提交 | `85ce240` feat(rewards): 随机额度发放 + 券面样式与页面 UI 优化（tag `v1.0.0-rc.47-random`） |
+| 发布后修正 | 仅本文档与两个脚本执行位，代码与镜像未变 |
+| 文件数 | 2916 |
+| 代码树哈希 | `f2fa906`（发布提交的 tree，线上镜像已核对一致） |
 | Go 版本 | 1.26.10（rc.46 起强制，见 CVE-2026-111943） |
+| 前端依赖 | rc.47 更新了 axios / i18next / react-i18next / input-otp，升级后必须重跑 `bun install` |
 
 ---
 
@@ -69,9 +84,9 @@ ours ────●  rc.45 + 我们的自定义功能
 
 ## 三、自定义功能清单
 
-八个功能全部是**原生集成**（不是 iframe 嵌入），复用官方组件、主题和 i18n。
+九个功能全部是**原生集成**（不是 iframe 嵌入），复用官方组件、主题和 i18n。
 
-> 这里是八个：公告中心、抽奖、福利宝箱、福利 API、渠道可用性、无限画布、极验验证，以及 3.8 的看板娘；
+> 这里是九个：公告中心、抽奖、福利宝箱、福利 API、渠道可用性、无限画布、我的奖励、极验验证，以及 3.8 的看板娘；
 > 3.0 是对官方 `/keys` 页的改造，不算独立功能。
 
 ### 3.0 API 密钥页 `/keys` 的改造
@@ -541,6 +556,79 @@ main.go:44:12: pattern web/dist: cannot embed file web/dist/mascot/clips/是啊�
 
 ---
 
+### 3.9 我的奖励 `/rewards`
+
+管理员定向发放「奖励券」，用户在券面页领取到余额。管理页 `/rewards/admin`。
+
+#### 用户侧 `/rewards`
+
+顶部渐变汇总面板（待领取总额 + 份数徽标），下方每张券一张卡片（xl 三列）：
+
+- 券面固定长宽比 `741/425`，正文与票根按 `76% : 24%` 分栏，中间是**打孔线 + 上下各一个 22px 撕口**。
+- 四种配色 `aurora / citrus / sunrise / nocturne`，各带网点底纹、光效层与悬停高光。
+- 金额 36px 独立成块；有效期前置时钟图标；未到期用主色按钮，已过期置灰。
+- 下方是领取记录表（金额右对齐），**只列已结算**（`status <> pending`），避免和上方待领取重复。
+
+#### 领取流程
+
+| 步骤 | 行为 |
+|---|---|
+| 点按钮 | 弹窗显示券面金额 |
+| 确认领取 | `POST /api/user/rewards/:id/claim`，事务内 `lockForUpdate` 锁住该条记录 |
+| 成功 | 弹窗显示「奖励已到账 / 金额 / 账户余额」，列表自动移除该券并刷新记录 |
+| 重复领取 | 返回 `already_claimed`，不再加钱 |
+| 已撤回/已过期 | 分别返回 `REWARD_CANCELLED` / `REWARD_EXPIRED` |
+
+**过期是惰性的**：没有定时任务，读取待领取列表时顺手把过期的置为 `expired`。
+
+#### 三种额度计算方式
+
+| 模式 | 含义 |
+|---|---|
+| `fixed` | 每人固定额度 |
+| `percentage` | 按累计消费比例，带每人封顶 |
+| `random` | **每人随机**，在 `random_min_quota` ~ `random_max_quota` 区间内抽取 |
+
+`random` 的关键设计：**抽额发生在发放那一刻**，结果直接写进 `reward_grants.amount_quota`。
+之后活动总额、明细、撤回金额全部以落库值为准，不会因重算而变化，事后可审计。
+
+预览时用区间中值估算，并返回 `estimated: true`，前端据此把文案改成「总额约 …（随机额度在发放时抽取）」，
+避免把估算值误当成实际发放总额。
+
+#### 发放范围
+
+`all`（全体）/ `active`（近 N 天有消费）/ `spend`（累计消费区间）/ `specific`（指定用户 id）。
+单次最多 `maxRewardRecipients = 5000` 人，超限直接报 `REWARD_TOO_MANY`。
+
+#### 撤回
+
+只作废**还没领取**的部分（`pending → cancelled`），已到账的余额不动。
+
+| 文件 | 说明 |
+|---|---|
+| `model/reward.go` | 用户侧查询、领取、惰性过期 |
+| `model/reward_admin.go` | 发放范围解析、预览、发放、明细、撤回 |
+| `controller/reward.go` | HTTP 层，错误码原样下发给前端 |
+| `setting/operation_setting/reward_setting.go` | 总开关、额度上限、默认券面文案 |
+| `web/src/features/rewards/` | 前端模块，2792 行 |
+| `web/src/features/rewards/components/reward-ticket.tsx` | 券面组件（四种配色） |
+| `web/src/features/rewards/components/reward-amount-fields.tsx` | 三种计算方式的表单分区 |
+| `web/src/features/system-settings/general/reward-settings-section.tsx` | 后台配置页 |
+
+后台位置：`系统设置 → 计费 → 我的奖励`。
+
+| 配置项 | 含义 |
+|---|---|
+| `reward_setting.enabled` | 总开关（关闭后用户侧显示「功能未开启」） |
+| `reward_setting.max_quota_limit` | 领取后的余额上限，0 表示不限 |
+| `reward_setting.history_page_size` | 用户领取记录每页条数 |
+| `reward_setting.default_copy` | 默认券面文案（JSON，发放时固化到活动上） |
+
+> **配置是分键存的**（`reward_setting.enabled` 等），不要整块 JSON 写 `reward_setting`，
+> 否则配置系统读不到子键，总开关会一直显示为关。
+
+---
+
 ## 四、代码结构：哪些是我们的
 
 ### 新增文件（纯新增，升级不会冲突）
@@ -552,15 +640,20 @@ controller/lottery.go                              75
 controller/welfare_api.go                          96
 controller/welfare_chest.go                        67
 controller/service_status.go                      378
+controller/reward.go                              131
 model/lottery.go                                  498
 model/welfare_chest.go                            398
 model/service_status.go                           350
+model/reward.go                                   334
+model/reward_admin.go                             614
+model/reward_test.go                              305
 service/service_status_probe.go                   320
 setting/operation_setting/lottery_setting.go       74
 setting/operation_setting/welfare_api_setting.go   51
 setting/operation_setting/welfare_chest_setting.go 84
 setting/operation_setting/service_status_setting.go 207
-setting/system_setting/geetest_setting.go        87
+setting/operation_setting/reward_setting.go        86
+setting/system_setting/geetest_setting.go          87
 ```
 
 **前端**
@@ -569,6 +662,7 @@ setting/system_setting/geetest_setting.go        87
 web/src/features/announcements/           ~660 行
 web/src/features/canvas/                  ~1900 行
 web/src/features/lucky-bonus/             ~1900 行
+web/src/features/rewards/                 ~2792 行
 web/src/features/service-status/          ~985 行
 web/src/features/welfare-api/             ~540 行
 web/src/features/system-settings/general/lottery-settings-section.tsx
@@ -579,12 +673,15 @@ web/src/features/system-settings/general/service-status-settings-section.tsx
 web/src/features/system-settings/general/service-status-target-dialog.tsx
 web/src/features/system-settings/general/service-status-target-row.tsx
 web/src/features/system-settings/general/geetest-settings-section.tsx
+web/src/features/system-settings/general/reward-settings-section.tsx
 web/src/components/geetest-captcha.tsx
 service/geetest.go
 middleware/geetest-check.go
 web/src/routes/_authenticated/announcements/index.tsx
 web/src/routes/_authenticated/canvas/index.tsx
 web/src/routes/_authenticated/lottery/index.tsx
+web/src/routes/_authenticated/rewards/index.tsx
+web/src/routes/_authenticated/rewards/admin.tsx
 web/src/routes/_authenticated/welfare-chests/index.tsx
 web/src/routes/service-status/index.tsx
 web/src/routes/welfare-apis/index.tsx
@@ -593,28 +690,31 @@ web/public/static/welfare-chests/        （图片资源）
 
 ### 修改的官方文件（升级时唯一可能冲突的地方）
 
-一共 **17 个**，每处改动都很小、很集中：
+一共 **22 个**，每处改动都很小、很集中：
 
 | 文件 | 改动内容 |
 |---|---|
 | `main.go` | 启动探测 worker（3 行） |
-| `model/main.go` | AutoMigrate 注册 4 张新表（4 行） |
-| `router/api-router.go` | 注册抽奖/宝箱/福利API/可用性路由（约 19 行）；5 条鉴权路由挂 `GeeTestCheck` |
+| `model/main.go` | AutoMigrate 注册 6 张新表（6 行） |
+| `router/api-router.go` | 注册抽奖/宝箱/福利API/可用性/奖励路由（约 24 行）；5 条鉴权路由挂 `GeeTestCheck` |
 | `router/web-router.go` | `WebAssets` 结构体挪到文件末尾（纯格式） |
 | `controller/option.go` | 配置变更后触发探测（4 行）；无密钥时禁止开极验总开关 |
-| `controller/misc.go` | `/api/status` 下发极验公开配置（7 行） |
-| `web/src/hooks/use-sidebar-data.ts` | 侧边栏 5 个菜单项（含公告） |
-| `web/src/hooks/use-sidebar-config.ts` | 侧边栏模块开关默认值（含公告） |
+| `controller/misc.go` | `/api/status` 下发极验公开配置（7 行）；下发 `rewards_enabled` |
+| `web/src/hooks/use-sidebar-data.ts` | 侧边栏 9 个菜单项（含公告、我的奖励） |
+| `web/src/hooks/use-sidebar-config.ts` | 侧边栏模块开关默认值（含公告、我的奖励） |
 | `web/src/lib/nav-modules.ts` | 顶部导航模块 `welfareApi`、`serviceStatus` |
-| `web/src/features/system-settings/types.ts` | 新增配置项的 TS 类型 |
+| `web/src/features/system-settings/types.ts` | 新增配置项的 TS 类型（含 `reward_setting.*`） |
 | `web/src/features/system-settings/security/*` | 注册「极验验证」设置页（`index.tsx` + `section-registry.tsx`） |
-| `web/src/features/system-settings/maintenance/sidebar-modules-section.tsx` | 后台侧边栏模块新增「公告」开关说明 |
-| `web/src/features/profile/components/sidebar-modules-card.tsx` | 用户个人设置里的侧边栏模块新增「公告」 |
+| `web/src/features/system-settings/billing/*` | 注册「我的奖励」设置页（`index.tsx` + `section-registry.tsx`） |
+| `web/src/features/system-settings/maintenance/config.ts` | 侧边栏模块清单新增「我的奖励」 |
+| `web/src/features/system-settings/maintenance/sidebar-modules-section.tsx` | 后台侧边栏模块新增「公告」「我的奖励」开关说明 |
+| `web/src/features/profile/components/sidebar-modules-card.tsx` | 用户个人设置里的侧边栏模块新增「公告」「我的奖励」 |
+| `web/src/features/auth/types.ts` | 状态接口补 `rewards_enabled` |
 | `web/src/features/dashboard/components/overview/announcements-panel.tsx` | 公告卡片改为复用公告模块的详情弹窗，右上角加「查看全部」 |
 | `web/src/features/dashboard/components/ui/panel-wrapper.tsx` | 空状态下也渲染 `headerActions`（否则「查看全部」在无公告时消失） |
 | `web/src/features/auth/*` | 登录/注册/找回密码/邮箱验证码四处接入极验 |
 | `web/src/routeTree.gen.ts` | 路由树（构建时自动生成） |
-| `web/src/i18n/locales/*.json` × 7 | 284 条自定义文案 + 公告页 14 条 |
+| `web/src/i18n/locales/*.json` × 7 | 自定义文案，rc.47 合并后每语言 7793 键 |
 
 > 原本的 `web/src/features/dashboard/components/overview/announcement-detail-dialog.tsx`（82 行）已**删除**，
 > 弹窗迁到 `web/src/features/announcements/components/announcement-detail-dialog.tsx` 由看板与公告页共用。
@@ -627,7 +727,7 @@ web/public/static/welfare-chests/        （图片资源）
 
 ## 五、数据库
 
-### 自定义表（4 张）
+### 自定义表（6 张）
 
 | 表 | 用途 |
 |---|---|
@@ -635,6 +735,8 @@ web/public/static/welfare-chests/        （图片资源）
 | `lottery_rounds` | 奖池轮次 |
 | `welfare_chest_claims` | 宝箱领取记录 |
 | `service_status_samples` | 可用性探测样本 |
+| `reward_campaigns` | 奖励活动（含 `random_min_quota` / `random_max_quota`） |
+| `reward_grants` | 逐人发放明细，唯一键 `(campaign_id, user_id)` |
 
 全部通过 `model/main.go` 的 `AutoMigrate` 自动建表，**无需手工执行 SQL**。
 
@@ -648,6 +750,7 @@ welfare_chest_setting.*
 welfare_api_setting.*
 service_status_setting.*
 geetest_setting.*
+reward_setting.*
 ```
 
 `service_status_samples` 会持续增长，按 `sample_retention_days` 清理（默认 30 天）。
@@ -662,7 +765,7 @@ docker exec newapi_hc8x-mysql-1 mysqldump -uroot -p<密码> \
   --single-transaction --quick new-api | gzip > backup-$(date +%F).sql.gz
 ```
 
-**升级前必须备份。** 本次 rc.45→rc.46 升级前的备份在 `/root/dbbackup/`。
+**升级前必须备份。** rc.46→rc.47 升级前的备份在 `/root/dbbackup/`。
 
 ---
 
@@ -702,12 +805,17 @@ rsync -a --delete --exclude '.git' /root/merge/rc47/ ./
 git add -A
 git commit -m "upstream v1.0.0-rc.47"
 
-# ── 3. 合并到我们的分支 ──────────────────────
+# ── 3. 把上游增量应用到我们的分支 ─────────────
+# ⚠️ 不要用 git merge theirs：rc.46 是压缩导入的，与本仓库无共同祖先，
+#    merge 会直接报 "refusing to merge unrelated histories"。
 git checkout ours
-git merge theirs
-# 如果报冲突：
-#   git diff --name-only --diff-filter=U    # 看哪些文件冲突
-#   手工解决 → git add <file> → git commit
+git diff --binary --output=/tmp/up.patch theirs v1.0.0-rc.47
+git apply --3way /tmp/up.patch
+# 若报冲突：git diff --name-only --diff-filter=U  →  解决后 git add <file>
+git add -A && git commit -m "chore(upstream): 无损合并官方 v1.0.0-rc.47"
+
+# ⚠️ 生成补丁必须用 git 的 --output=，不要用 shell 的 > 重定向：
+#    PowerShell 会把输出转成 UTF-16，git apply 会报 "No valid patches in input"。
 
 # ── 4. 同步到构建目录 ────────────────────────
 cd /root/newapi-build
@@ -746,7 +854,7 @@ docker compose up -d new-api
 
 ### 6.3 冲突处理原则
 
-冲突几乎只会出现在第四节列的那 11 个文件里。判断方法：
+冲突几乎只会出现在第四节列的那 22 个文件里。判断方法：
 
 ```bash
 # 看上游在这个文件改了什么
@@ -759,19 +867,30 @@ git diff master ours -- router/api-router.go
 
 **处理原则**：以**上游的新结构**为骨架，把我们的改动**重新插进去**。我们的改动都是"在某个位置加几行"，重新插入很直接。
 
-最常见的冲突是 `router/api-router.go`（上游常改路由）和 `i18n/locales/*.json`（上游常加文案）。
+最常见的冲突是 `router/api-router.go`（上游常改路由）和 `web/src/i18n/locales/*.json`（上游常加文案）。
 
-**i18n 冲突的处理**：JSON 冲突很烦，建议直接用脚本合并——
+#### i18n 冲突的处理（rc.47 实测流程）
+
+上游对 locale 文件**只做两件事**：重排序 + 新增键，**从不修改既有译文**。所以能机械处理：
 
 ```bash
-# 以官方文件为底，把我们的 key 补回去
-~/.bun/bin/bun -e '
-const fs=require("fs");
-const up=JSON.parse(fs.readFileSync("/root/merge/rc47/web/src/i18n/locales/zh.json","utf8"));
-// 从 git 取我们上一个版本的对应文件
-// 然后 Object.assign(up.translation, oursOnly)
-'
+# 1. 以上游 rc47 的文件为底（保留它的全部新键与新译文）
+# 2. 把本地独有键补回去（本地键 = 本地旧文件 - 上游旧文件）
+# 3. 按上游的排序规则重排
+~/.bun/bin/bun /root/merge/merge-locales.js
 ```
+
+**上游的键排序规则**（`merge-locales.js` 已实现，rc47 `zh.json` 7359 键逐键核对通过）：
+
+1. **纯数字键**排在最前，按数值升序（`"1"`、`"2"`…`"10"`，不是字典序）；
+2. 其余键按 `new Intl.Collator('en').compare` 升序。
+
+> 排序不对不影响功能（JSON 无序），但会让每次升级都产生几千行无意义的 diff，
+> 掩盖真正的改动。所以务必重排。
+
+> `bun run i18n:sync` 会把 footer 的键改写成 `footer.new\u0061pi.projectAttributionSuffix`，
+> 跑完要还原：`sed -i 's/footer\.new\\u0061pi\./footer.newapi./g'` 全部 7 个 locale 文件。
+> 这是工具的历史遗留问题，与合并无关。
 
 ### 6.4 回滚
 
@@ -801,7 +920,7 @@ COPY --from=builder /build/web/dist ./web/dist
 RUN go build -pgo="..." -ldflags "-s -w -X '...common.Version=$(cat VERSION)'" -o new-api
 ```
 
-- **`VERSION` 文件必须非空**，否则 `--version` 输出为空。当前内容：`1.0.0-rc.46`
+- **`VERSION` 文件必须非空**，否则 `--version` 输出为空。当前内容：`1.0.0-rc.47`
 - 前端通过 `//go:embed web/dist` 打进二进制，所以**改前端必须重新构建镜像**，不能只替换文件
 - rc.46 起 `Dockerfile` 需要 `relaykit/go.mod`、`tokenkit/go.mod` 存在（本地子模块）
 
@@ -1021,22 +1140,42 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:ann2` |
-| 已发布版本 | `v1.0.0-rc.46-mascot`（含 Docker 镜像 + 桌面端） |
-| 回滚镜像 | `new-api-lottery:canvas2`、`:pet8`、`:canvas1`、`:mascot2`、`:mascot`、`:gt6`、`:geetest5`、`:geetest4` |
-| 磁盘占用 | 67%（含新旧镜像与构建缓存，`docker image prune` 可回收） |
-| 前端测试 | 前端全量通过（新增画布存储回归 37 个、公告页 16 个） |
-| typecheck | 通过 |
+| 生产镜像 | `new-api-lottery:rc47r2` |
+| 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
+| 已发布版本 | `v1.0.0-rc.47-random`（含 Docker 镜像 tar.gz） |
+| 回滚镜像 | `new-api-lottery:rc47r1`、`:rewards4`、`:ann2`、`:canvas2`、`:pet8`、`:mascot2`、`:gt6` |
+| 磁盘占用 | 需定期 `docker image prune` 回收 |
+| 前端测试 | 全量 **2555 项通过**（奖励模块 27 项） |
+| typecheck | 通过（1524 文件，2 个项目） |
 | gofmt | 干净 |
-| Go 单测 | 极验 4 项全通过（签名、未配置、残缺票据、开关判定） |
-| 数据库迁移 | 重启两次幂等，无 panic |
+| Go 单测 | `./model/ ./controller/ ./setting/... ./service/...` 全 `ok` |
+| 数据库迁移 | SQLite / MySQL 8.2 / PostgreSQL 16.15 三库各跑两次 `AutoMigrate`，幂等且旧数据完好 |
 | 极验 | **已上线并开启**（登录 + 注册）；验证 ID 已填入 |
 | 看板娘 | **已上线并默认开启**，106 个动画 + 12 张立绘全部内置 |
 | 看板娘体积 | 动画 12.8MB（原 53MB）+ 立绘 2.1MB；首屏只加载 1 个待机片段 |
+| 我的奖励 | **已上线** `/rewards` + `/rewards/admin`；支持固定/比例/随机三种额度 |
 | API 端点卡片 | **已上线**；`server_address` 仍是默认的 `localhost:3000`，前端已降级为当前域名 |
 | 可用生图模型 | `gpt-image-2`、`gpt-image-2.5`、`gpt-image-2.5-sunburst`（`-flare` 上游 500） |
 | 画布存储 | **已修复丢图**：布局/图片分库、图片即时落盘、同步日志兜底、配额与持久化提示 |
 | 公告页 | **已上线** `/announcements`：全文列表、关键词搜索、级别筛选、未读计数、全部已读 |
+
+### 随机额度发放实测记录
+
+端到端在生产库上对 4 位真实用户发放 `[1000, 90000]` 区间的随机奖励：
+
+| 场景 | 结果 |
+|---|---|
+| 预览 | `count:4, total_quota:182000, min_quota:1000, max_quota:90000, estimated:true`（中值 45500 × 4） |
+| 实际发放 | `37623 / 28448 / 61654 / 42584`，**4 个值互不相同**，全部落在 `[1000, 90000]` |
+| 活动总额 | `170309`，与四条明细之和**完全一致** |
+| 用户侧渲染 | 3 张券金额各自不同（`$0.2` / `$0.082` / `$0.0752`），汇总 `$0.3572` 与券面之和一致 |
+| 券面几何 | 比例 `1.7436`（设计值 1.7435）、撕口 2 个各 22px、打孔线 1 条、金额字号 36px |
+| 领取上限 | `MaxQuotaLimit` 只在领取时按实际落库金额判断，随机值同样受封顶约束 |
+| 校验 | 区间倒置（min > max）或 min ≤ 0 直接报 `REWARD_INVALID_AMOUNT` |
+| 旧数据 | 活动 1–6 的 `random_min_quota` / `random_max_quota` 自动补 0，固定/比例模式行为不变 |
+
+> 验证用的活动已撤回（`status: revoked`），未给真实用户留下测试奖励。
+
 
 ### 画布丢图修复实测记录
 
