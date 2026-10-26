@@ -239,6 +239,22 @@ export function RewardsPage() {
             item.expires_at
           )
           const claimable = state === 'claimable'
+          let windowText = t('Long-term valid')
+          if (state === 'scheduled') {
+            windowText = t('Claimable from {{date}}', {
+              date: formatDateTimeObject(new Date(item.claim_start_at * 1000)),
+            })
+          } else if (item.expires_at > 0) {
+            windowText = t('Valid until {{date}}', {
+              date: formatDateTimeObject(new Date(item.expires_at * 1000)),
+            })
+          }
+          let buttonText = t('Expired')
+          if (claimable) {
+            buttonText = item.copy.button_text || t('Claim reward')
+          } else if (state === 'scheduled') {
+            buttonText = t('Not Started')
+          }
           return (
             <article
               key={item.id}
@@ -252,21 +268,7 @@ export function RewardsPage() {
               <div className='flex items-center justify-between gap-3'>
                 <span className='text-muted-foreground inline-flex min-w-0 items-center gap-1.5 text-xs'>
                   <Clock aria-hidden='true' className='size-3.5 shrink-0' />
-                  <span className='truncate'>
-                    {state === 'scheduled'
-                      ? t('Claimable from {{date}}', {
-                          date: formatDateTimeObject(
-                            new Date(item.claim_start_at * 1000)
-                          ),
-                        })
-                      : item.expires_at > 0
-                        ? t('Valid until {{date}}', {
-                            date: formatDateTimeObject(
-                              new Date(item.expires_at * 1000)
-                            ),
-                          })
-                        : t('Long-term valid')}
-                  </span>
+                  <span className='truncate'>{windowText}</span>
                 </span>
               </div>
               <Button
@@ -276,11 +278,7 @@ export function RewardsPage() {
                 onClick={() => handleOpenClaim(item)}
               >
                 <Gift aria-hidden='true' className='size-4' />
-                {claimable
-                  ? item.copy.button_text || t('Claim reward')
-                  : state === 'scheduled'
-                    ? t('Not Started')
-                    : t('Expired')}
+                {buttonText}
               </Button>
             </article>
           )

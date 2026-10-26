@@ -118,6 +118,26 @@ export function RewardClaimDialog(props: RewardClaimDialogProps) {
         props.reward.expires_at
       ) === 'claimable'
 
+    let windowText = t('Long-term valid')
+    if (props.reward.claim_start_at > 0) {
+      windowText = t('Claimable from {{date}}', {
+        date: formatDateTimeObject(
+          new Date(props.reward.claim_start_at * 1000)
+        ),
+      })
+    } else if (props.reward.expires_at > 0) {
+      windowText = t('Valid until {{date}}', {
+        date: formatDateTimeObject(new Date(props.reward.expires_at * 1000)),
+      })
+    }
+
+    let buttonText = t('Not Started')
+    if (claiming) {
+      buttonText = t('Claiming…')
+    } else if (claimable) {
+      buttonText = props.reward.copy.button_text || t('Claim reward')
+    }
+
     return (
       <div className='space-y-4'>
         <RewardTicket
@@ -129,19 +149,7 @@ export function RewardClaimDialog(props: RewardClaimDialogProps) {
         <p className='text-muted-foreground text-center text-sm'>
           {t('Reward balance')} {formatQuota(props.reward.amount_quota)}
           {' · '}
-          {props.reward.claim_start_at > 0
-            ? t('Claimable from {{date}}', {
-                date: formatDateTimeObject(
-                  new Date(props.reward.claim_start_at * 1000)
-                ),
-              })
-            : props.reward.expires_at > 0
-              ? t('Valid until {{date}}', {
-                  date: formatDateTimeObject(
-                    new Date(props.reward.expires_at * 1000)
-                  ),
-                })
-              : t('Long-term valid')}
+          {windowText}
         </p>
         {error != null && (
           <p role='alert' className='text-destructive text-sm'>
@@ -153,11 +161,7 @@ export function RewardClaimDialog(props: RewardClaimDialogProps) {
             {t('Claim later')}
           </Button>
           <Button onClick={handleClaim} disabled={claiming || !claimable}>
-            {claiming
-              ? t('Claiming…')
-              : claimable
-                ? props.reward.copy.button_text || t('Claim reward')
-                : t('Not Started')}
+            {buttonText}
           </Button>
         </div>
       </div>
