@@ -1333,7 +1333,7 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11） |
 | 已发布版本 | `v1.0.0-rc.48-tickets`（含 Docker 镜像 tar.gz 与四平台二进制） |
-| 回滚镜像 | `new-api-lottery:tickets4`、`:tickets3`、`:tickets2`、`:tickets1`、`:home5`、`:home4`、`:home3`、`:home2`、`:home1`、`:claimwin2`、`:rc47r2`、`:rc47r1` |
+| 回滚镜像 | `new-api-lottery:tickets4`、`:tickets3`、`:home5`、`:home4`（其余历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 工单新增 **10 项**（`status.test.ts` 6 + `permissions.test.ts` 4）；侧边栏/首页测试随入口数量同步更新，受影响 4 个文件 30 项全通过 |
 | typecheck | 通过（1554 文件，2 个项目） |
