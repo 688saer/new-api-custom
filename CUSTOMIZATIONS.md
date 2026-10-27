@@ -1214,12 +1214,13 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc47r2` |
+| 生产镜像 | `new-api-lottery:home4` |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
+| 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 9 个自有入口（见 3.10） |
 | 已发布版本 | `v1.0.0-rc.47-random`（含 Docker 镜像 tar.gz） |
-| 回滚镜像 | `new-api-lottery:rc47r1`、`:rewards4`、`:ann2`、`:canvas2`、`:pet8`、`:mascot2`、`:gt6` |
+| 回滚镜像 | `new-api-lottery:home3`、`:home2`、`:home1`、`:claimwin2`、`:rc47r2`、`:rc47r1` |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
-| 前端测试 | 全量 **2555 项通过**（奖励模块 27 项） |
+| 前端测试 | 首页改版新增 **29 项全通过**；本次改动单独跑 `vitest run src/features/home src/features/keys`（15 文件 113 项全通过），未重跑全量 2555 项 |
 | typecheck | 通过（1524 文件，2 个项目） |
 | gofmt | 干净 |
 | Go 单测 | `./model/ ./controller/ ./setting/... ./service/...` 全 `ok` |
