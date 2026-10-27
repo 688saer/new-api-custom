@@ -45,7 +45,7 @@ describe('own feature entries', () => {
 
     const items = within(screen.getByRole('list')).getAllByRole('listitem')
 
-    expect(items).toHaveLength(9)
+    expect(items).toHaveLength(10)
   })
 
   it('links each routed module to its page', () => {

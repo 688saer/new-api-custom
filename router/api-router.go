@@ -5,6 +5,7 @@ import (
 
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service/authz"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
@@ -163,6 +164,16 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.GET("/rewards/pending", controller.GetMyRewardsPending)
 				selfRoute.GET("/rewards/history", controller.GetMyRewardsHistory)
 				selfRoute.POST("/rewards/:id/claim", middleware.CriticalRateLimit(), controller.ClaimMyReward)
+
+				// Ticket routes (user side)
+				selfRoute.GET("/tickets", controller.ListMyTickets)
+				selfRoute.POST("/tickets", middleware.CriticalRateLimit(), controller.CreateMyTicket)
+				selfRoute.GET("/tickets/:id", controller.GetMyTicket)
+				selfRoute.POST("/tickets/:id/messages", middleware.CriticalRateLimit(), controller.ReplyMyTicket)
+				selfRoute.PUT("/tickets/:id/resolve", controller.ResolveMyTicket)
+				selfRoute.PUT("/tickets/:id/archive", controller.ArchiveMyTicket)
+				selfRoute.POST("/ticket-uploads", middleware.UploadRateLimit(), controller.UploadTicketAttachment)
+				selfRoute.GET("/ticket-uploads/:attachmentId", controller.GetTicketAttachment)
 
 				// Custom OAuth bindings
 				selfRoute.GET("/oauth/bindings", controller.GetUserOAuthBindings)
@@ -352,6 +363,40 @@ func SetApiRouter(router *gin.Engine) {
 			serviceStatusAdminRoute.POST("/probe", controller.ProbeAllServiceStatusTargets)
 			serviceStatusAdminRoute.POST("/probe/:id", controller.ProbeServiceStatusTargetNow)
 			serviceStatusAdminRoute.DELETE("/samples", controller.ClearServiceStatusSamples)
+		}
+
+		// Ticket console: a standalone panel with its own accounts and sessions.
+		// Nothing here uses the site user auth, so客服 doesn't need a site account.
+		ticketConsoleRoute := apiRouter.Group("/ticket-console")
+		{
+			ticketConsoleRoute.POST("/auth/login", middleware.CriticalRateLimit(), controller.TicketAgentLogin)
+			ticketConsoleRoute.POST("/auth/bootstrap", middleware.CriticalRateLimit(), controller.TicketAgentBootstrap)
+			ticketConsoleRoute.POST("/auth/logout", controller.TicketAgentLogout)
+
+			ticketConsoleRoute.GET("/auth/self", middleware.TicketAgentAuth(""), controller.TicketAgentSelf)
+			ticketConsoleRoute.PUT("/auth/password", middleware.TicketAgentAuth(""), controller.TicketAgentChangePassword)
+			ticketConsoleRoute.GET("/counts", middleware.TicketAgentAuth(""), controller.GetStaffTicketCounts)
+			ticketConsoleRoute.GET("/tickets", middleware.TicketAgentAuth(""), controller.ListStaffTickets)
+			ticketConsoleRoute.POST("/tickets", middleware.TicketAgentAuth(model.TicketPermReply), controller.CreateStaffTicket)
+			ticketConsoleRoute.GET("/tickets/:id", middleware.TicketAgentAuth(""), controller.GetStaffTicket)
+			ticketConsoleRoute.POST("/tickets/:id/messages", middleware.TicketAgentAuth(model.TicketPermReply), controller.ReplyStaffTicket)
+			ticketConsoleRoute.PUT("/tickets/:id/assign", middleware.TicketAgentAuth(model.TicketPermAssign), controller.AssignStaffTicket)
+			ticketConsoleRoute.PUT("/tickets/:id/status", middleware.TicketAgentAuth(model.TicketPermClose), controller.SetStaffTicketStatus)
+			ticketConsoleRoute.PUT("/tickets/:id/archive", middleware.TicketAgentAuth(model.TicketPermClose), controller.ArchiveStaffTicket)
+			ticketConsoleRoute.GET("/attachments/:attachmentId", middleware.TicketAgentAuth(""), controller.GetTicketAgentAttachment)
+			ticketConsoleRoute.POST("/uploads", middleware.TicketAgentAuth(model.TicketPermReply), controller.UploadTicketAgentAttachment)
+			ticketConsoleRoute.GET("/users", middleware.TicketAgentAuth(""), controller.SearchTicketUsers)
+			ticketConsoleRoute.GET("/settings", middleware.TicketAgentAuth(""), controller.GetTicketSettings)
+			ticketConsoleRoute.PUT("/settings", middleware.TicketAgentAuth(model.TicketPermSettings), controller.UpdateTicketSettings)
+
+			ticketAgentRoute := ticketConsoleRoute.Group("/agents", middleware.TicketAgentAuth(model.TicketPermAgents))
+			{
+				ticketAgentRoute.GET("", controller.ListTicketAgents)
+				ticketAgentRoute.POST("", controller.CreateTicketAgent)
+				ticketAgentRoute.PUT("/:id", controller.UpdateTicketAgent)
+				ticketAgentRoute.DELETE("/:id", controller.DeleteTicketAgent)
+				ticketAgentRoute.PUT("/:id/password", controller.ResetTicketAgentPassword)
+			}
 		}
 		handlePermissionRoute(apiRouter.Group("", middleware.DisableCache(), middleware.AdminAuth()), http.MethodGet, "/audit", authz.AuditRead, controller.GetAuditLogs)
 		apiRouter.GET("/audit/self", middleware.DisableCache(), middleware.UserAuth(), controller.GetAuditLogs)

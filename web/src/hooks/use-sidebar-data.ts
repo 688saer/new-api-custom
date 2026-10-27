@@ -28,6 +28,7 @@ import {
   Key,
   LayoutDashboard,
   Layers,
+  LifeBuoy,
   ListTodo,
   Megaphone,
   MessageSquare,
@@ -135,6 +136,11 @@ export function useSidebarData(): SidebarData {
             title: t('My rewards'),
             url: '/rewards',
             icon: HandCoins,
+          },
+          {
+            title: t('My Tickets'),
+            url: '/tickets',
+            icon: LifeBuoy,
           },
           {
             title: t('Channel availability'),

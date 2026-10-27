@@ -149,6 +149,9 @@ func GetStatus(c *gin.Context) {
 
 		// 我的奖励
 		"rewards_enabled": operation_setting.IsRewardEnabled(),
+
+		// 工单系统
+		"tickets_enabled": operation_setting.IsTicketEnabled(),
 	}
 
 	// 根据启用状态注入可选内容

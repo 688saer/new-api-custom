@@ -21,6 +21,7 @@ import {
   ArrowUpRight,
   Brush,
   Gift,
+  LifeBuoy,
   Megaphone,
   PartyPopper,
   ShieldCheck,
@@ -89,6 +90,13 @@ const OWN_FEATURES: OwnFeature[] = [
     description: 'Reward tickets with a claim window, redeemed to balance.',
     icon: Ticket,
     to: '/rewards',
+  },
+  {
+    key: 'tickets',
+    title: 'Support tickets',
+    description: 'Ask for help in threads, with a separate console for staff.',
+    icon: LifeBuoy,
+    to: '/tickets',
   },
   {
     key: 'geetest',

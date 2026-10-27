@@ -699,6 +699,101 @@ main.go:44:12: pattern web/dist: cannot embed file web/dist/mascot/clips/是啊�
 跑马灯轨道宽 4848px、两组，`scrollWidth == clientWidth`（无横向溢出），
 6 张能力卡、9 个自有入口、5 条 FAQ、协议页签三枚均正常。
 
+### 3.11 工单系统 `/tickets` + 独立工单后台 `/tickets-admin`
+
+对标 `https://api.e6t.cn/tickets` 的工单系统，分两侧：
+
+| 侧 | 路由 | 账号体系 |
+|---|---|---|
+| 用户侧 | `/tickets`（在 `_authenticated` 下） | 复用站点登录态 |
+| 后台侧 | `/tickets-admin`（在站点布局之外） | **完全独立**：`ticket_agents` 表 + 自己的 Bearer 会话 |
+
+#### 用户侧 `/tickets`
+
+左侧工单列表（打开 / 已归档两个页签），右侧会话详情；空态直接给「新建工单」引导。
+
+| 元素 | 说明 |
+|---|---|
+| 状态 | `pending` 待处理、`processing` 处理中、`awaiting_user` 待用户回复、`resolved` 已解决、`closed` 已关闭 |
+| 展示标签 | `pending` 与 `processing` 对用户是同一件事，合并显示「待客服回复」 |
+| 分类 | `api` 接口与技术问题、`billing` 充值与计费问题、`account` 账号问题、`model` 模型使用问题、`other` 其他问题 |
+| 附件 | PNG / JPG / GIF / WebP，单张 ≤ 2 MB，单条消息最多 4 张 |
+| 回复 | `Enter` 发送，`Shift + Enter` 换行 |
+| 动作 | 新建工单、标记为已解决、归档、恢复 |
+| 已结束 | `resolved` / `closed` 后输入框换成「该工单已关闭。如需继续帮助请新建工单。」 |
+
+标题 ≤ 200 字、正文 ≤ 5000 字（按 rune 计），超限后端返回 `invalid_title` / `invalid_content`。
+每个用户的未结工单数受 `ticket_setting.max_open_tickets` 限制（默认 5），超限返回 `too_many_open_tickets`。
+
+#### 独立后台 `/tickets-admin`
+
+页面在 `createFileRoute('/tickets-admin')`，**不在 `_authenticated` 下、不渲染侧边栏**，
+有自己的登录卡片（含「第一次使用？创建所有者账号」引导）。
+
+| 页面 | 内容 |
+|---|---|
+| 队列 | 关键词搜索（标题 / 用户名 / 消息内容）、状态筛选、分类筛选、指派筛选（全部 / 指派给我 / 未指派）、归档开关、分页；顶部四个计数徽标 |
+| 详情 | 会话流、客服回复框（可带图）、指派下拉、状态下拉、归档 / 恢复 |
+| 账号 | 后台账号列表（角色 / 权限 / 状态 / 最近登录）+ 新建 / 编辑 / 重置密码 / 删除 |
+| 设置 | 启用工单系统、允许图片附件、客服在线、客服名称、欢迎语、离线自动回复、每用户未结工单上限 |
+
+**权限模型**（`ticket_agents.permissions`，逗号分隔；`owner` 角色恒为全部权限）：
+
+| 权限位 | 作用 |
+|---|---|
+| `tickets.view_all` | 看全部工单；没有时只能看指派给自己的 |
+| `tickets.reply` | 回复工单 |
+| `tickets.assign` | 指派工单给别人 |
+| `tickets.close` | 改状态、归档、恢复 |
+| `agents.manage` | 管理后台账号 |
+| `settings.manage` | 修改工单设置 |
+
+角色只影响默认权限勾选，实际鉴权只看权限位，因此可以给一个 `agent` 角色勾上 `settings.manage`。
+
+**管理员直通**：站点管理员（`role >= ADMIN`）可以用站点会话直接进后台，
+此时合成一个 `Id = 0` 的 owner 身份，不写 `ticket_agents` 表。
+所以后台代码里凡是要落库归属的地方都得判 `if agent.Id > 0`。
+
+**会话安全**：密码走 `common.Password2Hash`（bcrypt）；登录失败 5 次锁 15 分钟；
+令牌是 32 字节随机数的 sha256，只存哈希，`Bearer` 头传递，登出即删行；
+改密码后旧令牌立即失效（`RevokeTicketAgentSessions`）。
+
+#### 附件存储
+
+图片字节落磁盘（`TICKET_ATTACHMENT_DIR`，容器内 `/data/ticket-attachments`），
+数据库只存 `storage_key`。原因：MySQL `TEXT` 只有 64KB，改成 `LONGBLOB` 又要三库分别处理。
+
+未绑定消息的上传记录 `ticket_id = 0`，建消息时才绑定，绑定时校验
+`uploader_type + uploader_id`，因此站点用户 #1 读不到客服 #1 上传的图。
+`uploader_type` 取 `user` / `agent`，读图接口也按这两侧分别鉴权。
+
+#### 设置项
+
+`ticket_setting` 作为一个整体注册到 `setting/operation_setting`，
+改设置时用 `config.ConfigToMap` 取出 `ticket_setting.*` 前缀的键，再 `model.UpdateOptionsBulk` 批量写回，
+**不要**整体覆写 `options` 表。
+
+#### 实测
+
+| 层面 | 结果 |
+|---|---|
+| 模型层 | `ticket-flow.go` 32 项全通过（建单 / 读隔离 / 回复 / 权限 / 指派 / 可见范围 / 计数 / 解决 / 归档 / 附件归属 / 未结上限） |
+| HTTP 层 | `http-check.go` 20 项全通过（真实 MySQL + 真实容器） |
+| 后台 HTTP | `console-check.go` 29 项全通过（登录 / 权限 / 队列 / 详情 / 传图读图 / 回复 / 指派 / 解决 / 归档 / 恢复 / 客服建单 / 用户搜索 / 管理员直通 / 设置开关 / 登出失效） |
+| 用户侧 UI | CDP 实测：登录 → 新建工单（含分类、正文）→ 回复 → 标记已解决 → 归档 → 归档页恢复，全部走通 |
+| 后台 UI | CDP 实测：`owner` 登录 → 队列 2 条（含计数徽标）→ 详情 → 回复（状态自动转「待你回复」）→ 状态改已解决 → 账号页 → 设置页，控制台零报错 |
+| 三库迁移 | SQLite / MySQL 8.2 / PostgreSQL 16 各跑两次 `AutoMigrate`，表与列断言通过，幂等 |
+
+#### 这次踩到的两个真 bug（已修）
+
+1. **队列永远 0 条**：前端筛选下拉的「全部」传的是字面量 `all`，后端把 `category` 当真实分类去查
+   `category = 'all'`，自然查不到。修法：`model.TicketFilterAll` 常量，`category == all` 时跳过该条件。
+2. **关键词搜用户名无效**：子查询写成了 `id IN (SELECT id FROM users WHERE username LIKE ?)`，
+   拿工单 id 去比用户 id。修法：改成 `user_id IN (...)`。
+
+> 同类隐患：`status=all` 之所以没出问题，是因为 `NormalizeTicketStatus` 对未知值返回空串，
+> 顺手也把 `category` 改成同一套「未知即不过滤」的语义，避免以后再踩。
+
 ---
 
 ## 四、代码结构：哪些是我们的
@@ -726,6 +821,14 @@ setting/operation_setting/welfare_chest_setting.go 84
 setting/operation_setting/service_status_setting.go 207
 setting/operation_setting/reward_setting.go        86
 setting/system_setting/geetest_setting.go          87
+controller/ticket.go                              276
+controller/ticket_admin.go                        ~600
+model/ticket.go                                   ~560
+model/ticket_admin.go                             ~480
+model/ticket_agent.go                             ~560
+model/ticket_attachment.go                        217
+middleware/ticket-agent-auth.go                   123
+setting/operation_setting/ticket_setting.go        ~90
 ```
 
 **前端**
@@ -737,6 +840,8 @@ web/src/features/lucky-bonus/             ~1900 行
 web/src/features/rewards/                 ~2792 行
 web/src/features/service-status/          ~985 行
 web/src/features/welfare-api/             ~540 行
+web/src/features/tickets/                 ~1500 行
+web/src/features/ticket-console/          ~2100 行
 web/src/features/system-settings/general/lottery-settings-section.tsx
 web/src/features/system-settings/general/welfare-api-settings-section.tsx
 web/src/features/system-settings/general/welfare-api-entry-dialog.tsx
@@ -757,23 +862,25 @@ web/src/routes/_authenticated/rewards/admin.tsx
 web/src/routes/_authenticated/welfare-chests/index.tsx
 web/src/routes/service-status/index.tsx
 web/src/routes/welfare-apis/index.tsx
+web/src/routes/tickets-admin.tsx
+web/src/routes/_authenticated/tickets/index.tsx
 web/public/static/welfare-chests/        （图片资源）
 ```
 
 ### 修改的官方文件（升级时唯一可能冲突的地方）
 
-一共 **22 个**，每处改动都很小、很集中：
+一共 **24 个**，每处改动都很小、很集中：
 
 | 文件 | 改动内容 |
 |---|---|
 | `main.go` | 启动探测 worker（3 行） |
-| `model/main.go` | AutoMigrate 注册 6 张新表（6 行） |
-| `router/api-router.go` | 注册抽奖/宝箱/福利API/可用性/奖励路由（约 24 行）；5 条鉴权路由挂 `GeeTestCheck` |
+| `model/main.go` | AutoMigrate 注册 6 张新表（6 行）；工单再加 5 张（`tickets` / `ticket_messages` / `ticket_attachments` / `ticket_agents` / `ticket_agent_sessions`） |
+| `router/api-router.go` | 注册抽奖/宝箱/福利API/可用性/奖励路由（约 24 行）；5 条鉴权路由挂 `GeeTestCheck`；用户侧工单路由在 `selfRoute` 下，后台工单路由独立 `/ticket-console` 分组 |
 | `router/web-router.go` | `WebAssets` 结构体挪到文件末尾（纯格式） |
 | `controller/option.go` | 配置变更后触发探测（4 行）；无密钥时禁止开极验总开关 |
-| `controller/misc.go` | `/api/status` 下发极验公开配置（7 行）；下发 `rewards_enabled` |
-| `web/src/hooks/use-sidebar-data.ts` | 侧边栏 9 个菜单项（含公告、我的奖励） |
-| `web/src/hooks/use-sidebar-config.ts` | 侧边栏模块开关默认值（含公告、我的奖励） |
+| `controller/misc.go` | `/api/status` 下发极验公开配置（7 行）；下发 `rewards_enabled`、`tickets_enabled` |
+| `web/src/hooks/use-sidebar-data.ts` | 侧边栏 10 个菜单项（含公告、我的奖励、我的工单） |
+| `web/src/hooks/use-sidebar-config.ts` | 侧边栏模块开关默认值（含公告、我的奖励、工单） |
 | `web/src/lib/nav-modules.ts` | 顶部导航模块 `welfareApi`、`serviceStatus` |
 | `web/src/features/system-settings/types.ts` | 新增配置项的 TS 类型（含 `reward_setting.*`） |
 | `web/src/features/system-settings/security/*` | 注册「极验验证」设置页（`index.tsx` + `section-registry.tsx`） |
@@ -786,9 +893,10 @@ web/public/static/welfare-chests/        （图片资源）
 | `web/src/features/dashboard/components/ui/panel-wrapper.tsx` | 空状态下也渲染 `headerActions`（否则「查看全部」在无公告时消失） |
 | `web/src/features/auth/*` | 登录/注册/找回密码/邮箱验证码四处接入极验 |
 | `web/src/features/home/*` | 首页按 ovo1 版式重做（新增 9 个组件 + 几何库，删除旧 Hero 终端演示等 13 个文件） |
+| `web/src/features/home/components/sections/own-features.tsx` | 自有入口加「工单」一项（9 → 10 个） |
 | `web/src/styles/index.css` | 新增 `@keyframes marquee-left` 与服务商跑马灯类 |
 | `web/src/routeTree.gen.ts` | 路由树（构建时自动生成） |
-| `web/src/i18n/locales/*.json` × 7 | 自定义文案，rc.47 合并后每语言 7888 键 |
+| `web/src/i18n/locales/*.json` × 7 | 自定义文案，rc.48 合并后每语言 8014 键 |
 
 > 原本的 `web/src/features/dashboard/components/overview/announcement-detail-dialog.tsx`（82 行）已**删除**，
 > 弹窗迁到 `web/src/features/announcements/components/announcement-detail-dialog.tsx` 由看板与公告页共用。
@@ -1220,17 +1328,20 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:home5`（`/new-api --version` = `1.0.0-rc.47`） |
+| 生产镜像 | `new-api-lottery:tickets5`（`/new-api --version` = `1.0.0-rc.48`） |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
-| 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 9 个自有入口（见 3.10） |
-| 已发布版本 | `v1.0.0-rc.47-home`（含 Docker 镜像 tar.gz 与四平台二进制） |
-| 回滚镜像 | `new-api-lottery:home4`、`:home3`、`:home2`、`:home1`、`:claimwin2`、`:rc47r2`、`:rc47r1` |
+| 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
+| 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11） |
+| 已发布版本 | `v1.0.0-rc.48-tickets`（含 Docker 镜像 tar.gz 与四平台二进制） |
+| 回滚镜像 | `new-api-lottery:tickets4`、`:tickets3`、`:tickets2`、`:tickets1`、`:home5`、`:home4`、`:home3`、`:home2`、`:home1`、`:claimwin2`、`:rc47r2`、`:rc47r1` |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
-| 前端测试 | 首页改版新增 **29 项全通过**；本次改动单独跑 `vitest run src/features/home src/features/keys`（15 文件 113 项全通过），未重跑全量 2555 项 |
-| typecheck | 通过（1524 文件，2 个项目） |
+| 前端测试 | 工单新增 **10 项**（`status.test.ts` 6 + `permissions.test.ts` 4）；侧边栏/首页测试随入口数量同步更新，受影响 4 个文件 30 项全通过 |
+| typecheck | 通过（1554 文件，2 个项目） |
+| oxlint | 工单相关文件 0 warning / 0 error |
 | gofmt | 干净 |
+| go vet | `./controller/ ./model/ ./middleware/ ./router/ ./setting/...` 全通过 |
 | Go 单测 | `./model/ ./controller/ ./setting/... ./service/...` 全 `ok` |
-| 数据库迁移 | SQLite / MySQL 8.2 / PostgreSQL 16.15 三库各跑两次 `AutoMigrate`，幂等且旧数据完好 |
+| 数据库迁移 | SQLite / MySQL 8.2 / PostgreSQL 16 三库各跑两次 `AutoMigrate`，含 5 张工单表，幂等且旧数据完好 |
 | 极验 | **已上线并开启**（登录 + 注册）；验证 ID 已填入 |
 | 看板娘 | **已上线并默认开启**，106 个动画 + 12 张立绘全部内置 |
 | 看板娘体积 | 动画 12.8MB（原 53MB）+ 立绘 2.1MB；首屏只加载 1 个待机片段 |
