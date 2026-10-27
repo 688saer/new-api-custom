@@ -87,7 +87,7 @@ git apply --3way /tmp/up.patch                                  # 带三向合�
 九个功能全部是**原生集成**（不是 iframe 嵌入），复用官方组件、主题和 i18n。
 
 > 这里是九个：公告中心、抽奖、福利宝箱、福利 API、渠道可用性、无限画布、我的奖励、极验验证，以及 3.8 的看板娘；
-> 3.0 是对官方 `/keys` 页的改造，不算独立功能。
+> 3.0 是对官方 `/keys` 页的改造，3.10 是对官方首页的改版，两者都不算独立功能。
 
 ### 3.0 API 密钥页 `/keys` 的改造
 
@@ -646,6 +646,61 @@ main.go:44:12: pattern web/dist: cannot embed file web/dist/mascot/clips/是啊�
 
 ---
 
+### 3.10 首页改版 `/`（对齐 ovo1.vip 版式）
+
+首页按 `https://ovo1.vip/home` 的版式重做，**功能入口保留我们自己的**（抽奖、宝箱、福利 API、渠道可用性、画布、公告、奖励、极验、看板娘）。
+
+页面顺序：
+
+| 区块 | 内容 |
+|---|---|
+| 顶部公告条 | 深色条，三条提示轮播（5.2s 自动、悬停暂停）、圆点指示、左右箭头 |
+| Hero | 双栏：左侧 eyebrow + 两行大标题（首行蓝色 `#5b8ff9`）+ 描述 + 三个按钮；右侧旋转星球画布 |
+| 服务商跑马灯 | 20 个品牌芯片，两份相同轨道做无缝滚动，边缘渐隐，悬停暂停 |
+| 能力卡片 | 6 张，编号 01–06，各带图标与跳转（接入锚点、密钥、用量、奖励、抽奖、可用性） |
+| 本站增强 | 9 个自有功能入口（抽奖/宝箱/福利 API/可用性/画布/公告/奖励/极验/看板娘） |
+| 开发者接入 | 接入地址 + 复制、协议芯片、三步骤、代码示例（OpenAI/Anthropic/Gemini × Python/cURL） |
+| 对话台引导 | 输入框 + 跳转 `/playground` |
+| 常见问题 | 5 条折叠问答 |
+| 结尾 CTA | 登录/未登录两种按钮组合 |
+
+**星球画布**（`components/planet-globe.tsx`）用 2D canvas 画，不引 WebGL 与第三方库：
+
+- 几何在 `lib/globe-geometry.ts`：`projectGlobePoint()` 做经纬度→单位球投影（含自转与 23° 级倾角），
+  `buildGlobeMeridians/Parallels()` 生成网格，`buildGlobeSpeckles()` 用固定种子 `20261027` 生成陆地点阵
+  （`asin` 均匀采样，保证每次刷新形状一致、不闪烁）。
+- 只描 `z > 0` 的前半球，配合大气光晕、球体径向渐变、终止线阴影、边缘高光、倾斜轨道虚线。
+- DPR 上限 2；`IntersectionObserver` + `visibilitychange` 时暂停；`prefers-reduced-motion` 下只画静止一帧。
+- 明暗两套调色板，跟随 `useTheme()` 实时切换（实测暗色下中心像素由 `221,229,245` 变为 `26,38,62`）。
+
+**接入地址复用 `resolvePublicAddress`**（与 `/keys` 的 API 端点卡片同一套降级规则），
+所以站点没配「服务器地址」时，公网访客看到的是当前域名而不是 `localhost:3000`：
+
+```
+实际渲染：https://<当前域名>/v1
+```
+
+**i18n**：新增文案 **86 条**（首页静态文案 36 + 卡片/功能/步骤/FAQ 44 + 动作 3 + 公告条 3），
+7 个语言全部补齐，键序与上游排序规则一致（纯数字键在前 + `Intl.Collator('en')`），
+每语言 7888 键。新增 `@keyframes marquee-left`（`web/src/styles/index.css`，放在 `@layer utilities` 内，
+并在 `prefers-reduced-motion` 下关闭）。
+
+**回归测试**（`web/src/features/home/__tests__/`，29 项）：
+
+| 文件 | 覆盖 |
+|---|---|
+| `globe-geometry.test.ts` | 投影单位球约束、极点/背面、自转与倾角、网格数量、点阵确定性与前缀稳定 |
+| `notice-carousel.test.tsx` | 首条渲染、前后翻页与环绕、圆点跳转与 `aria-current`、区域可访问名 |
+| `faq.test.tsx` | 5 条问答折叠、展开、再次收起 |
+| `integration.test.tsx` | 地址渲染、协议切换、Python/cURL 切换、复制按钮 |
+| `own-features.test.tsx` | 9 个入口、路由跳转、无路由项不生成链接 |
+
+**实测（生产环境，1440px / 390px）**：双栏 `532px 532px`，星球 `460×460`（移动端 `342×342`），
+跑马灯轨道宽 4848px、两组，`scrollWidth == clientWidth`（无横向溢出），
+6 张能力卡、9 个自有入口、5 条 FAQ、协议页签三枚均正常。
+
+---
+
 ## 四、代码结构：哪些是我们的
 
 ### 新增文件（纯新增，升级不会冲突）
@@ -730,8 +785,10 @@ web/public/static/welfare-chests/        （图片资源）
 | `web/src/features/dashboard/components/overview/announcements-panel.tsx` | 公告卡片改为复用公告模块的详情弹窗，右上角加「查看全部」 |
 | `web/src/features/dashboard/components/ui/panel-wrapper.tsx` | 空状态下也渲染 `headerActions`（否则「查看全部」在无公告时消失） |
 | `web/src/features/auth/*` | 登录/注册/找回密码/邮箱验证码四处接入极验 |
+| `web/src/features/home/*` | 首页按 ovo1 版式重做（新增 9 个组件 + 几何库，删除旧 Hero 终端演示等 13 个文件） |
+| `web/src/styles/index.css` | 新增 `@keyframes marquee-left` 与服务商跑马灯类 |
 | `web/src/routeTree.gen.ts` | 路由树（构建时自动生成） |
-| `web/src/i18n/locales/*.json` × 7 | 自定义文案，rc.47 合并后每语言 7793 键 |
+| `web/src/i18n/locales/*.json` × 7 | 自定义文案，rc.47 合并后每语言 7888 键 |
 
 > 原本的 `web/src/features/dashboard/components/overview/announcement-detail-dialog.tsx`（82 行）已**删除**，
 > 弹窗迁到 `web/src/features/announcements/components/announcement-detail-dialog.tsx` 由看板与公告页共用。

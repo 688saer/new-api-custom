@@ -23,10 +23,22 @@ import { PublicLayout } from '@/components/layout'
 import { Footer } from '@/components/layout/components/footer'
 import { RichContent } from '@/components/rich-content'
 import { useTheme } from '@/context/theme-provider'
+import { resolvePublicAddress } from '@/features/keys/components/api-endpoints-card'
+import { useStatus } from '@/hooks/use-status'
 import { isLikelyHtml } from '@/lib/content-format'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { CTA, Features, Hero, HowItWorks, Stats } from './components'
+import {
+  CTA,
+  Faq,
+  FeatureGrid,
+  Hero,
+  Integration,
+  NoticeCarousel,
+  OwnFeatures,
+  PlaygroundTeaser,
+  Providers,
+} from './components'
 import { useHomePageContent } from './hooks'
 
 export function Home() {
@@ -34,6 +46,7 @@ export function Home() {
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const { resolvedTheme } = useTheme()
   const { auth } = useAuthStore()
+  const { status } = useStatus()
   const isAuthenticated = !!auth.user
   const { content, isLoaded, isUrl } = useHomePageContent()
 
@@ -120,13 +133,30 @@ export function Home() {
     )
   }
 
+  // Reuse the API-address rule from the console so a deployment that never got
+  // a public server address shows the origin visitors actually reached instead
+  // of the loopback default.
+  const origin = resolvePublicAddress(
+    (status?.server_address as string | undefined) ?? '',
+    typeof window === 'undefined' ? '' : window.location.origin
+  )
+  const baseUrl = `${origin.replace(/\/+$/, '')}/v1`
+  const docsUrl =
+    (status?.docs_link as string | undefined) || 'https://docs.newapi.pro'
+
   return (
     <PublicLayout showMainContainer={false}>
-      <Hero isAuthenticated={isAuthenticated} />
-      <Stats />
-      <Features />
-      <HowItWorks />
-      <CTA isAuthenticated={isAuthenticated} />
+      <NoticeCarousel />
+      <main>
+        <Hero isAuthenticated={isAuthenticated} />
+        <Providers />
+        <FeatureGrid />
+        <OwnFeatures />
+        <Integration baseUrl={baseUrl} docsUrl={docsUrl} />
+        <PlaygroundTeaser />
+        <Faq />
+        <CTA isAuthenticated={isAuthenticated} />
+      </main>
       <Footer />
     </PublicLayout>
   )

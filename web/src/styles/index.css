@@ -499,6 +499,27 @@ For commercial licensing, please contact support@quantumnous.com
   .scroll-container:hover .animate-scroll-down {
     animation-play-state: paused;
   }
+
+  /* Horizontal marquee for the home page provider strip. The track holds two
+   * identical groups, so translating by half its width loops seamlessly. */
+  @keyframes marquee-left {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  .animate-marquee-left {
+    animation: marquee-left 38s linear infinite;
+    will-change: transform;
+  }
+
+  .marquee-container:hover .animate-marquee-left,
+  .marquee-container:focus-within .animate-marquee-left {
+    animation-play-state: paused;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -506,6 +527,7 @@ For commercial licensing, please contact support@quantumnous.com
   .animate-appear-zoom,
   .animate-scroll-up,
   .animate-scroll-down,
+  .animate-marquee-left,
   [data-slot='table'] tbody tr {
     animation: none !important;
     opacity: 1;

@@ -17,7 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 export { CTA } from './sections/cta'
-export { Features } from './sections/features'
+export { Faq } from './sections/faq'
+export { FeatureGrid } from './sections/feature-grid'
 export { Hero } from './sections/hero'
-export { HowItWorks } from './sections/how-it-works'
-export { Stats } from './sections/stats'
+export { Integration } from './sections/integration'
+export { OwnFeatures } from './sections/own-features'
+export { PlaygroundTeaser } from './sections/playground-teaser'
+export { Providers } from './sections/providers'
+export { NoticeCarousel } from './notice-carousel'
+export { PlanetGlobe } from './planet-globe'
