@@ -900,7 +900,13 @@ rsync -a --delete \
   /root/merge/work/ ./
 
 # ── 5. 更新版本号 ────────────────────────────
+cat VERSION                 # 必须与仓库一致；构建目录残留旧版本会打进二进制
 echo "1.0.0-rc.47" > VERSION
+
+# ⚠️ 只同步 web/src 不同步 VERSION，二进制会继续报旧版本号
+#    （rc.47 首页上线后曾出现：镜像里的 /new-api --version 仍是 1.0.0-rc.46，
+#     因为构建目录只覆盖了 web/，VERSION 还是更早一次构建留下的 rc.46）。
+#    构建前先确认：cat /root/newapi-build/VERSION 与 git show HEAD:VERSION 相同。
 
 # ── 6. 装依赖 + 类型检查 ─────────────────────
 cd web
@@ -1214,11 +1220,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:home4` |
+| 生产镜像 | `new-api-lottery:home5`（`/new-api --version` = `1.0.0-rc.47`） |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 9 个自有入口（见 3.10） |
-| 已发布版本 | `v1.0.0-rc.47-random`（含 Docker 镜像 tar.gz） |
-| 回滚镜像 | `new-api-lottery:home3`、`:home2`、`:home1`、`:claimwin2`、`:rc47r2`、`:rc47r1` |
+| 已发布版本 | `v1.0.0-rc.47-home`（含 Docker 镜像 tar.gz 与四平台二进制） |
+| 回滚镜像 | `new-api-lottery:home4`、`:home3`、`:home2`、`:home1`、`:claimwin2`、`:rc47r2`、`:rc47r1` |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 首页改版新增 **29 项全通过**；本次改动单独跑 `vitest run src/features/home src/features/keys`（15 文件 113 项全通过），未重跑全量 2555 项 |
 | typecheck | 通过（1524 文件，2 个项目） |
