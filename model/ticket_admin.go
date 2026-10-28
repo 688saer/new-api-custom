@@ -161,7 +161,7 @@ func decorateStaffTickets(tickets []Ticket) ([]TicketView, error) {
 		view := TicketView{
 			Ticket:      ticket,
 			UnreadCount: ticket.UnreadForStaff,
-			Replyable:   !IsTicketEnded(ticket.Status),
+			Replyable:   ticketReplyable(&ticket),
 		}
 		if user, ok := userById[ticket.UserId]; ok {
 			view.Username = user.Username
@@ -197,7 +197,7 @@ func GetStaffTicketView(agent *TicketAgent, ticketId int) (*TicketView, error) {
 	view := &TicketView{
 		Ticket:    *ticket,
 		Messages:  messages,
-		Replyable: !IsTicketEnded(ticket.Status),
+		Replyable: ticketReplyable(ticket),
 	}
 
 	var user User
@@ -226,6 +226,9 @@ func ReplyStaffTicket(agent *TicketAgent, ticketId int, content string, imageKey
 	}
 	if IsTicketEnded(ticket.Status) {
 		return nil, newTicketError(TicketCodeClosed, "This ticket is already closed")
+	}
+	if ticket.Archived {
+		return nil, newTicketError(TicketCodeClosed, "This ticket is archived. Restore it to continue.")
 	}
 
 	now := common.GetTimestamp()

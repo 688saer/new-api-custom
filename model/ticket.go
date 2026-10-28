@@ -210,6 +210,11 @@ func IsTicketEnded(status string) bool {
 	return status == TicketStatusResolved || status == TicketStatusClosed
 }
 
+// ticketReplyable 已归档的工单同样不能再回复，必须先恢复
+func ticketReplyable(ticket *Ticket) bool {
+	return !ticket.Archived && !IsTicketEnded(ticket.Status)
+}
+
 // ValidateTicketTitle 校验标题
 func ValidateTicketTitle(title string) error {
 	trimmed := strings.TrimSpace(title)
@@ -457,7 +462,7 @@ func GetUserTicketView(userId, ticketId int) (*TicketView, error) {
 	view := &TicketView{
 		Ticket:      *ticket,
 		Messages:    messages,
-		Replyable:   !IsTicketEnded(ticket.Status),
+		Replyable:   ticketReplyable(ticket),
 		UnreadCount: 0,
 	}
 	if len(messages) > 0 {
@@ -517,7 +522,7 @@ func decorateTicketPreviews(tickets []Ticket) ([]TicketView, error) {
 		view := TicketView{
 			Ticket:      ticket,
 			UnreadCount: ticket.UnreadForUser,
-			Replyable:   !IsTicketEnded(ticket.Status),
+			Replyable:   ticketReplyable(&ticket),
 		}
 		if message, ok := lastByTicket[ticket.Id]; ok {
 			view.LastMessage = ticketPreview(message.Content)

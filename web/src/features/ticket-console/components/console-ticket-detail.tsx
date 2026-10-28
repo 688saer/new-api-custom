@@ -42,6 +42,7 @@ import { TICKET_STATUSES, type Ticket } from '@/features/tickets/types'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatTimestampToDate } from '@/lib/format'
 
+import { consoleImageBlob } from '../api'
 import type { TicketAgentAccount } from '../types'
 
 type ConsoleTicketDetailProps = {
@@ -64,6 +65,12 @@ export function ConsoleTicketDetail(props: ConsoleTicketDetailProps) {
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const status = ticketStatusMeta(props.ticket.status)
   const ended = !props.ticket.replyable
+  let composerHint = t('Your account can view tickets but not reply.')
+  if (props.ticket.archived) {
+    composerHint = t('This ticket is archived. Restore it to continue.')
+  } else if (ended) {
+    composerHint = t('This ticket is closed. Reopen it to reply.')
+  }
 
   // Base UI 的 Select 需要 items 才能把值渲染成标签
   const assigneeItems = useMemo(
@@ -178,6 +185,7 @@ export function ConsoleTicketDetail(props: ConsoleTicketDetailProps) {
           messages={props.ticket.messages ?? []}
           agentName={props.ticket.agent_name || t('Support')}
           selfSide='agent'
+          loadImage={consoleImageBlob}
         />
       </div>
 
@@ -192,11 +200,7 @@ export function ConsoleTicketDetail(props: ConsoleTicketDetailProps) {
           setAttachments([])
         }}
         disabled={ended || !props.canReply}
-        disabledHint={
-          ended
-            ? t('This ticket is closed. Reopen it to reply.')
-            : t('Your account can view tickets but not reply.')
-        }
+        disabledHint={composerHint}
       />
     </div>
   )

@@ -107,7 +107,20 @@ export async function uploadTicketImage(
   return res.data
 }
 
-/** 工单图片需要带会话凭据读取，因此走 blob 再用 objectURL 渲染。 */
 export function ticketImageUrl(attachmentId: number): string {
   return `/api/user/ticket-uploads/${attachmentId}`
+}
+
+/**
+ * 读工单图片。
+ *
+ * 读图接口要 Bearer 令牌，`<img src>` 带不上，所以必须走共享客户端取 blob，
+ * 再交给组件转成 objectURL。用裸 fetch 只会拿到 401。
+ */
+export async function ticketImageBlob(attachmentId: number): Promise<Blob> {
+  const response = await api.get<Blob>(ticketImageUrl(attachmentId), {
+    responseType: 'blob',
+    ...silentOptions,
+  })
+  return response.data
 }

@@ -21,16 +21,20 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 
-import { useTicketImage } from '../hooks/use-ticket-image'
+import {
+  useTicketImage,
+  type TicketImageLoader,
+} from '../hooks/use-ticket-image'
 import type { TicketAttachment } from '../types'
 
 type TicketAttachmentImageProps = {
   attachment: TicketAttachment
+  loadImage: TicketImageLoader
 }
 
 function TicketAttachmentImage(props: TicketAttachmentImageProps) {
   const { t } = useTranslation()
-  const url = useTicketImage(props.attachment.id)
+  const url = useTicketImage(props.attachment.id, props.loadImage)
 
   if (!url) {
     return (
@@ -60,6 +64,8 @@ function TicketAttachmentImage(props: TicketAttachmentImageProps) {
 
 type TicketAttachmentListProps = {
   attachments: TicketAttachment[]
+  /** 两侧令牌不同，读图接口也不同，所以由调用方决定怎么取 */
+  loadImage: TicketImageLoader
 }
 
 export function TicketAttachmentList(props: TicketAttachmentListProps) {
@@ -68,7 +74,11 @@ export function TicketAttachmentList(props: TicketAttachmentListProps) {
   return (
     <div className='mt-2 flex flex-wrap gap-2'>
       {props.attachments.map((attachment) => (
-        <TicketAttachmentImage key={attachment.id} attachment={attachment} />
+        <TicketAttachmentImage
+          key={attachment.id}
+          attachment={attachment}
+          loadImage={props.loadImage}
+        />
       ))}
     </div>
   )

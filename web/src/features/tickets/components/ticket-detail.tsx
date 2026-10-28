@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatTimestampToDate } from '@/lib/format'
 
+import { ticketImageBlob } from '../api'
 import { ticketCategoryLabelKey, ticketStatusMeta } from '../lib/tickets'
 import type { Ticket } from '../types'
 import { TicketComposer, type PendingImage } from './ticket-composer'
@@ -120,6 +121,7 @@ export function TicketDetail(props: TicketDetailProps) {
           messages={props.ticket.messages ?? []}
           agentName={props.agentName}
           selfSide='user'
+          loadImage={ticketImageBlob}
         />
       </div>
 

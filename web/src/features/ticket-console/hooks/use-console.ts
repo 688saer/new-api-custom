@@ -29,7 +29,6 @@ import {
   consoleCounts,
   consoleCreateAgent,
   consoleDeleteAgent,
-  consoleImageBlob,
   consoleLogin,
   consoleLogout,
   consoleReplyTicket,
@@ -274,38 +273,6 @@ export function useConsoleChangePassword() {
     mutationFn: (payload: { old_password: string; new_password: string }) =>
       consoleChangePassword(payload),
   })
-}
-
-/** 后台图片需要 Bearer token，先取 blob 再转 objectURL。 */
-export function useConsoleImage(attachmentId: number): string | null {
-  const [url, setUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!attachmentId) {
-      setUrl(null)
-      return
-    }
-
-    let revoked = false
-    let objectUrl: string | null = null
-
-    void consoleImageBlob(attachmentId)
-      .then((blob) => {
-        if (revoked) return
-        objectUrl = URL.createObjectURL(blob)
-        setUrl(objectUrl)
-      })
-      .catch(() => {
-        if (!revoked) setUrl(null)
-      })
-
-    return () => {
-      revoked = true
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [attachmentId])
-
-  return url
 }
 
 export type { Ticket, TicketAgentAccount }

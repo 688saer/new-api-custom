@@ -18,11 +18,17 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useState } from 'react'
 
+/** 取一张工单图片的字节，两侧各自传入带令牌的客户端。 */
+export type TicketImageLoader = (attachmentId: number) => Promise<Blob>
+
 /**
  * 工单图片接口需要会话凭据，不能直接放进 <img src>。
- * 这里把图片取成 blob 并生成 objectURL，组件卸载时释放。
+ * 这里用调用方给的 loader 取回图片，转成 objectURL，组件卸载时释放。
  */
-export function useTicketImage(attachmentId: number): string | null {
+export function useTicketImage(
+  attachmentId: number,
+  load: TicketImageLoader
+): string | null {
   const [url, setUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -33,17 +39,13 @@ export function useTicketImage(attachmentId: number): string | null {
 
     let revoked = false
     let objectUrl: string | null = null
-    const controller = new AbortController()
 
-    void fetch(`/api/user/ticket-uploads/${attachmentId}`, {
-      credentials: 'include',
-      signal: controller.signal,
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error('image request failed')
-        return response.blob()
-      })
+    void load(attachmentId)
       .then((blob) => {
+        // 接口出错时会返回 JSON 错误体，别把它当成图片渲染
+        if (blob.type && !blob.type.startsWith('image/')) {
+          throw new Error('attachment is not an image')
+        }
         if (revoked) return
         objectUrl = URL.createObjectURL(blob)
         setUrl(objectUrl)
@@ -54,10 +56,9 @@ export function useTicketImage(attachmentId: number): string | null {
 
     return () => {
       revoked = true
-      controller.abort()
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
-  }, [attachmentId])
+  }, [attachmentId, load])
 
   return url
 }

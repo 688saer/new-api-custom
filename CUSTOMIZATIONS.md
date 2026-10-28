@@ -794,6 +794,24 @@ main.go:44:12: pattern web/dist: cannot embed file web/dist/mascot/clips/是啊�
 > 同类隐患：`status=all` 之所以没出问题，是因为 `NormalizeTicketStatus` 对未知值返回空串，
 > 顺手也把 `category` 改成同一套「未知即不过滤」的语义，避免以后再踩。
 
+#### tickets6 修的两个 bug（已修）
+
+1. **工单图片一律显示「图片不可用」**：`use-ticket-image.ts` 用裸 `fetch(..., { credentials: 'include' })`
+   去读图，但本站鉴权走 `Authorization: Bearer <accessToken>`（令牌在 zustand store 里，不是 Cookie），
+   所以请求必然 401；后台侧还更严重——它复用了用户侧组件，打的是 `/api/user/ticket-uploads/:id`。
+   修法：`useTicketImage(id, load)` 接收注入的加载器，用户侧传 `ticketImageBlob`（走共享 `api` 实例，
+   自动带令牌与刷新），后台侧传 `consoleImageBlob`（走 `consoleApi` + 本地后台令牌），
+   取回 blob 再 `URL.createObjectURL`；非 `image/*` 的响应体直接判为失败，避免把 JSON 错误页当图渲染。
+2. **后台归档后用户端不归档**：后端本来就是同一列 `tickets.archived`（实测后台归档后
+   用户 `archived=false` 列表为 0、`archived=true` 为 1），问题在前端——用户页的查询
+   `staleTime` 到期也不会自动重取，而 `query-client.ts` 全局关了 `refetchOnWindowFocus`，
+   页面一直挂着就永远看不到归档结果。修法：用户侧列表与详情加 `refetchInterval: 20s` +
+   `refetchOnWindowFocus`；同时把 `replyable` 改为 `!archived && !IsTicketEnded(status)`，
+   让已归档工单在两侧都直接禁用输入框（后台 `ReplyStaffTicket` 也补了 archived 拦截）。
+
+回归用例：`model/ticket_archive_test.go`（4 项）、`web/src/features/tickets/__tests__/attachments.test.tsx`（4 项）、
+`archive.test.tsx`（3 项）。
+
 ---
 
 ## 四、代码结构：哪些是我们的
@@ -1328,19 +1346,19 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:tickets5`（`/new-api --version` = `1.0.0-rc.48`） |
+| 生产镜像 | `new-api-lottery:tickets6`（`/new-api --version` = `1.0.0-rc.48`） |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
-| 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11） |
-| 已发布版本 | `v1.0.0-rc.48-tickets`（含 Docker 镜像 tar.gz 与四平台二进制） |
-| 回滚镜像 | `new-api-lottery:tickets4`、`:tickets3`、`:home5`、`:home4`（其余历史镜像已清理腾出磁盘） |
+| 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
+| 已发布版本 | `v1.0.0-rc.48-tickets`（含 Docker 镜像 tar.gz 与四平台二进制）、`v1.0.0-rc.48-tickets-fix` |
+| 回滚镜像 | `new-api-lottery:tickets5`、`:tickets4`、`:tickets3`、`:home5`、`:home4`（其余历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
-| 前端测试 | 工单新增 **10 项**（`status.test.ts` 6 + `permissions.test.ts` 4）；侧边栏/首页测试随入口数量同步更新，受影响 4 个文件 30 项全通过 |
-| typecheck | 通过（1554 文件，2 个项目） |
+| 前端测试 | 工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |
+| typecheck | 通过（1556 文件，2 个项目） |
 | oxlint | 工单相关文件 0 warning / 0 error |
 | gofmt | 干净 |
 | go vet | `./controller/ ./model/ ./middleware/ ./router/ ./setting/...` 全通过 |
-| Go 单测 | `./model/ ./controller/ ./setting/... ./service/...` 全 `ok` |
+| Go 单测 | `./model/` 全 `ok`（含 `ticket_archive_test.go` 4 项归档回归） |
 | 数据库迁移 | SQLite / MySQL 8.2 / PostgreSQL 16 三库各跑两次 `AutoMigrate`，含 5 张工单表，幂等且旧数据完好 |
 | 极验 | **已上线并开启**（登录 + 注册）；验证 ID 已填入 |
 | 看板娘 | **已上线并默认开启**，106 个动画 + 12 张立绘全部内置 |

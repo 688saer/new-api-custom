@@ -62,6 +62,11 @@ func TestMain(m *testing.M) {
 		&UserAccessToken{},
 		&RewardCampaign{},
 		&RewardGrant{},
+		&Ticket{},
+		&TicketMessage{},
+		&TicketAttachment{},
+		&TicketAgent{},
+		&TicketAgentSession{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}

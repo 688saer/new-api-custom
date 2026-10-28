@@ -22,6 +22,7 @@ import { toIntlLocale } from '@/i18n/languages'
 import { formatTimestampRelative } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+import type { TicketImageLoader } from '../hooks/use-ticket-image'
 import type { TicketMessage } from '../types'
 import { TicketAttachmentList } from './ticket-attachments'
 
@@ -31,6 +32,8 @@ type TicketThreadProps = {
   agentName: string
   /** 站点用户侧展示自己的气泡在右侧 */
   selfSide: 'user' | 'agent'
+  /** 读图方式，用户侧与后台侧令牌不同 */
+  loadImage: TicketImageLoader
 }
 
 /** 工单会话流：自己一侧靠右、客服靠左、系统消息居中。 */
@@ -96,7 +99,10 @@ export function TicketThread(props: TicketThreadProps) {
                 <p className='break-words whitespace-pre-wrap'>
                   {message.content}
                 </p>
-                <TicketAttachmentList attachments={message.attachments} />
+                <TicketAttachmentList
+                  attachments={message.attachments}
+                  loadImage={props.loadImage}
+                />
               </div>
             </div>
           </li>

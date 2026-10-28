@@ -62,6 +62,10 @@ export function useMyTickets(archived: boolean) {
     queryKey: ticketQueryKeys.list(archived),
     queryFn: () => loadTickets(archived),
     staleTime: 15 * 1000,
+    // 客服在后台归档或回复时，用户页面往往一直挂着。
+    // 不主动拉取的话工单会留在「打开」里，看起来像归档没生效。
+    refetchInterval: 20 * 1000,
+    refetchOnWindowFocus: true,
   })
 }
 
@@ -71,6 +75,8 @@ export function useMyTicket(ticketId: number | null) {
     queryFn: () => loadTicket(ticketId as number),
     enabled: ticketId != null && ticketId > 0,
     staleTime: 10 * 1000,
+    refetchInterval: 20 * 1000,
+    refetchOnWindowFocus: true,
   })
 }
 
