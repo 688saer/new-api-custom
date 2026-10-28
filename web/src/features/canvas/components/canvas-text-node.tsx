@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Send, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { CopyPlus, GripHorizontal, Send, Trash2 } from 'lucide-react'
+import { useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -31,11 +31,10 @@ const TEXT_NODE_WIDTH = 260
 
 interface CanvasTextNodeProps {
   node: CanvasTextNodeData
-  zoom: number
   selected: boolean
-  onMove: (id: string, x: number, y: number) => void
-  onSelect: (id: string) => void
+  onDragStart: (id: string, event: ReactPointerEvent<HTMLDivElement>) => void
   onRemove: (id: string) => void
+  onDuplicate: (id: string) => void
   onChange: (id: string, text: string) => void
   /** Move this note's text into the prompt box to draw from it. */
   onUseAsPrompt: (text: string) => void
@@ -54,17 +53,23 @@ export function CanvasTextNode(props: CanvasTextNodeProps) {
       x={props.node.x}
       y={props.node.y}
       width={TEXT_NODE_WIDTH}
-      zoom={props.zoom}
       selected={props.selected}
-      onMove={props.onMove}
-      onSelect={props.onSelect}
+      onDragStart={props.onDragStart}
       onMeasure={props.onMeasure}
     >
+      <div
+        data-canvas-drag-handle={props.node.id}
+        className='text-muted-foreground flex cursor-grab touch-none items-center justify-center border-b py-0.5 active:cursor-grabbing'
+      >
+        <GripHorizontal className='size-3.5' aria-hidden='true' />
+      </div>
       {editing ? (
         <Textarea
           autoFocus
           value={props.node.text}
-          onChange={(event) => props.onChange(props.node.id, event.target.value)}
+          onChange={(event) =>
+            props.onChange(props.node.id, event.target.value)
+          }
           onBlur={() => setEditing(false)}
           onPointerDown={(event) => event.stopPropagation()}
           placeholder={t('Write a note')}
@@ -76,7 +81,6 @@ export function CanvasTextNode(props: CanvasTextNodeProps) {
           type='button'
           className='w-full px-3 py-2.5 text-left text-sm whitespace-pre-wrap'
           onDoubleClick={() => setEditing(true)}
-          onPointerDown={(event) => event.stopPropagation()}
           aria-label={t('Edit note')}
         >
           {props.node.text || t('Write a note')}
@@ -95,6 +99,15 @@ export function CanvasTextNode(props: CanvasTextNodeProps) {
           aria-label={t('Use as prompt')}
         >
           <Send className='size-3.5' />
+        </Button>
+        <Button
+          variant='ghost'
+          size='icon'
+          className='size-6'
+          onClick={() => props.onDuplicate(props.node.id)}
+          aria-label={t('Duplicate node')}
+        >
+          <CopyPlus className='size-3.5' />
         </Button>
         <Button
           variant='ghost'

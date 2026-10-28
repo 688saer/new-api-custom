@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -40,13 +40,13 @@ describe('canvas track lines', () => {
   it('draws nothing for a picture that was not derived from another', () => {
     const nodes = [imageNode({ id: 'a', x: 0, y: 0 })]
 
-    expect(buildConnectors(nodes, { a: SIZE }, null)).toEqual([])
+    expect(buildConnectors(nodes, { a: SIZE }, [])).toEqual([])
   })
 
   it('drops the line once the source picture has been deleted', () => {
     const nodes = [imageNode({ id: 'b', x: 400, y: 0, parentId: 'gone' })]
 
-    expect(buildConnectors(nodes, { b: SIZE }, null)).toEqual([])
+    expect(buildConnectors(nodes, { b: SIZE }, [])).toEqual([])
   })
 
   it('waits for both nodes to be measured before drawing', () => {
@@ -55,7 +55,7 @@ describe('canvas track lines', () => {
       imageNode({ id: 'b', x: 400, y: 0, parentId: 'a' }),
     ]
 
-    expect(buildConnectors(nodes, { a: SIZE }, null)).toEqual([])
+    expect(buildConnectors(nodes, { a: SIZE }, [])).toEqual([])
   })
 
   it('joins a picture hung to the right of its source with a horizontal track', () => {
@@ -67,7 +67,7 @@ describe('canvas track lines', () => {
     const [connector] = buildConnectors(
       nodes,
       { a: SIZE, b: SIZE },
-      null
+      []
     )
 
     // Leaves the source's right edge at its vertical centre and enters the
@@ -85,7 +85,7 @@ describe('canvas track lines', () => {
     const [connector] = buildConnectors(
       nodes,
       { a: SIZE, b: SIZE },
-      null
+      []
     )
 
     expect(connector).toMatchObject({ x1: 160, y1: 350, x2: 160, y2: 400 })
@@ -99,8 +99,8 @@ describe('canvas track lines', () => {
     ]
     const sizes = { a: SIZE, b: SIZE }
 
-    expect(buildConnectors(nodes, sizes, 'b')[0].active).toBe(true)
-    expect(buildConnectors(nodes, sizes, 'a')[0].active).toBe(true)
-    expect(buildConnectors(nodes, sizes, null)[0].active).toBe(false)
+    expect(buildConnectors(nodes, sizes, ['b'])[0].active).toBe(true)
+    expect(buildConnectors(nodes, sizes, ['a'])[0].active).toBe(true)
+    expect(buildConnectors(nodes, sizes, [])[0].active).toBe(false)
   })
 })

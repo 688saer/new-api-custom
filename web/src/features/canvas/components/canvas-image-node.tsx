@@ -17,12 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
+  CopyPlus,
   Download,
   ImagePlus,
   MoreHorizontal,
   RefreshCw,
   Trash2,
 } from 'lucide-react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
@@ -43,11 +45,11 @@ export const IMAGE_NODE_WIDTH = 320
 
 interface CanvasImageNodeProps {
   node: CanvasImageNodeData
-  zoom: number
   selected: boolean
-  onMove: (id: string, x: number, y: number) => void
-  onSelect: (id: string) => void
+  onDragStart: (id: string, event: ReactPointerEvent<HTMLDivElement>) => void
   onRemove: (id: string) => void
+  /** Copy this picture onto the board beside the original. */
+  onDuplicate: (id: string) => void
   /** Draw another picture with this node's prompt and model. */
   onRegenerate: (node: CanvasImageNodeData) => void
   /** Draw a variation, using this picture as the reference. */
@@ -73,10 +75,8 @@ export function CanvasImageNode(props: CanvasImageNodeProps) {
       x={props.node.x}
       y={props.node.y}
       width={IMAGE_NODE_WIDTH}
-      zoom={props.zoom}
       selected={props.selected}
-      onMove={props.onMove}
-      onSelect={props.onSelect}
+      onDragStart={props.onDragStart}
       onMeasure={props.onMeasure}
     >
       <img
@@ -115,14 +115,20 @@ export function CanvasImageNode(props: CanvasImageNodeProps) {
           >
             <MoreHorizontal className='size-3.5' />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align='end' className='w-44'>
+          <DropdownMenuContent align='end' className='w-48'>
             <DropdownMenuItem onClick={() => props.onRegenerate(props.node)}>
               <RefreshCw />
               {t('Regenerate')}
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => props.onUseAsReference(props.node)}>
+            <DropdownMenuItem
+              onClick={() => props.onUseAsReference(props.node)}
+            >
               <ImagePlus />
               {t('Use as reference')}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => props.onDuplicate(props.node.id)}>
+              <CopyPlus />
+              {t('Duplicate node')}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleDownload}>
               <Download />

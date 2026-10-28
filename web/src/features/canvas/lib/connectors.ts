@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -106,7 +106,7 @@ function curveBetween(
 export function buildConnectors(
   nodes: CanvasNode[],
   sizes: Record<string, NodeSize>,
-  selectedId: string | null
+  selectedIds: string[]
 ): CanvasConnector[] {
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const connectors: CanvasConnector[] = []
@@ -123,7 +123,7 @@ export function buildConnectors(
       id: `${parent.id}->${child.id}`,
       parentId: parent.id,
       childId: child.id,
-      active: selectedId === child.id || selectedId === parent.id,
+      active: selectedIds.includes(child.id) || selectedIds.includes(parent.id),
       ...curveBetween({ ...parent, ...parentSize }, { ...child, ...childSize }),
     })
   }

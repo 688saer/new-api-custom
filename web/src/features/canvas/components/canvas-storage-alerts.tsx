@@ -60,8 +60,9 @@ export function CanvasStorageAlerts(props: CanvasStorageAlertsProps) {
     )
   }
 
-  if (!props.hasNodes || props.storage?.durability !== 'best-effort')
+  if (!props.hasNodes || props.storage?.durability !== 'best-effort') {
     return null
+  }
 
   return (
     <Alert data-testid='canvas-storage-alert' className='shrink-0'>

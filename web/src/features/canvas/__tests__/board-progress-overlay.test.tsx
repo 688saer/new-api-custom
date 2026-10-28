@@ -30,13 +30,14 @@ function showBoard() {
     <CanvasBoard
       nodes={[]}
       viewport={{ x: 0, y: 0, zoom: 1 }}
-      selectedId={null}
+      selectedIds={[]}
       busy
       onViewportChange={noop}
-      onSelect={noop}
-      onMoveNode={noop}
-      onRemoveNode={noop}
+      onSelectionChange={noop}
+      onMoveNodes={noop}
+      onRemoveNodes={noop}
       onChangeText={noop}
+      onDuplicateNode={noop}
       onRegenerate={noop}
       onUseAsReference={noop}
       onUseAsPrompt={noop}

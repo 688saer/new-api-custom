@@ -31,10 +31,11 @@ interface CanvasNodeFrameProps {
   y: number
   width: number
   selected: boolean
-  /** Current board scale, so a drag follows the pointer at any zoom level. */
-  zoom: number
-  onMove: (id: string, x: number, y: number) => void
-  onSelect: (id: string) => void
+  /**
+   * Starts a drag. The board owns the gesture because a drag may move several
+   * selected nodes at once, and only the board knows where they all sit.
+   */
+  onDragStart: (id: string, event: ReactPointerEvent<HTMLDivElement>) => void
   /** Reports the painted size, which track lines need to find their anchors. */
   onMeasure?: (id: string, width: number, height: number) => void
   children: ReactNode
@@ -42,7 +43,7 @@ interface CanvasNodeFrameProps {
 
 /**
  * Position, drag and selection shared by every node kind. Dragging is handled
- * here so both node types behave identically and no helper is duplicated.
+ * by the board so both node types behave identically and a group moves as one.
  */
 export function CanvasNodeFrame(props: CanvasNodeFrameProps) {
   const frameRef = useRef<HTMLDivElement>(null)
@@ -54,7 +55,8 @@ export function CanvasNodeFrame(props: CanvasNodeFrameProps) {
 
     // offsetWidth/offsetHeight ignore the board's CSS transform, so they hand
     // back board units rather than the zoomed on-screen size.
-    const report = () => measure(props.id, element.offsetWidth, element.offsetHeight)
+    const report = () =>
+      measure(props.id, element.offsetWidth, element.offsetHeight)
     report()
 
     const observer = new ResizeObserver(report)
@@ -62,47 +64,28 @@ export function CanvasNodeFrame(props: CanvasNodeFrameProps) {
     return () => observer.disconnect()
   }, [props.id, measure])
 
-  const handleDragStart = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
-    // A node sits inside the pannable surface, so its own presses must not pan.
+    // A node sits inside the pannable surface, so its own presses must not pan
+    // or start a selection band.
     event.stopPropagation()
-    props.onSelect(props.id)
-
-    const element = event.currentTarget
-    const startX = event.clientX
-    const startY = event.clientY
-    const originX = props.x
-    const originY = props.y
-    element.setPointerCapture(event.pointerId)
-
-    const handleDragMove = (moveEvent: PointerEvent) => {
-      props.onMove(
-        props.id,
-        originX + (moveEvent.clientX - startX) / props.zoom,
-        originY + (moveEvent.clientY - startY) / props.zoom
-      )
-    }
-
-    const handleDragEnd = () => {
-      element.removeEventListener('pointermove', handleDragMove)
-      element.removeEventListener('pointerup', handleDragEnd)
-      element.removeEventListener('pointercancel', handleDragEnd)
-    }
-
-    element.addEventListener('pointermove', handleDragMove)
-    element.addEventListener('pointerup', handleDragEnd)
-    element.addEventListener('pointercancel', handleDragEnd)
+    props.onDragStart(props.id, event)
   }
 
   return (
     <div
       ref={frameRef}
+      data-canvas-node={props.id}
+      data-selected={props.selected ? 'true' : 'false'}
       className={cn(
-        'bg-card absolute overflow-hidden rounded-lg border shadow-sm',
-        props.selected && 'ring-primary ring-2'
+        'bg-card group/node absolute overflow-hidden rounded-xl border shadow-sm transition-shadow',
+        'hover:shadow-md',
+        props.selected
+          ? 'border-primary ring-primary/60 shadow-md ring-2'
+          : 'border-border'
       )}
       style={{ left: props.x, top: props.y, width: props.width }}
-      onPointerDown={handleDragStart}
+      onPointerDown={handlePointerDown}
     >
       {props.children}
     </div>

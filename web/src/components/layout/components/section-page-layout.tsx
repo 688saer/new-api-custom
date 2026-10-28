@@ -53,6 +53,13 @@ export type SectionPageLayoutProps = {
   children: ReactNode
   fixedContent?: boolean
   stackActionsOnMobile?: boolean
+  /**
+   * Drop the heading block and the page padding so the content owns the whole
+   * viewport. Meant for a workspace that is the page — a board, an editor, a
+   * full-window viewer — where a title and a gutter would only steal room.
+   * The title and actions slots are ignored in this mode.
+   */
+  bleed?: boolean
 }
 
 export function SectionPageLayout(props: SectionPageLayoutProps) {
@@ -77,6 +84,20 @@ export function SectionPageLayout(props: SectionPageLayoutProps) {
       breadcrumb = child.props.children
     }
   })
+
+  if (props.bleed) {
+    return (
+      <PageFooterProvider container={footerContainer}>
+        <Main>
+          <div className='min-h-0 flex-1 overflow-hidden'>{content}</div>
+          <div
+            ref={setFooterContainer}
+            className='bg-background shrink-0 border-t px-3 py-2.5 empty:hidden sm:px-4 sm:py-3'
+          />
+        </Main>
+      </PageFooterProvider>
+    )
+  }
 
   return (
     <PageFooterProvider container={footerContainer}>

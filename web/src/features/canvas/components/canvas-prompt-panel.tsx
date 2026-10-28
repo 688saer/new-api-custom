@@ -31,9 +31,9 @@ import { cn } from '@/lib/utils'
 import { listApiKeys, listImageModels } from '../api'
 
 /** Aspect ratios the image relays in front of this console usually accept. */
-export const SIZE_OPTIONS = ['1024x1024', '1536x1024', '1024x1536', '512x512']
+const SIZE_OPTIONS = ['1024x1024', '1536x1024', '1024x1536', '512x512']
 
-export const COUNT_OPTIONS = ['1', '2', '3', '4']
+const COUNT_OPTIONS = ['1', '2', '3', '4']
 
 /** Everything the panel edits, held by the workspace so nodes can drive it. */
 export interface CanvasDraft {
@@ -55,6 +55,8 @@ interface CanvasPromptPanelProps {
   onDraftChange: (patch: Partial<CanvasDraft>) => void
   generating: boolean
   reference: CanvasReference | null
+  /** Prompts that already ran this session, newest first. */
+  recentPrompts?: string[]
   onClearReference: () => void
   onGenerate: () => void
   className?: string
@@ -108,6 +110,12 @@ export function CanvasPromptPanel(props: CanvasPromptPanelProps) {
     Boolean(props.draft.prompt.trim()) &&
     !props.generating
 
+  // Hide the prompt that is already in the box: it is what the operator is
+  // looking at, so repeating it as a shortcut only adds noise.
+  const recent = (props.recentPrompts ?? []).filter(
+    (item) => item !== props.draft.prompt.trim()
+  )
+
   return (
     <div
       className={cn(
@@ -120,7 +128,9 @@ export function CanvasPromptPanel(props: CanvasPromptPanelProps) {
         <Textarea
           id='canvas-prompt'
           value={props.draft.prompt}
-          onChange={(event) => props.onDraftChange({ prompt: event.target.value })}
+          onChange={(event) =>
+            props.onDraftChange({ prompt: event.target.value })
+          }
           placeholder={t('Describe the image you want')}
           rows={4}
           className='resize-none'
@@ -135,6 +145,25 @@ export function CanvasPromptPanel(props: CanvasPromptPanelProps) {
           {t('Press Ctrl and Enter to generate')}
         </p>
       </div>
+
+      {recent.length > 0 && (
+        <div className='flex flex-col gap-1.5'>
+          <Label>{t('Recent prompts')}</Label>
+          <div className='flex flex-col gap-1'>
+            {recent.map((prompt) => (
+              <button
+                key={prompt}
+                type='button'
+                className='text-muted-foreground hover:bg-muted hover:text-foreground truncate rounded px-1.5 py-1 text-left text-xs'
+                title={prompt}
+                onClick={() => props.onDraftChange({ prompt })}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {props.reference && (
         <div className='flex flex-col gap-1.5'>
@@ -177,7 +206,9 @@ export function CanvasPromptPanel(props: CanvasPromptPanelProps) {
           <Combobox
             options={keyOptions}
             value={props.draft.apiKeyId}
-            onValueChange={(value) => props.onDraftChange({ apiKeyId: value ?? '' })}
+            onValueChange={(value) =>
+              props.onDraftChange({ apiKeyId: value ?? '' })
+            }
             placeholder={t('Select an API key')}
             emptyText={t('No matching API key')}
             aria-label={t('API key')}

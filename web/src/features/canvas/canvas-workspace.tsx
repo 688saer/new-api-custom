@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { StickyNote, Trash2 } from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen, StickyNote, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button'
 import { handleServerError } from '@/lib/handle-server-error'
 
 import { editImage, generateImages, revealApiKey } from './api'
-import { CanvasBoard } from './components/canvas-board'
+import { CanvasBoard, type NodeMove } from './components/canvas-board'
 import { IMAGE_NODE_WIDTH } from './components/canvas-image-node'
 import {
   CanvasPromptPanel,
@@ -34,6 +34,7 @@ import {
 } from './components/canvas-prompt-panel'
 import { CanvasStorageAlerts } from './components/canvas-storage-alerts'
 import { useCanvasBoard } from './hooks/use-canvas-board'
+import { stepIntoFreeSpot } from './lib/selection'
 import type { CanvasImageNode, CanvasTextNode } from './types'
 
 const NODE_GAP = 24
@@ -45,6 +46,10 @@ const PARENT_GAP = 56
 const TEXT_NODE_WIDTH = 260
 /** Used before the container reports its size, so a node is never off-screen. */
 const FALLBACK_VIEW = { width: 900, height: 640 }
+/** How far a second note steps away from one already sitting mid-view. */
+const NOTE_CASCADE_STEP = 32
+/** How many finished prompts the panel offers to reuse. */
+const RECENT_PROMPT_LIMIT = 8
 
 const EMPTY_DRAFT: CanvasDraft = {
   apiKeyId: '',
@@ -69,8 +74,10 @@ export function CanvasWorkspace() {
   const [draft, setDraft] = useState<CanvasDraft>(EMPTY_DRAFT)
   const [generating, setGenerating] = useState(false)
   const [view, setView] = useState(FALLBACK_VIEW)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [reference, setReference] = useState<CanvasReference | null>(null)
+  const [recentPrompts, setRecentPrompts] = useState<string[]>([])
+  const [panelOpen, setPanelOpen] = useState(true)
   // Kept in a ref on purpose: the key authorizes billing, so it must not
   // outlive the page in any form of storage.
   const revealedKeys = useRef(new Map<number, string>())
@@ -84,6 +91,15 @@ export function CanvasWorkspace() {
 
   const handleDraftChange = useCallback((patch: Partial<CanvasDraft>) => {
     setDraft((previous) => ({ ...previous, ...patch }))
+  }, [])
+
+  const rememberPrompt = useCallback((prompt: string) => {
+    const trimmed = prompt.trim()
+    if (!trimmed) return
+    setRecentPrompts((previous) => {
+      const without = previous.filter((item) => item !== trimmed)
+      return [trimmed, ...without].slice(0, RECENT_PROMPT_LIMIT)
+    })
   }, [])
 
   /**
@@ -160,35 +176,39 @@ export function CanvasWorkspace() {
         parent.y * board.viewport.zoom + board.viewport.y > -NODE_ROW_HEIGHT &&
         parent.y * board.viewport.zoom + board.viewport.y < view.height
 
-      board.addNodes(
-        images.map((image, index) => {
-          const base = {
-            kind: 'image' as const,
-            id: newId('img'),
-            image,
-            prompt: request.prompt,
-            model: request.model,
-            parentId: parent?.id,
-            createdAt: Date.now(),
-          }
+      const created = images.map((image, index) => {
+        const base = {
+          kind: 'image' as const,
+          id: newId('img'),
+          image,
+          prompt: request.prompt,
+          model: request.model,
+          parentId: parent?.id,
+          createdAt: Date.now(),
+        }
 
-          // Hang the result off the source picture, one per row, so the track
-          // line between them stays short and readable.
-          if (parent && parentOnScreen) {
-            return {
-              ...base,
-              x: parent.x + IMAGE_NODE_WIDTH + PARENT_GAP,
-              y: parent.y + index * NODE_ROW_HEIGHT,
-            }
-          }
-
+        // Hang the result off the source picture, one per row, so the track
+        // line between them stays short and readable.
+        if (parent && parentOnScreen) {
           return {
             ...base,
-            x: originX + (index % columns) * (IMAGE_NODE_WIDTH + NODE_GAP),
-            y: originY + Math.floor(index / columns) * NODE_ROW_HEIGHT,
+            x: parent.x + IMAGE_NODE_WIDTH + PARENT_GAP,
+            y: parent.y + index * NODE_ROW_HEIGHT,
           }
-        })
-      )
+        }
+
+        return {
+          ...base,
+          x: originX + (index % columns) * (IMAGE_NODE_WIDTH + NODE_GAP),
+          y: originY + Math.floor(index / columns) * NODE_ROW_HEIGHT,
+        }
+      })
+
+      board.addNodes(created)
+      // Land the selection on what was just drawn, so Delete and drag act on
+      // the new pictures instead of whatever was picked before.
+      setSelectedIds(created.map((node) => node.id))
+      rememberPrompt(request.prompt)
       // Drawing is a user gesture, which is the moment browsers are most likely
       // to grant persistent storage — worth asking again after a refusal.
       board.refreshStorage()
@@ -202,16 +222,21 @@ export function CanvasWorkspace() {
   const handleAddNote = () => {
     const centerX = (view.width / 2 - board.viewport.x) / board.viewport.zoom
     const centerY = (view.height / 2 - board.viewport.y) / board.viewport.zoom
+    const spot = stepIntoFreeSpot(
+      board.nodes,
+      { x: centerX - TEXT_NODE_WIDTH / 2, y: centerY - 60 },
+      NOTE_CASCADE_STEP
+    )
     const node: CanvasTextNode = {
       kind: 'text',
       id: newId('note'),
       text: '',
-      x: centerX - TEXT_NODE_WIDTH / 2,
-      y: centerY - 60,
+      x: spot.x,
+      y: spot.y,
       createdAt: Date.now(),
     }
     board.addNodes([node])
-    setSelectedId(node.id)
+    setSelectedIds([node.id])
   }
 
   /** Draw again from an existing picture, reusing its prompt and model. */
@@ -234,95 +259,164 @@ export function CanvasWorkspace() {
       prompt: node.prompt,
       model: node.model,
     }))
-    setSelectedId(node.id)
+    setSelectedIds([node.id])
   }
 
-  // Delete removes the selected node, unless a field has focus.
+  const handleDuplicateNode = (id: string) => {
+    const copyId = board.duplicateNode(id)
+    if (copyId) setSelectedIds([copyId])
+  }
+
+  const handleMoveNodes = (moves: NodeMove[]) => {
+    board.moveNodes(moves)
+  }
+
+  // Delete removes the selection, unless a field has focus. Escape drops it.
+  // Ctrl/Cmd+A takes the whole board, and Ctrl/Cmd+D copies the selection.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Delete' && event.key !== 'Backspace') return
       const target = event.target as HTMLElement | null
-      const editing =
+      const typing =
         target?.tagName === 'INPUT' ||
         target?.tagName === 'TEXTAREA' ||
         target?.isContentEditable
-      if (editing || !selectedId) return
+
+      if (event.key === 'Escape' && !typing) {
+        setSelectedIds([])
+        return
+      }
+      if (typing) return
+
+      const command = event.metaKey || event.ctrlKey
+      if (command && event.key.toLowerCase() === 'a') {
+        event.preventDefault()
+        setSelectedIds(board.nodes.map((node) => node.id))
+        return
+      }
+      if (
+        command &&
+        event.key.toLowerCase() === 'd' &&
+        selectedIds.length > 0
+      ) {
+        event.preventDefault()
+        for (const id of selectedIds) board.duplicateNode(id)
+        return
+      }
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return
+      if (selectedIds.length === 0) return
       event.preventDefault()
-      board.removeNode(selectedId)
-      setSelectedId(null)
+      board.removeNodes(selectedIds)
+      setSelectedIds([])
     }
+
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedId, board])
+  }, [board, selectedIds])
 
   return (
-    <SectionPageLayout fixedContent>
-      <SectionPageLayout.Title>{t('Infinite canvas')}</SectionPageLayout.Title>
+    <SectionPageLayout bleed>
       <SectionPageLayout.Content>
-        <div className='flex h-full min-h-0 flex-col gap-3'>
-          <CanvasStorageAlerts
-            failure={board.saveFailure}
-            storage={board.storage}
-            hasNodes={board.nodes.length > 0}
-          />
-          <div className='flex min-h-0 flex-1 flex-col gap-3 lg:flex-row'>
-            <CanvasPromptPanel
-              className='shrink-0 lg:w-80'
-              draft={draft}
-              onDraftChange={handleDraftChange}
-              generating={generating}
-              reference={reference}
-              onClearReference={() => setReference(null)}
-              onGenerate={() =>
-                void runRequest(draft, reference, reference?.id ?? null)
-              }
-            />
-            <CanvasBoard
-              className='min-h-0 flex-1'
-              nodes={board.nodes}
-              viewport={board.viewport}
-              selectedId={selectedId}
-              busy={generating}
-              onViewportChange={board.setViewport}
-              onSelect={(id) => {
-                setSelectedId(id)
-                if (id) board.raiseNode(id)
-              }}
-              onMoveNode={board.moveNode}
-              onRemoveNode={board.removeNode}
-              onChangeText={board.updateTextNode}
-              onRegenerate={handleRegenerate}
-              onUseAsReference={handleUseAsReference}
-              onUseAsPrompt={(text) => {
-                handleDraftChange({ prompt: text })
-              }}
-              onResize={handleResize}
-              actions={
-                <>
+        <div className='flex h-full min-h-0'>
+          {panelOpen && (
+            <aside className='bg-background flex w-80 shrink-0 flex-col gap-3 border-r p-3'>
+              <div className='flex items-center justify-between gap-2'>
+                <h1 className='truncate text-sm font-semibold'>
+                  {t('Infinite canvas')}
+                </h1>
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  className='size-7'
+                  onClick={() => setPanelOpen(false)}
+                  aria-label={t('Collapse panel')}
+                >
+                  <PanelLeftClose className='size-4' />
+                </Button>
+              </div>
+              <CanvasStorageAlerts
+                failure={board.saveFailure}
+                storage={board.storage}
+                hasNodes={board.nodes.length > 0}
+              />
+              <CanvasPromptPanel
+                className='min-h-0 flex-1'
+                draft={draft}
+                onDraftChange={handleDraftChange}
+                generating={generating}
+                reference={reference}
+                recentPrompts={recentPrompts}
+                onClearReference={() => setReference(null)}
+                onGenerate={() =>
+                  void runRequest(draft, reference, reference?.id ?? null)
+                }
+              />
+            </aside>
+          )}
+
+          <CanvasBoard
+            className='min-h-0 flex-1'
+            nodes={board.nodes}
+            viewport={board.viewport}
+            selectedIds={selectedIds}
+            busy={generating}
+            onViewportChange={board.setViewport}
+            onSelectionChange={(ids) => {
+              setSelectedIds(ids)
+              if (ids.length === 1) board.raiseNode(ids[0])
+            }}
+            onMoveNodes={handleMoveNodes}
+            onRemoveNodes={(ids) => {
+              board.removeNodes(ids)
+              setSelectedIds((previous) =>
+                previous.filter((id) => !ids.includes(id))
+              )
+            }}
+            onChangeText={board.updateTextNode}
+            onDuplicateNode={handleDuplicateNode}
+            onRegenerate={handleRegenerate}
+            onUseAsReference={handleUseAsReference}
+            onUseAsPrompt={(text) => {
+              handleDraftChange({ prompt: text })
+            }}
+            onResize={handleResize}
+            actions={
+              <>
+                {!panelOpen && (
                   <Button
                     variant='outline'
                     size='sm'
-                    onClick={handleAddNote}
-                    aria-label={t('Add note')}
+                    onClick={() => setPanelOpen(true)}
+                    aria-label={t('Expand panel')}
                   >
-                    <StickyNote />
-                    <span>{t('Add note')}</span>
+                    <PanelLeftOpen />
                   </Button>
-                  {board.nodes.length > 0 && (
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={board.clearNodes}
-                      aria-label={t('Clear canvas')}
-                    >
-                      <Trash2 />
-                      <span>{t('Clear canvas')}</span>
-                    </Button>
-                  )}
-                </>
-              }
-            />
-          </div>
+                )}
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={handleAddNote}
+                  aria-label={t('Add note')}
+                >
+                  <StickyNote />
+                  <span className='max-sm:hidden'>{t('Add note')}</span>
+                </Button>
+                {board.nodes.length > 0 && (
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={() => {
+                      board.clearNodes()
+                      setSelectedIds([])
+                    }}
+                    aria-label={t('Clear canvas')}
+                  >
+                    <Trash2 />
+                    <span className='max-sm:hidden'>{t('Clear canvas')}</span>
+                  </Button>
+                )}
+              </>
+            }
+          />
         </div>
       </SectionPageLayout.Content>
     </SectionPageLayout>

@@ -38,6 +38,9 @@ export const DEFAULT_VIEWPORT: CanvasViewport = { x: 0, y: 0, zoom: 1 }
 /** Editing pauses are common; wait for one before writing to storage. */
 const SAVE_DELAY_MS = 500
 
+/** Offset a duplicated node takes, matching the board's grid so it lands tidy. */
+const GRID_STEP = 24
+
 /** Why the board is not safely stored, so the page can say what to do. */
 export interface CanvasStorageFailure {
   /** `read` when the saved board could not be restored, `write` when it cannot be kept. */
@@ -78,22 +81,26 @@ export function useCanvasBoard() {
 
   useEffect(() => {
     let cancelled = false
-    loadBoard()
-      .then((board) => {
+
+    const restore = async () => {
+      try {
+        const board = await loadBoard()
         if (cancelled) return
         setNodes(board.nodes)
         if (board.viewport) setViewport(board.viewport)
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setSaveFailure({ operation: 'read', quotaExceeded: false })
         }
-      })
-      .finally(() => {
-        if (cancelled) return
-        readyRef.current = true
-        setReady(true)
-      })
+      } finally {
+        if (!cancelled) {
+          readyRef.current = true
+          setReady(true)
+        }
+      }
+    }
+
+    void restore()
     return () => {
       cancelled = true
     }
@@ -186,14 +193,21 @@ export function useCanvasBoard() {
     }
   }, [])
 
-  const moveNode = useCallback((id: string, x: number, y: number) => {
-    const next = nodesRef.current.map((node) =>
-      node.id === id ? { ...node, x, y } : node
-    )
-    dirtyRef.current.nodes = true
-    journalNodes(next)
-    setNodes(next)
-  }, [])
+  const moveNodes = useCallback(
+    (moves: { id: string; x: number; y: number }[]) => {
+      if (moves.length === 0) return
+      const targets = new Map(moves.map((move) => [move.id, move]))
+      const next = nodesRef.current.map((node) => {
+        const move = targets.get(node.id)
+        if (!move) return node
+        return { ...node, x: move.x, y: move.y }
+      })
+      dirtyRef.current.nodes = true
+      journalNodes(next)
+      setNodes(next)
+    },
+    []
+  )
 
   /** Raise a node above its neighbours, matching how the drag felt. */
   const raiseNode = useCallback((id: string) => {
@@ -215,12 +229,38 @@ export function useCanvasBoard() {
     setNodes(next)
   }, [])
 
-  const removeNode = useCallback((id: string) => {
-    const next = nodesRef.current.filter((node) => node.id !== id)
+  const removeNodes = useCallback((ids: string[]) => {
+    if (ids.length === 0) return
+    const doomed = new Set(ids)
+    const next = nodesRef.current.filter((node) => !doomed.has(node.id))
     dirtyRef.current.nodes = true
     journalNodes(next)
     setNodes(next)
   }, [])
+
+  /**
+   * Copy a node onto the board beside the original, offset by one grid step so
+   * the copy is visibly separate and can be dragged away. The copy starts a
+   * family of its own: it keeps the parent link, but nothing points at it yet.
+   */
+  const duplicateNode = useCallback(
+    (id: string): string | null => {
+      const source = nodesRef.current.find((node) => node.id === id)
+      if (!source) return null
+
+      const copyId = `copy-${crypto.randomUUID?.() ?? Date.now()}`
+      const copy: CanvasNode = {
+        ...source,
+        id: copyId,
+        x: source.x + GRID_STEP,
+        y: source.y + GRID_STEP,
+        createdAt: Date.now(),
+      }
+      addNodes([copy])
+      return copyId
+    },
+    [addNodes]
+  )
 
   const clearNodes = useCallback(() => {
     dirtyRef.current.nodes = true
@@ -244,10 +284,11 @@ export function useCanvasBoard() {
     refreshStorage,
     setViewport: updateViewport,
     addNodes,
-    moveNode,
+    moveNodes,
     raiseNode,
     updateTextNode,
-    removeNode,
+    removeNodes,
+    duplicateNode,
     clearNodes,
   }
 }
