@@ -35,6 +35,7 @@ import {
   PartyPopper,
   PlugZap,
   Radio,
+  Receipt,
   ServerCog,
   Settings,
   ShieldCheck,
@@ -158,6 +159,11 @@ export function useSidebarData(): SidebarData {
             icon: Wallet,
           },
           {
+            title: t('Invoices'),
+            url: '/invoices',
+            icon: Receipt,
+          },
+          {
             title: t('Profile'),
             url: '/profile',
             icon: User,
@@ -203,6 +209,12 @@ export function useSidebarData(): SidebarData {
             title: t('Subscriptions'),
             url: '/subscriptions',
             icon: CreditCard,
+          },
+          {
+            title: t('Invoices'),
+            url: '/invoice-console',
+            icon: Receipt,
+            requiredRole: ROLE.ADMIN,
           },
           {
             title: t('System Info'),

@@ -175,6 +175,16 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/ticket-uploads", middleware.UploadRateLimit(), controller.UploadTicketAttachment)
 				selfRoute.GET("/ticket-uploads/:attachmentId", controller.GetTicketAttachment)
 
+				// Invoice routes (user side)
+				selfRoute.GET("/invoices", controller.GetMyInvoices)
+				selfRoute.POST("/invoices", middleware.CriticalRateLimit(), controller.CreateMyInvoice)
+				selfRoute.GET("/invoices/:id/file", controller.DownloadMyInvoice)
+
+				// Purchase agreement routes (user side)
+				selfRoute.GET("/purchase-agreement", controller.GetPurchaseAgreement)
+				selfRoute.POST("/purchase-agreement/sign", controller.SignPurchaseAgreement)
+				selfRoute.POST("/purchase-agreement/confirm", middleware.CriticalRateLimit(), controller.ConfirmPurchaseAgreement)
+
 				// Custom OAuth bindings
 				selfRoute.GET("/oauth/bindings", controller.GetUserOAuthBindings)
 				selfRoute.DELETE("/oauth/bindings/:provider_id", controller.UnbindCustomOAuth)
@@ -240,6 +250,20 @@ func SetApiRouter(router *gin.Engine) {
 			subscriptionAdminRoute.POST("/users/:id/subscriptions/reset", controller.AdminResetUserSubscriptionsByPlan)
 			subscriptionAdminRoute.POST("/user_subscriptions/:id/invalidate", controller.AdminInvalidateUserSubscription)
 			subscriptionAdminRoute.DELETE("/user_subscriptions/:id", controller.AdminDeleteUserSubscription)
+		}
+
+		// Invoice management (admin console)
+		invoiceAdminRoute := apiRouter.Group("/invoice")
+		invoiceAdminRoute.Use(middleware.AdminAuth())
+		{
+			invoiceAdminRoute.GET("/", controller.ListInvoicesAdmin)
+			invoiceAdminRoute.GET("/setting", controller.GetInvoiceSettingAdmin)
+			invoiceAdminRoute.PUT("/setting", controller.UpdateInvoiceSettingAdmin)
+			invoiceAdminRoute.GET("/signatures", controller.ListAgreementSignaturesAdmin)
+			invoiceAdminRoute.GET("/:id", controller.GetInvoiceAdmin)
+			invoiceAdminRoute.PUT("/:id/review", controller.ReviewInvoiceAdmin)
+			invoiceAdminRoute.POST("/:id/issue", middleware.UploadRateLimit(), controller.IssueInvoiceAdmin)
+			invoiceAdminRoute.GET("/:id/file", controller.DownloadInvoiceAdmin)
 		}
 
 		// Subscription payment callbacks (no auth)

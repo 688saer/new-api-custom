@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
 import { Separator } from '@/components/ui/separator'
+import { ensurePurchaseAgreement } from '@/features/purchase-agreement'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { formatQuota } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
@@ -104,6 +105,9 @@ export function SubscriptionPurchaseDialog(props: Props) {
     (props.purchaseCount || 0) >= (props.purchaseLimit || 0)
 
   const handlePayStripe = async () => {
+    if (!(await ensurePurchaseAgreement('subscription'))) {
+      return
+    }
     setPaying(true)
     try {
       const res = await paySubscriptionStripe({ plan_id: plan.id })
@@ -122,6 +126,9 @@ export function SubscriptionPurchaseDialog(props: Props) {
   }
 
   const handlePayCreem = async () => {
+    if (!(await ensurePurchaseAgreement('subscription'))) {
+      return
+    }
     setPaying(true)
     try {
       const res = await paySubscriptionCreem({ plan_id: plan.id })
@@ -142,6 +149,9 @@ export function SubscriptionPurchaseDialog(props: Props) {
   // In-tab redirect (not window.open) — user-gesture context is lost
   // across the await, so a popup would be blocked. Same as the wallet hook.
   const handlePayWaffoPancake = async () => {
+    if (!(await ensurePurchaseAgreement('subscription'))) {
+      return
+    }
     setPaying(true)
     try {
       const res = await paySubscriptionWaffoPancake({ plan_id: plan.id })
@@ -165,6 +175,9 @@ export function SubscriptionPurchaseDialog(props: Props) {
   const handlePayEpay = async () => {
     if (!selectedEpayMethod) {
       toast.error(t('Please select a payment method'))
+      return
+    }
+    if (!(await ensurePurchaseAgreement('subscription'))) {
       return
     }
     setPaying(true)
@@ -205,6 +218,9 @@ export function SubscriptionPurchaseDialog(props: Props) {
   const handlePayBalance = async () => {
     if (!allowBalancePay) {
       toast.error(t('This plan does not allow balance redemption'))
+      return
+    }
+    if (!(await ensurePurchaseAgreement('subscription'))) {
       return
     }
     setPaying(true)

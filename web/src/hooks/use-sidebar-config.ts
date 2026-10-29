@@ -117,6 +117,8 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/usage-logs/drawing': { section: 'console', module: 'midjourney' },
   '/usage-logs/task': { section: 'console', module: 'task' },
   '/wallet': { section: 'personal', module: 'topup' },
+  // 发票属于计费相关的个人入口，跟随「钱包」模块开关显示。
+  '/invoices': { section: 'personal', module: 'topup' },
   // 公告 / 幸运抽奖 / 福利宝箱归入 personal 区域，受后台「侧边栏模块」开关控制。
   '/announcements': { section: 'personal', module: 'announcements' },
   '/lottery': { section: 'personal', module: 'lottery' },
@@ -135,6 +137,7 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/redemption-codes': { section: 'admin', module: 'redemption' },
   '/rewards/admin': { section: 'admin', module: 'rewards' },
   '/subscriptions': { section: 'admin', module: 'subscription' },
+  '/invoice-console': { section: 'admin', module: 'subscription' },
   '/system-settings': { section: 'admin', module: 'setting' },
   '/system-settings/site': { section: 'admin', module: 'setting' },
 }

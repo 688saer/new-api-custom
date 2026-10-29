@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router'
+import { Receipt } from 'lucide-react'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -20,6 +22,11 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { Button } from '@/components/ui/button'
+import {
+  ensurePurchaseAgreement,
+  PurchaseAgreementGate,
+} from '@/features/purchase-agreement'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { getSelf } from '@/lib/api'
@@ -30,6 +37,7 @@ import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
 import { TransferDialog } from './components/dialogs/transfer-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
+import { RedemptionStoreCard } from './components/redemption-store-card'
 import { SubscriptionPlansCard } from './components/subscription-plans-card'
 import { WalletStatsCard } from './components/wallet-stats-card'
 import { DEFAULT_DISCOUNT_RATE, PAYMENT_TYPES } from './constants'
@@ -171,6 +179,10 @@ export function Wallet(props: WalletProps) {
 
   // Handle payment method selection
   const handlePaymentMethodSelect = async (method: PaymentMethod) => {
+    // 购买前必须先同意购买协议，用户放弃则中止支付
+    if (!(await ensurePurchaseAgreement('topup'))) {
+      return
+    }
     setSelectedPaymentMethod(method)
     setSelectedWaffoMethodIndex(null)
     setPaymentLoading(method.type)
@@ -215,6 +227,10 @@ export function Wallet(props: WalletProps) {
   const handleRedeem = async () => {
     if (!redemptionCode) return
 
+    if (!(await ensurePurchaseAgreement('redemption'))) {
+      return
+    }
+
     const success = await redeemCode(redemptionCode)
     if (success) {
       setRedemptionCode('')
@@ -232,7 +248,10 @@ export function Wallet(props: WalletProps) {
   }
 
   // Handle Creem product selection
-  const handleCreemProductSelect = (product: CreemProduct) => {
+  const handleCreemProductSelect = async (product: CreemProduct) => {
+    if (!(await ensurePurchaseAgreement('topup'))) {
+      return
+    }
     setSelectedCreemProduct(product)
     setCreemDialogOpen(true)
   }
@@ -253,6 +272,9 @@ export function Wallet(props: WalletProps) {
     method: WaffoPayMethod,
     index: number
   ) => {
+    if (!(await ensurePurchaseAgreement('topup'))) {
+      return
+    }
     const loadingKey = `waffo-${index}`
     setSelectedPaymentMethod({
       name: method.name,
@@ -286,9 +308,25 @@ export function Wallet(props: WalletProps) {
     <>
       <SectionPageLayout>
         <SectionPageLayout.Title>{t('Wallet')}</SectionPageLayout.Title>
+        <SectionPageLayout.Actions>
+          <Button
+            variant='outline'
+            size='sm'
+            className='gap-2'
+            render={<Link to='/invoices' />}
+          >
+            <Receipt className='h-4 w-4' />
+            {t('Invoices')}
+          </Button>
+        </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
           <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-5'>
             <WalletStatsCard user={user} loading={userLoading} />
+
+            {/* 发卡购买入口：以前只是兑换框下的一行小字，现在单独突出 */}
+            {topupInfo?.enable_redemption !== false && (
+              <RedemptionStoreCard topupLink={topupInfo?.topup_link} />
+            )}
 
             <div
               className={
@@ -385,6 +423,8 @@ export function Wallet(props: WalletProps) {
         product={selectedCreemProduct}
         processing={creemProcessing}
       />
+
+      <PurchaseAgreementGate />
     </>
   )
 }

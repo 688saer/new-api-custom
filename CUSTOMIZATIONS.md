@@ -1512,6 +1512,39 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 > 无痕窗口都会看不到；Safari 甚至会在 7 天未访问后自行清除。要长期保存请用图片节点
 > 菜单里的「Download image」。
 
+### 发票系统与购买协议实测记录
+
+**发票**走「用户申请 → 后台审核 → 线下开具回传 PDF」的闭环：用户填抬头/税号/邮箱/金额，
+后台通过后进入待开具队列，管理员上传 PDF 并填发票号，状态变为已开具，用户即可在发票页下载。
+**购买协议**由管理员维护正文与版本号，用户在下单前必须勾选同意，签署记录按版本落库；
+改了正文就把版本号改掉，旧签署自动失效、要求重新签署。
+
+| 项目 | 说明 |
+|---|---|
+| 新增数据表 | `invoices`（含 `amount_cents` 以分存储，避免浮点误差）、`purchase_agreement_signatures`（唯一键 `user_id + agreement_key + version`） |
+| 新增选项 | `invoice_setting.*`（开关 / 销售方 / 联系方式 / 申请须知 / 金额区间 / 每人待处理上限）、`purchase_agreement_setting.*`（开关 / 标题 / 版本 / 正文 / 三个购买场景开关） |
+| 用户接口 | `GET/POST /api/user/invoices`、`GET /api/user/invoices/:id/file`、`GET /api/user/purchase-agreement`、`POST /api/user/purchase-agreement/sign`、`POST /api/user/purchase-agreement/confirm` |
+| 后台接口 | `GET /api/invoice/`、`GET|PUT /api/invoice/setting`、`GET /api/invoice/signatures`、`GET /api/invoice/:id`、`PUT /api/invoice/:id/review`、`POST /api/invoice/:id/issue`、`GET /api/invoice/:id/file` |
+| PDF 存储 | `INVOICE_FILE_DIR`（生产 `/data/invoice-files`，已 mount 在 `/data` 卷里）；只收 `%PDF` 文件头、单文件 ≤ 8MB、文件名与 UUID 分离存储 |
+| 前端入口 | 个人侧边栏「发票」→ `/invoices`；后台侧边栏「发票」→ `/invoice-console`（角色 ≥ ADMIN，含列表/审核/开具/设置/签署记录三个标签） |
+| 钱包页布局 | 统计条下方新增**发卡购买卡片**（原先是兑换框下面一行小字），兑换码输入保留在充值卡内；标题栏加「发票」快捷入口 |
+
+| 验证项 | 结果 |
+|---|---|
+| 后端单测（SQLite） | `go test ./model/... ./setting/... ./controller/...` 全部通过 |
+| 新增流程测试（SQLite / MySQL 8.2 / PostgreSQL 16） | `TestInvoiceRequestLifecycle`、`TestPurchaseAgreementGateRequiresSignature` 三库均 PASS |
+| 迁移幂等 | 容器重启两次，`invoices`、`purchase_agreement_signatures` 均存在，启动日志无 error/panic |
+| 前端类型检查 | `bun check -b` → No type errors in 1,578 files |
+| 前端单测 | 新增 12 个用例（协议闸门 4 / 发票表单 5 / 发卡卡片 3）全部通过 |
+| 生产构建 | `bun run build` 成功，二进制内已包含 `invoice-console` 与 `purchase-agreement/confirm` |
+
+> **注意**：`INVOICE_FILE_DIR` 在 `/data` 卷内，备份数据库时要一并备份目录，否则记录还在、PDF 丢了。
+> 协议正文是单语言纯文本（和工单欢迎语一致），不做多语言版本。
+
+> **注意**：购买协议的强制校验在**服务端**由 `POST /api/user/purchase-agreement/confirm` 给出，
+> 前端所有购买入口（兑换码、在线充值、Creem、Waffo、套餐）都先过这道闸门；支付回调
+> 与管理员补单不拦截，因此不会影响既有支付链路。
+
 ---
 
 ## 附：常用命令速查

@@ -387,6 +387,8 @@ func migrateDB() error {
 		&TicketAttachment{},
 		&TicketAgent{},
 		&TicketAgentSession{},
+		&Invoice{},
+		&PurchaseAgreementSignature{},
 	)
 	if err != nil {
 		return err
