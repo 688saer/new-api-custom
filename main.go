@@ -245,6 +245,8 @@ func main() {
 	if common.DataExportEnabled {
 		model.SaveQuotaDataCache()
 	}
+	// Consume logs are queued; write what is still in memory before exiting.
+	model.FlushLogQueue()
 	common.SysLog(common.LogText("server exited"))
 }
 

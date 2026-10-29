@@ -575,6 +575,9 @@ func getMidjourneyTask(t *testing.T, id int) model.Midjourney {
 
 func getLastLog(t *testing.T) *model.Log {
 	t.Helper()
+	// Consume rows are written from a queue, so wait for the write this test
+	// just caused before reading it back.
+	model.FlushLogQueue()
 	var log model.Log
 	err := model.LOG_DB.Order("id desc").First(&log).Error
 	if err != nil {
@@ -585,6 +588,7 @@ func getLastLog(t *testing.T) *model.Log {
 
 func countLogs(t *testing.T) int64 {
 	t.Helper()
+	model.FlushLogQueue()
 	var count int64
 	model.LOG_DB.Model(&model.Log{}).Count(&count)
 	return count

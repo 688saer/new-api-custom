@@ -812,6 +812,47 @@ main.go:44:12: pattern web/dist: cannot embed file web/dist/mascot/clips/是啊�
 回归用例：`model/ticket_archive_test.go`（4 项）、`web/src/features/tickets/__tests__/attachments.test.tsx`（4 项）、
 `archive.test.tsx`（3 项）。
 
+### 3.12 中转链路性能优化（异步日志 + 批量落库）
+
+目标：让用户连上来更快、每次调用更快。瓶颈不在 CPU（8 核只用了 1 核），而在**每个请求都要同步提交多次
+MySQL 事务**，其中消费日志一次 INSERT 就占 3.3 ms，而小响应体在 handler 返回前一直压在 net/http 的
+2 KB 缓冲区里，所以这笔开销直接变成用户看到的延迟。
+
+#### 代码改动
+
+1. **消费日志改为异步批量落库**（`model/log_queue.go` 新增，`model/log.go`、`main.go` 改）
+   - `RecordConsumeLog` 只把行放进队列（上限 4096 行）并唤醒刷盘协程，不再等 INSERT；
+   - 刷盘协程每次取走队列里已经堆积的行，最多 128 行一条 `CreateInBatches`，高并发下几十上百行共用一次提交；
+   - 队列满（DB 明显跟不上）时**回退为调用方同步写入**，不丢行；
+   - 每行记住自己创建时的 `LOG_DB`，测试里换库不会串到旧的连接上；
+   - 关库前 `model.FlushLogQueue()` 把内存里的行写完（`main.go` 的优雅退出流程里调用）。
+2. **`record consume log` 的明细日志改为仅 DEBUG 输出**：原来每个请求都要
+   `common.GetJsonString(params)` 序列化一次 params 再走必然输出的 INFO，纯浪费。
+
+> 语义影响：消费流水的额度扣减（Redis / 配额表）仍在同步路径上，日志只是审计副本，
+> 最坏情况是管理员日志页晚几十毫秒看到那一行；进程被 kill -9 会丢掉队列里最后不到 4096 行。
+
+#### 部署侧改动（`docker-compose.yml`，不在代码里）
+
+| 项 | 值 | 原因 |
+| --- | --- | --- |
+| `BATCH_UPDATE_ENABLED` | `true` | 关掉每个请求 2 次的同步 `UPDATE`（用户已用额度、渠道已用额度），改成 3 秒批量刷（`BATCH_UPDATE_INTERVAL=3`）。Redis 开着时额度以 Redis 为准，DB 只是镜像，滞后几秒可接受 |
+| `SQL_MAX_OPEN_CONNS` / `SQL_MAX_IDLE_CONNS` | `100` / `25` | 默认 `1000` 远超 MySQL `max_connections=151`，压测时直接 `Error 1040: Too many connections` |
+| MySQL `--max-connections=500` | 500 | 与上面的池子匹配 |
+| MySQL `--innodb-flush-log-at-trx-commit=2 --sync-binlog=0` | 2 / 0 | 每次提交不再等 fsync，单请求写入延迟从 ~1.5 ms 降到 ~0.2 ms。代价：**操作系统崩溃/断电最多丢 1 秒已提交事务**（MySQL 进程崩溃不丢）。要最保守可改回 1 / 1 |
+
+#### 实测（本机 8 核，上游为同机 stub，`/v1/chat/completions`）
+
+| 场景 | 优化前 | 优化后 |
+| --- | --- | --- |
+| 单并发 p50 | 16.5 ms | **2.6 ms** |
+| c=16 吞吐 | 119 rps | **1435 rps** |
+| c=64 吞吐 / p50 | 134 rps / 489 ms | **1300 rps / 42 ms** |
+| c=128 吞吐 | —（大量 1040 失败） | 1356 rps，0 失败 |
+| 走 HTTPS（nginx）c=1 / c=16 / c=64 | — | 3.1 ms / 917 rps / 533 rps |
+
+一致性核对：同一轮压测发出 11500 次调用，`logs` 表新增 11502 行（另外 2 行为后台操作），异步队列没有丢行。
+
 ---
 
 ## 四、代码结构：哪些是我们的

@@ -511,6 +511,9 @@ func readResponsesWSTestEvent(t *testing.T, client *websocket.Conn) map[string]a
 
 func assertResponsesWSAccounting(t *testing.T, fixture *responsesWSBillingTest, expectedQuotas []int) {
 	t.Helper()
+	// Consume rows are written from a queue, so wait for the writes this test
+	// just caused before reading them back.
+	model.FlushLogQueue()
 	var logs []model.Log
 	require.NoError(t, model.LOG_DB.Where("type = ?", model.LogTypeConsume).Order("id").Find(&logs).Error)
 	require.Len(t, logs, len(expectedQuotas))
@@ -605,6 +608,7 @@ func TestResponsesWebSocketReusesConnectionAndSettlesEachRequest(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, rejection.Status)
 	assert.Equal(t, int32(1), fixture.connections.Load())
 	assert.Empty(t, received, "exhausted token must be rejected before contacting upstream")
+	model.FlushLogQueue()
 	var logs []model.Log
 	require.NoError(t, model.LOG_DB.Where("type = ?", model.LogTypeConsume).Order("id").Find(&logs).Error)
 	require.Len(t, logs, 2)
