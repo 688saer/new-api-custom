@@ -853,6 +853,19 @@ MySQL 事务**，其中消费日志一次 INSERT 就占 3.3 ms，而小响应体
 
 一致性核对：同一轮压测发出 11500 次调用，`logs` 表新增 11502 行（另外 2 行为后台操作），异步队列没有丢行。
 
+#### 渠道超时与重试
+
+渠道 `api.x5m5x.com`（唯一的图片渠道）在上游处理超过约 30 秒时会直接 reset TCP 连接，
+而 `gpt-image-2` / `images/edits` 经常跑到 30 秒以上，于是表现为间歇性
+`500 do request failed: read: connection reset by peer`。这不是本站问题：
+直连该域名用 curl 打同一个模型同样会被 reset，换 `gpt-image-2.5` 则正常。
+
+应对：把运维设置里的 `RetryTimes` 从 `0` 调到 `1`（选项表 `RetryTimes=1`），
+网络错误（`IsChannelError`）会走一次自动重试，实测三次连打 `gpt-image-2` 全部成功
+（其中一次耗时 64 秒，即第一次被 reset、第二次成功）。nginx 侧 `proxy_read_timeout` 为 600s，
+不会截断重试。
+
+
 ---
 
 ## 四、代码结构：哪些是我们的
