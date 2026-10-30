@@ -1394,18 +1394,25 @@ split -b 15M -d image.tar.gz part.
 cat part.* > image.tar.gz   # 本机合并后校验 MD5
 ```
 
+> **实操更省事的做法（rc.49 起）**：服务器到 GitHub 是通的、本机反而不稳，所以**别 scp 大文件回本机**：
+> 直接在服务器上 `docker save … | gzip -1`，再用 `curl --data-binary @文件` 打
+> `https://uploads.github.com/repos/<owner>/<repo>/releases/<id>/assets?name=<文件名>` 上传
+> （rc.49 的 98MB 镜像 16 秒传完）。注意服务器上的 curl 较老，**不支持 `--retry-all-errors`**，
+> 加上会直接报错退出。tag 推送后 Actions 会自动建好 Release，补上传资产再
+> `PATCH /releases/<id>` 写说明即可。
+
 ---
 
 ## 十三、当前已知状态
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:tickets6`（`/new-api --version` = `1.0.0-rc.48`） |
+| 生产镜像 | `new-api-lottery:rc49`（`/api/status` = `1.0.0-rc.49-invoice`）；上一版 `:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.48-tickets`（含 Docker 镜像 tar.gz 与四平台二进制）、`v1.0.0-rc.48-tickets-fix` |
-| 回滚镜像 | `new-api-lottery:tickets5`、`:tickets4`、`:tickets3`、`:home5`、`:home4`（其余历史镜像已清理腾出磁盘） |
+| 已发布版本 | `v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |
 | typecheck | 通过（1556 文件，2 个项目） |
