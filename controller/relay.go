@@ -72,6 +72,10 @@ func geminiRelayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewA
 func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	requestId := c.GetString(common.RequestIdKey)
+	// 反代（宝塔 nginx 等）默认开 proxy_buffering，逐块推送的 SSE 会被攒起来，
+	// 首字要等缓冲区满或响应结束才到浏览器；这个响应头让反代对本次响应关掉缓冲，
+	// 每个 chunk 立即透传。对 JSON 响应无副作用。
+	c.Header("X-Accel-Buffering", "no")
 	//group := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 	//originalModel := common.GetContextKeyString(c, constant.ContextKeyOriginalModel)
 

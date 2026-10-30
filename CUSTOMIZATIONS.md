@@ -1407,11 +1407,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc50`（`/api/status` = `1.0.0-rc.50-relay`）；上一版 `:rc49`、`:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc51`（`/api/status` = `1.0.0-rc.51-fastcall`）；上一版 `:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.50-relay`（调用链路优化）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |
@@ -1581,6 +1581,43 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 > **注意**：出图耗时的方差主要来自上游排队（20s–45s 都出现过），网关侧没有可再压的空间；
 > 想让用户「感觉更快」只能改交互（进度提示已有）或换更快的模型/渠道。
+
+### 聊天链路优化实测记录（rc.51）
+
+聊天原来慢在**上游推理链**，不是中转。定位方式：同一个请求分别打到「公网域名 → 宝塔 nginx →
+中转 → 上游」，首字延迟（TTFT）60–99s，消费日志 `use_time` 与 curl 总耗时一致，说明字节一到就透传、
+中继本身没问题。
+
+| 项 | 优化前 | 优化后 |
+|---|---|---|
+| 首字延迟（公网域名实测，`stream=true`） | **63–99s** | **1.77s**（服务器本机打网关 1.1–1.3s） |
+| 整段响应（约 550 token） | 63–99s | **2.4s** |
+| 消费日志 `use_time` | 33 / 35 / 46s | 1 / 2 / 3s |
+| SSE 传输 | 宝塔 nginx 默认 `proxy_buffering on`，分块被攒着发 | 中转对每个响应加 `X-Accel-Buffering: no`，逐块透传 |
+| 上游卡死时用户要等多久才看到报错 | `RELAY_RESPONSE_HEADER_TIMEOUT=1800`（半小时） | **240 秒** |
+
+两处改动（都可回滚）：
+
+1. **渠道 3（deepseek 系列）`param_override` = `{"thinking":{"type":"disabled"}}`** —— 关掉上游推理链。
+   想恢复「深度思考」就把该字段清空并重启容器。实测对照：请求体自带 `thinking:{"type":"disabled"}` 只有
+   34s，`reasoning_effort:"minimal"` 是 63s，什么都不带 85s；落到渠道级 `param_override` 后是 **1.3s**。
+   所以「关推理」要写在渠道配置上才彻底生效。
+2. **`X-Accel-Buffering: no`**（`controller/relay.go` 的 `Relay()` 入口统一设置）—— 反代默认缓冲响应，
+   SSE 会被攒着一起发；这个头让反代对本次响应关掉缓冲，JSON 响应无副作用。回归断言加在
+   `controller/relay_stream_test.go` 的 `TestRelayKeepAliveDuringImagePreparation` 里。
+
+上游可用性排查（决定聊天速度上限的东西）：
+
+| 探测 | 结果 |
+|---|---|
+| `gpt-4o` / `gpt-4o-mini` / `gpt-4.1-mini` / `deepseek-chat` / `deepseek-v3` / `qwen-plus` / `claude-3-5-sonnet` / `gemini-2.5-flash` | 全部 `404 model_not_found: not available for this group` |
+| 本站实际在售 | 只有 4 个 `deepseek-v4*`（渠道 3）+ 4 个 `gpt-image-*`（渠道 1） |
+| 生图回归（rc.51 部署后） | 23.7s / 386 字节，正常 |
+
+> **注意**：想要「秒级 + 更强模型」的聊天，得接一条正式的对话上游（OpenAI / DeepSeek 官方 /
+> OpenRouter 等）；网关侧（鉴权 p50 2ms、连接复用、SSE 不缓冲、异常 240 秒内必报错）已无可再压空间。
+> 现在这 4 个 deepseek 是上游的推理模型，开着思考必然 60s 起步。
+
 
 ---
 

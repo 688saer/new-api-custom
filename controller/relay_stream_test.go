@@ -70,6 +70,8 @@ func TestRelayKeepAliveDuringImagePreparation(t *testing.T) {
 	defer response.Body.Close()
 	require.Equal(t, http.StatusOK, response.StatusCode)
 	require.Equal(t, "text/event-stream", response.Header.Get("Content-Type"))
+	// 反代要对这次响应关掉缓冲，否则分块会被攒着一起发，用户看不到逐字输出
+	require.Equal(t, "no", response.Header.Get("X-Accel-Buffering"))
 	reader := bufio.NewReader(response.Body)
 	for range 2 {
 		line, readErr := reader.ReadString('\n')
