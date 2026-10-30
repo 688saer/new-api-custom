@@ -83,8 +83,13 @@ export async function listImageModels(): Promise<CanvasImageModel[]> {
 /**
  * Draw with this site's relay endpoint. The relay authenticates with an API key
  * rather than the console session, so this bypasses the shared client and its
- * cookie-based refresh handling. Relays answer with base64 payloads or, for
- * some models, a short-lived link; both work as an `<img>` source.
+ * cookie-based refresh handling.
+ *
+ * `response_format` asks upstream for links instead of inline base64: the same
+ * 1024x1024 picture arrives as ~400 bytes of JSON instead of a ~2.4MB body, the
+ * picture is then fetched straight from the storage host and inlined once. Both
+ * facts cut the wait for a caller on a slow link and keep the relay from
+ * parsing and re-encoding megabytes per image.
  */
 export async function generateImages(params: {
   apiKey: string
@@ -105,6 +110,7 @@ export async function generateImages(params: {
       prompt: params.prompt,
       n: params.count,
       size: params.size,
+      response_format: 'url',
     }),
     signal: params.signal,
   })
@@ -176,6 +182,8 @@ export async function editImage(params: {
   form.append('prompt', params.prompt)
   form.append('n', String(params.count))
   form.append('size', params.size)
+  // Same reason as generateImages: a link keeps the response tiny.
+  form.append('response_format', 'url')
   form.append('image', await toImageBlob(params.reference), 'reference.png')
 
   const response = await fetch('/v1/images/edits', {

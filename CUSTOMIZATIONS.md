@@ -1,4 +1,4 @@
-# new-api 定制版 — 运维与升级手册
+﻿# new-api 定制版 — 运维与升级手册
 
 > 本文档描述本仓库相对官方 new-api 的**全部改动**、**升级流程**和**部署方式**。
 >
@@ -1407,11 +1407,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc49`（`/api/status` = `1.0.0-rc.49-invoice`）；上一版 `:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc50`（`/api/status` = `1.0.0-rc.50-relay`）；上一版 `:rc49`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.50-relay`（调用链路优化）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |
@@ -1551,6 +1551,36 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 > **注意**：购买协议的强制校验在**服务端**由 `POST /api/user/purchase-agreement/confirm` 给出，
 > 前端所有购买入口（兑换码、在线充值、Creem、Waffo、套餐）都先过这道闸门；支付回调
 > 与管理员补单不拦截，因此不会影响既有支付链路。
+
+### 调用链路优化实测记录（rc.50）
+
+结论先说：**网关自身几乎不吃时间**（`/api/user/self` 20 次采样 p50 = 2ms、p95 = 3ms；内存缓存
++ Redis 生效，鉴权不再打库）。慢的是上游出图（20–45s 一次），所以优化方向定为
+「少搬字节 + 少做一次编码 + 长连接别断」。
+
+| 项 | 优化前 | 优化后 |
+|---|---|---|
+| 画布出图请求 | 不传 `response_format`（上游默认内联 base64） | `response_format: "url"`（`/v1/images/generations` 与 `/v1/images/edits` 都传） |
+| 网关↔浏览器响应体 | 2,379,023 / 2,434,539 / 2,576,263 字节 | 389 / 396 / 421 / 435 / 522 字节 |
+| 上游耗时（同模型同尺寸，服务器侧实测） | 29.2s / 43.9s / 44.8s | 20.8s（edit）/ 23.5s / 28.8s / 38.9s |
+| 图片字节怎么到浏览器 | 经网关整包转发 | 由存储主机直出（`Access-Control-Allow-Origin: *`，三个回源域都实测过），画布再转 data URL 永久保存 |
+| 网关 CPU / 内存 | 每图解析并重新序列化约 3.3MB JSON | 约 400 字节 JSON，可忽略 |
+| 上游连接回收 | `RELAY_IDLE_CONN_TIMEOUT=90` 秒 | 300 秒；`RELAY_MAX_IDLE_CONNS_PER_HOST=200` |
+
+| 验证项 | 结果 |
+|---|---|
+| `n=1` vs `n=2` | 44.6s vs 41.3s——上游内部并行出一张和两张耗时相当，网关/前端不需要自己拆并发 |
+| 计费不受影响 | 消费日志 `completion_tokens`/`quota` 按上游返回的 `usage` 记，url 与 b64 两种响应都能正常结算 |
+| 降级路径 | 上游若忽略 `response_format` 仍返回 b64，`readImageResults` 原样处理；跨域读不到字节时保留链接（原有兜底） |
+| 前端 | `bunx vitest run src/features/canvas/__tests__/api.test.ts` 10/10 通过；`bun check -b` 1,581 文件零错误；oxfmt 通过 |
+| 线上 | `1.0.0-rc.50-relay`，`/api/status` 一致，实测一次 url 出图 38.9s / 435 字节 |
+
+> **注意**：`response_format: "url"` 拿到的是**上游存储的临时链接**，画布会立刻取回字节转成
+> data URL 存进 IndexedDB，所以图不会随链接过期丢失；若某天回源域不再允许跨域，画布会退回
+> 「保留链接」的老行为，届时需要重新评估（可在 `inlineRemoteImage` 里加同源代理兜底）。
+
+> **注意**：出图耗时的方差主要来自上游排队（20s–45s 都出现过），网关侧没有可再压的空间；
+> 想让用户「感觉更快」只能改交互（进度提示已有）或换更快的模型/渠道。
 
 ---
 

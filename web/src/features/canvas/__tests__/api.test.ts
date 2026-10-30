@@ -103,7 +103,41 @@ describe('generateImages', () => {
       prompt: 'a red cube',
       n: 2,
       size: '1024x1024',
+      response_format: 'url',
     })
+  })
+
+  it('asks the relay for links so one picture is not megabytes of base64', async () => {
+    // A 1024x1024 PNG is ~2MB once base64-encoded; the link itself is a few
+    // hundred bytes, so the caller sees the picture without downloading the
+    // whole body through the relay.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ data: [{ url: 'https://example.test/big.png' }] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        blob: async () => new Blob(['PNGDATA'], { type: 'image/png' }),
+      })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const [image] = await generateImages({
+      apiKey: 'secret',
+      model: 'gpt-image-2',
+      prompt: 'a red cube',
+      size: '1024x1024',
+      count: 1,
+    })
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).response_format).toBe(
+      'url'
+    )
+    expect(fetchMock.mock.calls[1][0]).toBe('https://example.test/big.png')
+    expect(image.startsWith('data:image/png;base64,')).toBe(true)
   })
 
   it('falls back to returned links when the relay sends no base64', async () => {
@@ -236,6 +270,7 @@ describe('editImage', () => {
     expect(init.body).toBeInstanceOf(FormData)
     expect(init.body.get('prompt')).toBe('make it blue')
     expect(init.body.get('model')).toBe('gpt-image-2')
+    expect(init.body.get('response_format')).toBe('url')
     expect(init.body.get('image')).toBeInstanceOf(Blob)
   })
 })
