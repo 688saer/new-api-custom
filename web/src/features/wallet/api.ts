@@ -31,6 +31,8 @@ import type {
   StripePaymentResponse,
   AlipayPaymentResponse,
   AlipayOrderStatusResponse,
+  WechatPaymentResponse,
+  WechatOrderStatusResponse,
   AffiliateCodeResponse,
   AffiliateTransferResponse,
   BillingHistoryResponse,
@@ -155,6 +157,43 @@ export async function requestAlipayOrderStatus(request: {
   trade_no: string
 }): Promise<AlipayOrderStatusResponse> {
   const res = await api.get('/api/user/alipay/status', {
+    params: request,
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Request an official WeChat Pay (Native) payment
+ *
+ * Answers with the `weixin://` code the console renders as a QR, which mobile
+ * browsers also use to open WeChat directly.
+ */
+export async function requestWechatPayment(request: {
+  amount: number
+}): Promise<
+  WechatPaymentResponse & {
+    message?: string
+    success?: boolean
+    data?: unknown
+  }
+> {
+  const res = await api.post('/api/user/wechat/pay', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Check one official WeChat Pay order.
+ *
+ * The server asks the gateway on our behalf, so an order whose notification was
+ * delayed still lands: `success` means the balance has just been credited.
+ */
+export async function requestWechatOrderStatus(request: {
+  trade_no: string
+}): Promise<WechatOrderStatusResponse> {
+  const res = await api.get('/api/user/wechat/status', {
     params: request,
     skipBusinessError: true,
   } as Record<string, unknown>)

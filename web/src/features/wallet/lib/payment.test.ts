@@ -52,6 +52,7 @@ describe('payment dispatch', () => {
           return false
         },
         alipay: async () => false,
+        wechat: async () => false,
         waffo: async (amount, index) => {
           calls.push(`waffo:${amount}:${index}`)
           return true
@@ -76,6 +77,7 @@ describe('payment dispatch', () => {
       {
         regular: async () => false,
         alipay: async () => false,
+        wechat: async () => false,
         waffo: async () => {
           called = true
           return true
@@ -104,6 +106,7 @@ describe('official Alipay channel', () => {
           calls.push(`alipay:${amount}`)
           return true
         },
+        wechat: async () => false,
         waffo: async () => false,
         waffoPancake: async () => false,
       }
@@ -133,5 +136,43 @@ describe('official Alipay channel', () => {
     } satisfies TopupInfo
 
     expect(getMinTopupAmount(topupInfo)).toBe(30)
+  })
+})
+
+describe('official WeChat channel', () => {
+  test('routes the official WeChat method to its own processor', async () => {
+    const calls: string[] = []
+    const success = await dispatchSelectedPayment(
+      { name: '微信（官方）', type: PAYMENT_TYPES.WECHAT_OFFICIAL },
+      50,
+      null,
+      {
+        regular: async () => {
+          calls.push('regular')
+          return false
+        },
+        alipay: async () => false,
+        wechat: async (amount) => {
+          calls.push(`wechat:${amount}`)
+          return true
+        },
+        waffo: async () => false,
+        waffoPancake: async () => false,
+      }
+    )
+
+    expect(success).toBe(true)
+    expect(calls).toEqual(['wechat:50'])
+  })
+
+  test('picks the loosest minimum when several channels are open', () => {
+    const min = getMinTopupAmount({
+      enable_alipay_topup: true,
+      alipay_min_topup: 10,
+      enable_wechat_topup: true,
+      wechat_min_topup: 1,
+    } as never)
+
+    expect(min).toBe(1)
   })
 })

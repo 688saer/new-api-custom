@@ -92,6 +92,7 @@ describe('security sidebar visibility', () => {
       'Channel availability',
       'Infinite canvas',
       'Wallet',
+      'Invoices',
       'Profile',
       'Security & Access',
     ])

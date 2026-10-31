@@ -26,7 +26,7 @@ type alipayTestKeys struct {
 	publicKey  string
 }
 
-func newAlipayTestKeys(t *testing.T) alipayTestKeys {
+func newTestRSAKeys(t *testing.T) alipayTestKeys {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestAlipaySignContentKeepsOnlySortedNonEmptyParams(t *testing.T) {
 }
 
 func TestAlipaySignatureRoundTripsAndRejectsTampering(t *testing.T) {
-	keys := newAlipayTestKeys(t)
+	keys := newTestRSAKeys(t)
 	content := "app_id=2021000000000000&method=alipay.trade.page.pay&total_amount=10.00"
 
 	signature, err := AlipayRSASign(content, keys.privateKey)
@@ -82,7 +82,7 @@ func TestAlipaySignatureRoundTripsAndRejectsTampering(t *testing.T) {
 }
 
 func TestAlipayKeysMayBePastedAsBareBase64(t *testing.T) {
-	keys := newAlipayTestKeys(t)
+	keys := newTestRSAKeys(t)
 	pasted := alipayTestKeys{
 		privateKey: strings.Join(strings.Fields(strings.NewReplacer(
 			"-----BEGIN PRIVATE KEY-----", "",
@@ -101,7 +101,7 @@ func TestAlipayKeysMayBePastedAsBareBase64(t *testing.T) {
 }
 
 func TestBuildAlipayPaymentURLSignsTheCheckoutRequest(t *testing.T) {
-	keys := newAlipayTestKeys(t)
+	keys := newTestRSAKeys(t)
 	cfg := AlipayConfig{AppId: "2021000000000000", PrivateKey: keys.privateKey, PublicKey: keys.publicKey}
 	order := AlipayOrder{
 		OutTradeNo:  "USR1NOABC123",
@@ -138,14 +138,14 @@ func TestBuildAlipayPaymentURLSignsTheCheckoutRequest(t *testing.T) {
 }
 
 func TestBuildAlipayPaymentURLRejectsUnsupportedProduct(t *testing.T) {
-	keys := newAlipayTestKeys(t)
+	keys := newTestRSAKeys(t)
 	cfg := AlipayConfig{AppId: "2021000000000000", PrivateKey: keys.privateKey}
 	_, err := BuildAlipayPaymentURL(cfg, AlipayOrder{OutTradeNo: "X", TotalAmount: "1.00", Product: "mpm"})
 	require.Error(t, err)
 }
 
 func TestAlipayNotifyVerificationAcceptsValidAndRejectsTamperedParams(t *testing.T) {
-	keys := newAlipayTestKeys(t)
+	keys := newTestRSAKeys(t)
 	params := map[string]string{
 		"app_id":       "2021000000000000",
 		"out_trade_no": "USR1NOABC123",
@@ -182,7 +182,7 @@ func TestAlipayNotifyVerificationAcceptsValidAndRejectsTamperedParams(t *testing
 }
 
 func TestCreateAlipayPrecreateReadsQrCodeFromGateway(t *testing.T) {
-	keys := newAlipayTestKeys(t)
+	keys := newTestRSAKeys(t)
 	InitHttpClient()
 
 	var received url.Values
@@ -220,7 +220,7 @@ func alipayUnsignedForm(form url.Values) map[string]string {
 // TestQueryAlipayTradeReadsGatewayStatus 覆盖「检测余额」的兜底查询：异步通知
 // 没到时，前端靠它把已付款的订单补记回来。
 func TestQueryAlipayTradeReadsGatewayStatus(t *testing.T) {
-	keys := newAlipayTestKeys(t)
+	keys := newTestRSAKeys(t)
 	InitHttpClient()
 
 	var received url.Values
@@ -244,7 +244,7 @@ func TestQueryAlipayTradeReadsGatewayStatus(t *testing.T) {
 
 // 用户还没扫码时支付宝侧根本没有这笔交易，这条分支必须当成未支付而不是报错。
 func TestQueryAlipayTradeTreatsMissingOrderAsUnpaid(t *testing.T) {
-	keys := newAlipayTestKeys(t)
+	keys := newTestRSAKeys(t)
 	InitHttpClient()
 
 	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -260,7 +260,7 @@ func TestQueryAlipayTradeTreatsMissingOrderAsUnpaid(t *testing.T) {
 }
 
 func TestCreateAlipayPrecreateReportsGatewayRejection(t *testing.T) {
-	keys := newAlipayTestKeys(t)
+	keys := newTestRSAKeys(t)
 	InitHttpClient()
 
 	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

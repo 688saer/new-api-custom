@@ -96,6 +96,27 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
+	// 微信官方通道排在官方支付宝后面，同样不依赖易支付。
+	enableWechat := isWechatTopUpEnabled()
+	if enableWechat {
+		hasWechat := false
+		for _, method := range payMethods {
+			if method["type"] == model.PaymentMethodWechatOfficial {
+				hasWechat = true
+				break
+			}
+		}
+
+		if !hasWechat {
+			payMethods = append(payMethods, map[string]string{
+				"name":      "微信（官方）",
+				"type":      model.PaymentMethodWechatOfficial,
+				"color":     "#07C160",
+				"min_topup": strconv.FormatInt(getWechatMinTopup(), 10),
+			})
+		}
+	}
+
 	// 如果启用了 Waffo 支付，添加到支付方法列表
 	enableWaffo := isWaffoTopUpEnabled()
 	if enableWaffo {
@@ -121,6 +142,8 @@ func GetTopUpInfo(c *gin.Context) {
 	data := gin.H{
 		"enable_online_topup":              isEpayTopUpEnabled(),
 		"enable_alipay_topup":              enableAlipay,
+		"enable_wechat_topup":              enableWechat,
+		"wechat_min_topup":                 getWechatMinTopup(),
 		"alipay_min_topup":                 getAlipayMinTopup(),
 		"alipay_product":                   getAlipayProduct(),
 		"enable_stripe_topup":              isStripeTopUpEnabled(),

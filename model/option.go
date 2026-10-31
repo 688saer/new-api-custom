@@ -123,6 +123,16 @@ func InitOptionMap() {
 	common.OptionMap["AlipaySandbox"] = strconv.FormatBool(setting.AlipaySandbox)
 	common.OptionMap["AlipayNotifyUrl"] = setting.AlipayNotifyUrl
 	common.OptionMap["AlipayReturnUrl"] = setting.AlipayReturnUrl
+	common.OptionMap["WechatPayEnabled"] = strconv.FormatBool(setting.WechatPayEnabled)
+	common.OptionMap["WechatPayAppId"] = setting.WechatPayAppId
+	common.OptionMap["WechatPayMchId"] = setting.WechatPayMchId
+	common.OptionMap["WechatPayMchSerialNo"] = setting.WechatPayMchSerialNo
+	common.OptionMap["WechatPayPrivateKey"] = setting.WechatPayPrivateKey
+	common.OptionMap["WechatPayApiV3Key"] = setting.WechatPayApiV3Key
+	common.OptionMap["WechatPayPlatformPublicKey"] = setting.WechatPayPlatformPublicKey
+	common.OptionMap["WechatPayGateway"] = setting.WechatPayGateway
+	common.OptionMap["WechatPayMinTopUp"] = strconv.Itoa(setting.WechatPayMinTopUp)
+	common.OptionMap["WechatPayNotifyUrl"] = setting.WechatPayNotifyUrl
 	common.OptionMap["WaffoMerchantId"] = setting.WaffoMerchantId
 	common.OptionMap["WaffoNotifyUrl"] = setting.WaffoNotifyUrl
 	common.OptionMap["WaffoReturnUrl"] = setting.WaffoReturnUrl
@@ -605,6 +615,26 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.AlipayNotifyUrl = value
 	case "AlipayReturnUrl":
 		setting.AlipayReturnUrl = value
+	case "WechatPayEnabled":
+		setting.WechatPayEnabled = value == "true"
+	case "WechatPayAppId":
+		setting.WechatPayAppId = value
+	case "WechatPayMchId":
+		setting.WechatPayMchId = value
+	case "WechatPayMchSerialNo":
+		setting.WechatPayMchSerialNo = value
+	case "WechatPayPrivateKey":
+		setting.WechatPayPrivateKey = value
+	case "WechatPayApiV3Key":
+		setting.WechatPayApiV3Key = value
+	case "WechatPayPlatformPublicKey":
+		setting.WechatPayPlatformPublicKey = value
+	case "WechatPayGateway":
+		setting.WechatPayGateway = value
+	case "WechatPayMinTopUp":
+		setting.WechatPayMinTopUp, _ = strconv.Atoi(value)
+	case "WechatPayNotifyUrl":
+		setting.WechatPayNotifyUrl = value
 	case "WaffoMerchantId":
 		setting.WaffoMerchantId = value
 	case "WaffoNotifyUrl":

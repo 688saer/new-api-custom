@@ -107,6 +107,7 @@ export function getPaymentIcon(
         />
       )
     case PAYMENT_TYPES.WECHAT:
+    case PAYMENT_TYPES.WECHAT_OFFICIAL:
       return (
         <IconWeChat
           className={className}

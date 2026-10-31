@@ -959,6 +959,43 @@ POST /api/user/alipay/pay {"amount":1}
 反代场景可在配置里覆盖。相关代码：`service/alipay.go`、`controller/topup_alipay.go`、
 `web/src/features/wallet/**`、`web/src/features/system-settings/integrations/payment-settings-section.tsx`。
 
+**微信官方通道（rc.59，Native 扫码）**
+
+用户开通的是微信支付 APIv3 的 **Native** 支付，所以这条通道只做扫码：下单只返回一个
+`weixin://wxpay/bizpayurl?pr=...` 链接。电脑上画成二维码给手机扫；**手机浏览器没法扫自己
+的屏幕**，所以移动端额外渲染一个「在微信中打开」按钮，`href` 就是这个链接，点一下直接唤起
+微信付款页（桌面端不渲染这个按钮，二维码才是主路径）。
+
+- 10 个配置键（`setting/payment_wechat.go` + `model/option.go` 白名单）：开关、小程序 AppID、
+  商户号、商户证书序列号、商户私钥、APIv3 密钥、微信支付公钥、最低额、网关（可覆盖，联调用）、
+  通知地址（可覆盖）；
+- 签名/验签/解密全在本地（`service/wechat.go`）：请求用 `WECHATPAY2-SHA256-RSA2048` 签名，
+  回调先用微信支付公钥验签（时间戳 5 分钟窗口挡重放），再用 APIv3 密钥做 AES-256-GCM 解密；
+- 入账只认「验签 + 解密」之后的 `out_trade_no` 与 `amount.total`（单位分），走
+  `model.RechargeWechat` 的幂等路径（行锁 + 事务内状态校验 + 金额比对），重复回调不会多给额度；
+- 钱包复用 rc.58 那套：「检测余额」→ `GET /api/user/wechat/status`，本地 `pending` 时主动调
+  `GET /v3/pay/transactions/out-trade-no/{no}`，微信侧 `SUCCESS` 就补记入账，弹窗每 4 秒自动查。
+
+实测（生产库，本机假网关 + 临时测试密钥，测完配置与数据已还原）：
+
+```
+POST /api/user/wechat/pay {"amount":1}
+→ {"code_url":"weixin://wxpay/bizpayurl?pr=TESTPR123","trade_no":"USR1NOusi2kh…"}
+  （假网关侧确认 Authorization 头格式正确、amount.total=100 分）
+未付款          → {"message":"success","status":"pending"}
+微信侧 SUCCESS  → {"message":"success","status":"success"}，额度 93324315 → 93824315（+500000 = 1 元）
+再点一次        → {"status":"success"}，额度不变（幂等）
+篡改回调报文    → 400 {"code":"FAIL","message":"invalid notification"}（日志：crypto/rsa: verification error）
+正常回调        → 200 {"code":"SUCCESS","message":"成功"}，额度 +500000
+重复回调        → 200，额度不变（日志：wechat notification already processed）
+```
+
+**通知地址**：`<ServerAddress>/api/user/wechat/notify`（后台「微信」Tab 里有绿色提示框给出）。
+**开通前置**：商户平台需开通 **Native 支付** 产品；APIv3 密钥与「微信支付公钥」都在
+账户中心 → API 安全 里生成；商户私钥随 API 证书一起下载（`apiclient_key.pem`）。
+相关代码：`setting/payment_wechat.go`、`service/wechat.go`、`service/rsa_key.go`、
+`controller/topup_wechat.go`、`web/src/features/wallet/components/dialogs/wechat-qr-dialog.tsx`。
+
 ---
 ## 四、代码结构：哪些是我们的
 
@@ -997,6 +1034,11 @@ setting/payment_alipay.go                          ~120（支付宝配置项）
 service/alipay.go                                  ~520（RSA2 签名/验签/下单）
 service/alipay_test.go                             ~330（9 项签名与下单回归）
 controller/topup_alipay.go                         ~260（下单/异步通知/回跳）
+setting/payment_wechat.go                          ~30（微信支付配置项）
+service/wechat.go                                  ~330（APIv3 签名/验签/解密/下单/查单）
+service/wechat_test.go                             ~200（5 项签名与解密回归）
+service/rsa_key.go                                 ~75（RSA 密钥解析，支付宝/微信共用）
+controller/topup_wechat.go                         ~250（Native 下单/回调/查单）
 ```
 
 **前端**
@@ -1009,6 +1051,8 @@ web/src/features/rewards/                 ~2792 行
 web/src/features/service-status/          ~985 行
 web/src/features/welfare-api/             ~540 行
 web/src/features/wallet/components/dialogs/alipay-qr-dialog.tsx  ~90（支付宝扫码弹窗）
+web/src/features/wallet/components/dialogs/wechat-qr-dialog.tsx  ~180（微信扫码 + 手机唤起）
+web/src/features/wallet/components/__tests__/wechat-qr-dialog.test.tsx  ~130（4 项）
 web/src/features/tickets/                 ~1500 行
 web/src/features/ticket-console/          ~2100 行
 web/src/features/system-settings/general/lottery-settings-section.tsx
@@ -1072,7 +1116,7 @@ web/public/static/welfare-chests/        （图片资源）
 | `controller/payment_webhook_availability.go` | 支付宝开关判定（合规确认 + 开关 + 三要素齐备） |
 | `web/src/features/wallet/*` | 新增渠道常量/类型/下单接口/分发分支/扫码弹窗，钱包页接入 |
 | `web/src/features/system-settings/integrations/payment-settings-section.tsx` | 支付网关新增「支付宝」Tab（配置项 + 通知地址提示） |
-| `web/src/i18n/locales/*.json` × 7 | 自定义文案，rc.53 合并后每语言 8168 键 |
+| `web/src/i18n/locales/*.json` × 7 | 自定义文案，rc.59 合并后每语言 8200 键 |
 
 > 原本的 `web/src/features/dashboard/components/overview/announcement-detail-dialog.tsx`（82 行）已**删除**，
 > 弹窗迁到 `web/src/features/announcements/components/announcement-detail-dialog.tsx` 由看板与公告页共用。
@@ -1511,11 +1555,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc58`（`/api/status` = `1.0.0-rc.58-balance`）；上一版 `:rc57`、`:rc53`、`:rc52`、`:rc51`、`:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc59`（`/api/status` = `1.0.0-rc.59-wechat`）；上一版 `:rc58`、`:rc57`、`:rc53`、`:rc52`、`:rc51`、`:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.59-wechat`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 钱包新增 **8 项**（`payment.test.ts` 5 + `alipay-qr-dialog.test.tsx` 2 + 分类 1）；工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |

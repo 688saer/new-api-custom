@@ -106,6 +106,16 @@ export function isAlipayOfficialPayment(paymentType: string): boolean {
 /**
  * Check if payment method is Waffo
  */
+/**
+ * Check if payment method is the official WeChat Pay channel
+ *
+ * The aggregator (epay) may also advertise a `wxpay` method, so the official
+ * channel keeps its own type and its own endpoint.
+ */
+export function isWechatOfficialPayment(paymentType: string): boolean {
+  return paymentType === PAYMENT_TYPES.WECHAT_OFFICIAL
+}
+
 export function isWaffoPayment(paymentType: string): boolean {
   return paymentType === PAYMENT_TYPES.WAFFO
 }
@@ -124,6 +134,7 @@ export function isWaffoPancakePayment(paymentType: string): boolean {
 export interface PaymentProcessors {
   regular: (topupAmount: number, paymentType: string) => Promise<boolean>
   alipay: (topupAmount: number) => Promise<boolean>
+  wechat: (topupAmount: number) => Promise<boolean>
   waffo: (topupAmount: number, payMethodIndex: number) => Promise<boolean>
   waffoPancake: (topupAmount: number) => Promise<boolean>
 }
@@ -136,6 +147,10 @@ export async function dispatchSelectedPayment(
 ): Promise<boolean> {
   if (isAlipayOfficialPayment(paymentMethod.type)) {
     return processors.alipay(topupAmount)
+  }
+
+  if (isWechatOfficialPayment(paymentMethod.type)) {
+    return processors.wechat(topupAmount)
   }
 
   if (isWaffoPayment(paymentMethod.type)) {
@@ -188,27 +203,33 @@ export function getMinTopupAmount(topupInfo: TopupInfo | null): number {
     return DEFAULT_MIN_TOPUP
   }
 
+  // 多条通道可以同时开，输入框的最低额要按最宽松的那条算，否则用户明明有
+  // 更便宜的通道却进不来。
+  const minimums: number[] = []
   if (topupInfo.enable_alipay_topup) {
-    return topupInfo.alipay_min_topup || DEFAULT_MIN_TOPUP
+    minimums.push(topupInfo.alipay_min_topup || DEFAULT_MIN_TOPUP)
   }
-
+  if (topupInfo.enable_wechat_topup) {
+    minimums.push(topupInfo.wechat_min_topup || DEFAULT_MIN_TOPUP)
+  }
   if (topupInfo.enable_online_topup) {
-    return topupInfo.min_topup
+    minimums.push(topupInfo.min_topup)
   }
-
   if (topupInfo.enable_stripe_topup) {
-    return topupInfo.stripe_min_topup
+    minimums.push(topupInfo.stripe_min_topup)
   }
-
   if (topupInfo.enable_waffo_topup) {
-    return topupInfo.waffo_min_topup || DEFAULT_MIN_TOPUP
+    minimums.push(topupInfo.waffo_min_topup || DEFAULT_MIN_TOPUP)
   }
-
   if (topupInfo.enable_waffo_pancake_topup) {
-    return topupInfo.waffo_pancake_min_topup || DEFAULT_MIN_TOPUP
+    minimums.push(topupInfo.waffo_pancake_min_topup || DEFAULT_MIN_TOPUP)
   }
 
-  return DEFAULT_MIN_TOPUP
+  const usable = minimums.filter((value) => Number.isFinite(value) && value > 0)
+  if (usable.length === 0) {
+    return DEFAULT_MIN_TOPUP
+  }
+  return Math.min(...usable)
 }
 
 /**

@@ -33,6 +33,8 @@ export const PAYMENT_TYPES = {
   ALIPAY: 'alipay',
   /** 支付宝官方通道（直连开放平台），与易支付的 alipay 渠道并存但走不同接口 */
   ALIPAY_OFFICIAL: 'alipay_official',
+  /** 微信官方通道（直连微信支付 APIv3 Native），与易支付的 wxpay 渠道并存 */
+  WECHAT_OFFICIAL: 'wechat_official',
   WECHAT: 'wxpay',
   STRIPE: 'stripe',
   CREEM: 'creem',
@@ -52,6 +54,7 @@ export const PAYMENT_ICON_COLORS = {
   [PAYMENT_TYPES.ALIPAY]: '#1677FF',
   [PAYMENT_TYPES.ALIPAY_OFFICIAL]: '#1677FF',
   [PAYMENT_TYPES.WECHAT]: '#07C160',
+  [PAYMENT_TYPES.WECHAT_OFFICIAL]: '#07C160',
   [PAYMENT_TYPES.STRIPE]: '#635BFF',
   [PAYMENT_TYPES.CREEM]: '#6366F1',
   [PAYMENT_TYPES.WAFFO]: '#2563EB',

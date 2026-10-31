@@ -33,6 +33,7 @@ const (
 	PaymentMethodWaffoPancake   = "waffo_pancake"
 	PaymentMethodBalance        = "balance"
 	PaymentMethodAlipayOfficial = "alipay_official"
+	PaymentMethodWechatOfficial = "wechat_official"
 )
 
 const (
@@ -43,6 +44,7 @@ const (
 	PaymentProviderWaffoPancake = "waffo_pancake"
 	PaymentProviderBalance      = "balance"
 	PaymentProviderAlipay       = "alipay"
+	PaymentProviderWechat       = "wechat"
 )
 
 var (
@@ -304,6 +306,71 @@ func RechargeAlipay(tradeNo string, paidAmount string, callerIp string) (already
 	RecordTopupLog(topUp.UserId, common.NewMessage("Online top-up succeeded, amount added: {{quota}}, payment amount: {{amount}}", map[string]any{"quota": logger.FormatQuota(quotaToAdd), "amount": fmt.Sprintf("%f", topUp.Money)}), callerIp, topUp.PaymentMethod, PaymentProviderAlipay)
 	return false, nil
 }
+// RechargeWechat 落一笔微信官方通道的订单。签名和解密在 controller 完成，这里只
+// 负责幂等地标记成功并加额度；通知里的金额（分）必须和下单金额一致，否则宁可
+// 失败让管理员看见，也不能按对方报的数字加额度。
+func RechargeWechat(tradeNo string, paidFen int64, callerIp string) (alreadyDone bool, err error) {
+	if tradeNo == "" {
+		return false, errors.New("payment order number not provided")
+	}
+
+	refCol := "`trade_no`"
+	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
+		refCol = `"trade_no"`
+	}
+
+	var quotaToAdd int
+	topUp := &TopUp{}
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockForUpdate(tx).Where(refCol+" = ?", tradeNo).First(topUp).Error; err != nil {
+			return ErrTopUpNotFound
+		}
+		if topUp.PaymentProvider != PaymentProviderWechat {
+			return ErrPaymentMethodMismatch
+		}
+		if topUp.Status == common.TopUpStatusSuccess {
+			alreadyDone = true
+			return nil
+		}
+		if topUp.Status != common.TopUpStatusPending {
+			return ErrTopUpStatusInvalid
+		}
+		if paidFen > 0 {
+			paid := decimal.NewFromInt(paidFen).Div(decimal.NewFromInt(100)).Round(2)
+			if !paid.Equal(decimal.NewFromFloat(topUp.Money).Round(2)) {
+				return ErrTopUpMoneyMismatch
+			}
+		}
+		var quotaErr error
+		quotaToAdd, quotaErr = common.WalletQuotaFromDecimalStrict(
+			decimal.NewFromInt(topUp.Amount).Mul(decimal.NewFromFloat(common.QuotaPerUnit)),
+		)
+		if quotaErr != nil || quotaToAdd <= 0 {
+			return ErrInvalidTopUpQuota
+		}
+		topUp.CompleteTime = common.GetTimestamp()
+		topUp.Status = common.TopUpStatusSuccess
+		if err := tx.Save(topUp).Error; err != nil {
+			return err
+		}
+		return creditTopUpQuota(tx, topUp.UserId, quotaToAdd, nil)
+	})
+	if err != nil {
+		if !errors.Is(err, ErrTopUpNotFound) && !errors.Is(err, ErrPaymentMethodMismatch) && !errors.Is(err, ErrTopUpStatusInvalid) && !errors.Is(err, ErrTopUpMoneyMismatch) {
+			common.SysError(common.LogText("wechat topup failed: %s", err.Error()))
+		}
+		return false, err
+	}
+	if alreadyDone {
+		return true, nil
+	}
+	syncCreditUserQuotaCache(topUp.UserId, quotaToAdd, common.LogText("wechat topup"))
+
+	common.SysLog(common.LogText("wechat top-up succeeded trade_no=%s user_id=%d quota_to_add=%d money=%.2f", topUp.TradeNo, topUp.UserId, quotaToAdd, topUp.Money))
+	RecordTopupLog(topUp.UserId, common.NewMessage("Online top-up succeeded, amount added: {{quota}}, payment amount: {{amount}}", map[string]any{"quota": logger.FormatQuota(quotaToAdd), "amount": fmt.Sprintf("%f", topUp.Money)}), callerIp, topUp.PaymentMethod, PaymentProviderWechat)
+	return false, nil
+}
+
 func Recharge(referenceId string, customerId string, callerIp string) (err error) {
 	if referenceId == "" {
 		return errors.New("payment order number not provided")

@@ -28,6 +28,7 @@ import {
   calculateWaffoAmount,
   calculateWaffoPancakeAmount,
   requestAlipayPayment,
+  requestWechatPayment,
   requestPayment,
   requestStripePayment,
   isApiSuccess,
@@ -88,11 +89,17 @@ export interface AlipayQrOrder {
   qrCode: string
 }
 
+export interface WechatQrOrder {
+  tradeNo: string
+  codeUrl: string
+}
+
 export function usePayment() {
   const [amount, setAmount] = useState<number>(0)
   const [calculating, setCalculating] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [alipayQrOrder, setAlipayQrOrder] = useState<AlipayQrOrder | null>(null)
+  const [wechatQrOrder, setWechatQrOrder] = useState<WechatQrOrder | null>(null)
 
   // Calculate payment amount
   const calculatePaymentAmount = useCallback(
@@ -204,7 +211,38 @@ export function usePayment() {
     }
   }, [])
 
+  // Official WeChat Pay: Native 只回一个 weixin:// 链接，二维码和手机唤起都用它。
+  const processWechatPayment = useCallback(async (topupAmount: number) => {
+    try {
+      setProcessing(true)
+      const response = await requestWechatPayment({
+        amount: Math.floor(topupAmount),
+      })
+
+      if (!isApiSuccess(response)) {
+        handleServerError(response, i18next.t('Payment request failed'))
+        return false
+      }
+
+      if (response.code_url) {
+        setWechatQrOrder({
+          tradeNo: response.trade_no || '',
+          codeUrl: response.code_url,
+        })
+        return true
+      }
+
+      return false
+    } catch (error) {
+      handleServerError(error, i18next.t('Payment request failed'))
+      return false
+    } finally {
+      setProcessing(false)
+    }
+  }, [])
+
   const clearAlipayQrOrder = useCallback(() => setAlipayQrOrder(null), [])
+  const clearWechatQrOrder = useCallback(() => setWechatQrOrder(null), [])
 
   return {
     amount,
@@ -212,9 +250,12 @@ export function usePayment() {
     processing,
     alipayQrOrder,
     clearAlipayQrOrder,
+    wechatQrOrder,
+    clearWechatQrOrder,
     calculatePaymentAmount,
     processPayment,
     processAlipayPayment,
+    processWechatPayment,
     setAmount,
   }
 }

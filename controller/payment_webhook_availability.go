@@ -112,6 +112,29 @@ func isAlipayWebhookConfigured() bool {
 func isAlipayWebhookEnabled() bool {
 	return isAlipayTopUpEnabled()
 }
+
+func isWechatTopUpEnabled() bool {
+	if !isPaymentComplianceConfirmed() {
+		return false
+	}
+	if !setting.WechatPayEnabled {
+		return false
+	}
+	return isWechatWebhookConfigured()
+}
+
+func isWechatWebhookConfigured() bool {
+	return strings.TrimSpace(setting.WechatPayAppId) != "" &&
+		strings.TrimSpace(setting.WechatPayMchId) != "" &&
+		strings.TrimSpace(setting.WechatPayMchSerialNo) != "" &&
+		strings.TrimSpace(setting.WechatPayPrivateKey) != "" &&
+		strings.TrimSpace(setting.WechatPayApiV3Key) != "" &&
+		strings.TrimSpace(setting.WechatPayPlatformPublicKey) != ""
+}
+
+func isWechatWebhookEnabled() bool {
+	return isWechatTopUpEnabled()
+}
 func isEpayTopUpEnabled() bool {
 	if !isPaymentComplianceConfirmed() {
 		return false

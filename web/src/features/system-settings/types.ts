@@ -338,6 +338,16 @@ export type BillingSettings = {
   AlipayGateway: string
   AlipayNotifyUrl: string
   AlipayReturnUrl: string
+  WechatPayEnabled: boolean
+  WechatPayAppId: string
+  WechatPayMchId: string
+  WechatPayMchSerialNo: string
+  WechatPayApiV3Key: string
+  WechatPayPrivateKey: string
+  WechatPayPlatformPublicKey: string
+  WechatPayMinTopUp: number
+  WechatPayGateway: string
+  WechatPayNotifyUrl: string
   'payment_setting.amount_options': string
   'payment_setting.amount_discount': string
   'payment_setting.compliance_confirmed': boolean

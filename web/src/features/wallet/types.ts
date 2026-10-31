@@ -130,6 +130,10 @@ export interface TopupInfo {
   alipay_min_topup?: number
   /** Official Alipay product: page, wap or qr */
   alipay_product?: string
+  /** Whether the official WeChat Pay channel is enabled */
+  enable_wechat_topup?: boolean
+  /** Minimum topup amount for the official WeChat Pay channel */
+  wechat_min_topup?: number
   /** Available payment methods */
   pay_methods: PaymentMethod[]
   /** Minimum topup amount for online topup */
@@ -211,6 +215,27 @@ export interface AlipayPaymentResponse {
  * seen the money yet, `closed` means this order will never be paid.
  */
 export interface AlipayOrderStatusResponse {
+  message?: string
+  status?: 'pending' | 'success' | 'closed'
+}
+
+/**
+ * Official WeChat Pay response
+ *
+ * Native 下单只回一个 weixin:// 链接：桌面端画成二维码，手机端用它直接唤起微信。
+ */
+export interface WechatPaymentResponse {
+  code_url?: string
+  trade_no?: string
+}
+
+/**
+ * State of one official WeChat Pay order.
+ *
+ * `success` means the balance is already credited, `pending` means WeChat has not
+ * seen the money yet, `closed` means this order will never be paid.
+ */
+export interface WechatOrderStatusResponse {
   message?: string
   status?: 'pending' | 'success' | 'closed'
 }

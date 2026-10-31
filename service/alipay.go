@@ -5,9 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
@@ -123,7 +121,7 @@ func SignAlipayParams(cfg AlipayConfig, params map[string]string) error {
 
 // AlipayRSASign 用 RSA2（SHA256withRSA）签名，返回 base64。
 func AlipayRSASign(content string, privateKey string) (string, error) {
-	key, err := parseAlipayPrivateKey(privateKey)
+	key, err := parseRSAPrivateKey(privateKey)
 	if err != nil {
 		return "", err
 	}
@@ -152,7 +150,7 @@ func VerifyAlipayNotifySign(params map[string]string, publicKey string) error {
 }
 
 func verifyAlipayRSA2(content string, signature string, publicKey string) error {
-	key, err := parseAlipayPublicKey(publicKey)
+	key, err := parseRSAPublicKey(publicKey)
 	if err != nil {
 		return err
 	}
@@ -342,64 +340,4 @@ func alipayOrderParams(cfg AlipayConfig, order AlipayOrder) (map[string]string, 
 		return nil, err
 	}
 	return params, nil
-}
-
-func parseAlipayPrivateKey(raw string) (*rsa.PrivateKey, error) {
-	block, _ := pem.Decode([]byte(normalizeAlipayKey(raw, "PRIVATE KEY")))
-	if block == nil {
-		return nil, errors.New("alipay private key is not readable")
-	}
-	if parsed, err := x509.ParsePKCS8PrivateKey(block.Bytes); err == nil {
-		key, ok := parsed.(*rsa.PrivateKey)
-		if !ok {
-			return nil, errors.New("alipay private key is not RSA")
-		}
-		return key, nil
-	}
-	if key, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
-		return key, nil
-	}
-	return nil, errors.New("alipay private key is not readable")
-}
-
-func parseAlipayPublicKey(raw string) (*rsa.PublicKey, error) {
-	block, _ := pem.Decode([]byte(normalizeAlipayKey(raw, "PUBLIC KEY")))
-	if block == nil {
-		return nil, errors.New("alipay public key is not readable")
-	}
-	if parsed, err := x509.ParsePKIXPublicKey(block.Bytes); err == nil {
-		key, ok := parsed.(*rsa.PublicKey)
-		if !ok {
-			return nil, errors.New("alipay public key is not RSA")
-		}
-		return key, nil
-	}
-	if key, err := x509.ParsePKCS1PublicKey(block.Bytes); err == nil {
-		return key, nil
-	}
-	return nil, errors.New("alipay public key is not readable")
-}
-
-// normalizeAlipayKey 让控制台里复制出来的密钥能被解析：可能自带 PEM 头，
-// 也可能是裸 base64（常常还带着换行和空格）。
-func normalizeAlipayKey(raw string, blockType string) string {
-	trimmed := strings.TrimSpace(raw)
-	if strings.Contains(trimmed, "-----BEGIN") {
-		return trimmed
-	}
-	body := strings.NewReplacer("\r", "", "\n", "", "\t", "", " ", "").Replace(trimmed)
-	if body == "" {
-		return ""
-	}
-
-	var builder strings.Builder
-	builder.WriteString("-----BEGIN " + blockType + "-----\n")
-	for len(body) > 64 {
-		builder.WriteString(body[:64])
-		builder.WriteByte('\n')
-		body = body[64:]
-	}
-	builder.WriteString(body)
-	builder.WriteString("\n-----END " + blockType + "-----\n")
-	return builder.String()
 }

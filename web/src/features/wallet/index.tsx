@@ -37,6 +37,7 @@ import { BillingHistoryDialog } from './components/dialogs/billing-history-dialo
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
 import { TransferDialog } from './components/dialogs/transfer-dialog'
+import { WechatQrDialog } from './components/dialogs/wechat-qr-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
 import { RedemptionStoreCard } from './components/redemption-store-card'
 import { SubscriptionPlansCard } from './components/subscription-plans-card'
@@ -105,9 +106,12 @@ export function Wallet(props: WalletProps) {
     processing,
     alipayQrOrder,
     clearAlipayQrOrder,
+    wechatQrOrder,
+    clearWechatQrOrder,
     calculatePaymentAmount,
     processPayment,
     processAlipayPayment,
+    processWechatPayment,
   } = usePayment()
   const {
     affiliateLink,
@@ -241,6 +245,7 @@ export function Wallet(props: WalletProps) {
       {
         regular: processPayment,
         alipay: processAlipayPayment,
+        wechat: processWechatPayment,
         waffo: processWaffoPayment,
         waffoPancake: processWaffoPancakePayment,
       }
@@ -460,6 +465,18 @@ export function Wallet(props: WalletProps) {
         }}
         qrCode={alipayQrOrder?.qrCode ?? ''}
         tradeNo={alipayQrOrder?.tradeNo ?? ''}
+        onPaid={() => {
+          void fetchUser()
+        }}
+      />
+
+      <WechatQrDialog
+        open={wechatQrOrder !== null}
+        onOpenChange={(open) => {
+          if (!open) clearWechatQrOrder()
+        }}
+        codeUrl={wechatQrOrder?.codeUrl ?? ''}
+        tradeNo={wechatQrOrder?.tradeNo ?? ''}
         onPaid={() => {
           void fetchUser()
         }}

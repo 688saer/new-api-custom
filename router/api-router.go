@@ -98,6 +98,7 @@ func SetApiRouter(router *gin.Engine) {
 			// 所以入账只认这一条路径上的验签结果。
 			userRoute.POST("/alipay/notify", anonymousRequestBodyLimit, controller.AlipayNotify)
 			userRoute.GET("/alipay/return", controller.AlipayReturn)
+	userRoute.POST("/wechat/notify", anonymousRequestBodyLimit, controller.WechatNotify)
 			userRoute.GET("/groups", controller.GetUserGroups)
 
 			selfRoute := userRoute.Group("/")
@@ -136,6 +137,8 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/amount", controller.RequestAmount)
 				selfRoute.POST("/alipay/pay", middleware.CriticalRateLimit(), controller.RequestAlipay)
 				selfRoute.GET("/alipay/status", controller.AlipayOrderStatus)
+				selfRoute.POST("/wechat/pay", middleware.CriticalRateLimit(), controller.RequestWechat)
+				selfRoute.GET("/wechat/status", controller.WechatOrderStatus)
 				selfRoute.POST("/stripe/pay", middleware.CriticalRateLimit(), controller.RequestStripePay)
 				selfRoute.POST("/stripe/amount", controller.RequestStripeAmount)
 				selfRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.RequestCreemPay)
