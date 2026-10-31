@@ -195,6 +195,10 @@ func CreateAlipayPrecreate(cfg AlipayConfig, order AlipayOrder) (string, error) 
 	if err != nil {
 		return "", err
 	}
+	// 网关会校验 sign，缺了直接回 40002 Invalid Arguments。
+	if err := SignAlipayParams(cfg, params); err != nil {
+		return "", err
+	}
 	form := url.Values{}
 	for key, value := range params {
 		form.Set(key, value)

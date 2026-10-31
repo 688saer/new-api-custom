@@ -133,8 +133,10 @@ func RequestAlipay(c *gin.Context) {
 
 	product := getAlipayProduct()
 	order := service.AlipayOrder{
-		OutTradeNo:  tradeNo,
-		Subject:     fmt.Sprintf("账户充值 %d", amount),
+		OutTradeNo: tradeNo,
+		// 支付宝对 biz_content 里的中文会按 charset 重新解码，实测中文 subject
+		// 会让网关回 isv.invalid-signature，所以商品名保持 ASCII 并带上订单号。
+		Subject:     fmt.Sprintf("Top-up %s", tradeNo),
 		TotalAmount: service.AlipayAmount(payMoney),
 		NotifyUrl:   alipayNotifyUrl(),
 		ReturnUrl:   alipayReturnUrl(),

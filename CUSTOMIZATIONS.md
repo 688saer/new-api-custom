@@ -907,6 +907,32 @@ PKCS8 / PKCS1 均支持。
 测完执行：删除两条测试订单、`quota` 回滚 5000000、删除 `Alipay*` 配置行与临时令牌、
 重启后通知回到 `rejected reason=disabled`，`/api/status` 仍是 `1.0.0-rc.53-alipay`。
 
+**修复记录（rc.54 → rc.57，用户实测「和易支付同时开启时调不起来」）**
+
+三处独立缺陷，前两处会让按钮根本不出现或点了走错网关，第三处会让下单被支付宝拒：
+
+| # | 现象 | 根因 | 修法 |
+|---|---|---|---|
+| 1 | 充值方式里只有易支付的「支付宝」，没有官方渠道 | rc53 镜像实际是用**旧源码**构建的（镜像 `Created` 早于源码同步时间），`GetTopUpInfo` 里插入官方渠道的代码没进二进制 | 重新构建 rc54，线上 `pay_methods` 变成 `alipay_official` / `alipay` / `wxpay` / `alipay`（4 条） |
+| 2 | 点官方按钮 403 | 新路由 `POST /api/user/alipay/pay` 没登记到 `middleware/access_token_routes.go`，访问令牌认证直接 `ACCESS_TOKEN_ROUTE_UNDECLARED` | 补一行 `accessTokenScopeRule("wallet:write")`（rc55） |
+| 3 | 下单返回 `Failed to start payment`，网关日志 `40002 Invalid Arguments / isv.invalid-signature` | ① `CreateAlipayPrecreate` 构造表单后**忘了签名**；② `subject` 用了中文，实测同一把密钥英文成功、中文必被拒 | 预下单前调用 `SignAlipayParams`；`subject` 改 ASCII `Top-up <trade_no>`（rc56 / rc57） |
+
+同批修掉的前端问题：`recharge-form-card.tsx` 的 `hasConfigurableTopup` 漏了 `enable_alipay_topup`（只开官方通道时整张充值卡片不渲染），以及 `pay_methods` 用 `key={method.type}` 导致两条同名 `alipay` 渠道 key 冲突（改为 `type + 下标`）。
+
+**中文 subject 的实证**（同一把密钥、同一网关、只改 subject）：
+
+```
+[中文 subject] code=40002 sub_code=isv.invalid-signature
+[英文 subject] code=10000 sub_code=None  qr_code=https://qr.alipay.com/bax05377nrbek7lprim125fa
+```
+
+**修复后真实下单**（生产库、真实 AppId 与密钥、qr 产品）：
+
+```
+POST /api/user/alipay/pay {"amount":1}
+→ {"message":"success","trade_no":"USR1NOldL3Gm1793439373","qr_code":"https://qr.alipay.com/bax02388afpru2ihx2bz25eb"}
+```
+
 **通知地址**：`<ServerAddress>/api/user/alipay/notify`（后台 Tab 里有蓝色提示框直接给出），
 反代场景可在配置里覆盖。相关代码：`service/alipay.go`、`controller/topup_alipay.go`、
 `web/src/features/wallet/**`、`web/src/features/system-settings/integrations/payment-settings-section.tsx`。
@@ -990,7 +1016,7 @@ web/public/static/welfare-chests/        （图片资源）
 
 ### 修改的官方文件（升级时唯一可能冲突的地方）
 
-一共 **30 个**，每处改动都很小、很集中：
+一共 **31 个**，每处改动都很小、很集中：
 
 | 文件 | 改动内容 |
 |---|---|
@@ -1018,6 +1044,7 @@ web/public/static/welfare-chests/        （图片资源）
 | `web/src/styles/index.css` | 新增 `@keyframes marquee-left` 与服务商跑马灯类 |
 | `web/src/routeTree.gen.ts` | 路由树（构建时自动生成） |
 | `model/option.go` | 支付宝配置项默认值 + 写入分支（10 个键） |
+| `middleware/access_token_routes.go` | 登记 `POST /api/user/alipay/pay` → `wallet:write`（不登记访问令牌会 403） |
 | `model/topup.go` | 新增 `RechargeAlipay`（行锁、渠道/状态幂等、金额校验、加额度、写充值日志） |
 | `controller/topup.go` | 充值方式列表按开关插入「支付宝」渠道，并下发 `enable_alipay_topup` / `alipay_min_topup` / `alipay_product` |
 | `controller/payment_webhook_availability.go` | 支付宝开关判定（合规确认 + 开关 + 三要素齐备） |
@@ -1462,11 +1489,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc53`（`/api/status` = `1.0.0-rc.53-alipay`）；上一版 `:rc52`、`:rc51`、`:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc57`（`/api/status` = `1.0.0-rc.57-alipay`）；上一版 `:rc56`~`:rc53`、`:rc52`、`:rc51`、`:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 钱包新增 **8 项**（`payment.test.ts` 5 + `alipay-qr-dialog.test.tsx` 2 + 分类 1）；工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |

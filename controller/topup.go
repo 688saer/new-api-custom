@@ -88,7 +88,7 @@ func GetTopUpInfo(c *gin.Context) {
 
 		if !hasAlipay {
 			payMethods = append([]map[string]string{{
-				"name":      "支付宝",
+				"name":      "支付宝（官方）",
 				"type":      model.PaymentMethodAlipayOfficial,
 				"color":     "#1677FF",
 				"min_topup": strconv.FormatInt(getAlipayMinTopup(), 10),

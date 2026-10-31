@@ -199,6 +199,17 @@ func TestCreateAlipayPrecreateReadsQrCodeFromGateway(t *testing.T) {
 	assert.Equal(t, "https://qr.alipay.com/bax01234", qrCode)
 	assert.Equal(t, "alipay.trade.precreate", received.Get("method"))
 	assert.Contains(t, received.Get("biz_content"), `"timeout_express":"30m"`)
+
+	// 网关只认签过名的请求：漏签会被回 40002 Invalid Arguments。
+	unsigned := make(map[string]string, len(received))
+	for key := range received {
+		if key == "sign" {
+			continue
+		}
+		unsigned[key] = received.Get(key)
+	}
+	require.NotEmpty(t, received.Get("sign"))
+	require.NoError(t, verifyWithPublicKey(t, AlipaySignContent(unsigned), received.Get("sign"), keys.publicKey))
 }
 
 func TestCreateAlipayPrecreateReportsGatewayRejection(t *testing.T) {

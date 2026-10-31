@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -132,6 +132,7 @@ export function RechargeFormCard({
 
   const hasConfigurableTopup =
     topupInfo?.enable_online_topup ||
+    topupInfo?.enable_alipay_topup ||
     topupInfo?.enable_stripe_topup ||
     enableWaffoTopup ||
     enableWaffoPancakeTopup
@@ -329,7 +330,10 @@ export function RechargeFormCard({
                 </Label>
                 {hasStandardPaymentMethods ? (
                   <div className='grid grid-cols-2 gap-1.5 sm:gap-3 lg:grid-cols-3'>
-                    {topupInfo?.pay_methods?.map((method) => {
+                    {topupInfo?.pay_methods?.map((method, methodIndex) => {
+                      // 两个渠道可能共用同一个 type（例如易支付与官方支付宝都叫
+                      // alipay 系列），所以 key 必须带上下标，否则 React 会复用节点。
+                      const methodKey = `${method.type}-${methodIndex}`
                       const minTopup = Math.max(
                         method.min_topup || 0,
                         getMinTopupAmount(topupInfo)
@@ -346,7 +350,7 @@ export function RechargeFormCard({
 
                       const button = (
                         <Button
-                          key={method.type}
+                          key={methodKey}
                           variant='outline'
                           onClick={() => onPaymentMethodSelect(method)}
                           disabled={disabled || !!paymentLoading}
@@ -382,7 +386,7 @@ export function RechargeFormCard({
                       )
 
                       return disabled ? (
-                        <TooltipProvider key={method.type}>
+                        <TooltipProvider key={methodKey}>
                           <Tooltip>
                             <TooltipTrigger render={button} />
                             <TooltipContent>{disabledReason}</TooltipContent>
