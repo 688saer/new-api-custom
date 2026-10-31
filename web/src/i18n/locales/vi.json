@@ -8126,6 +8126,9 @@
     "Waiting to be issued": "Chờ xuất",
     "We review every request before issuing the invoice.": "Mọi yêu cầu đều được duyệt trước khi xuất.",
     "We review every request before issuing the invoice. Issued invoices can be downloaded here.": "Mọi yêu cầu đều được duyệt trước khi xuất; hóa đơn đã xuất tải về tại đây.",
-    "When disabled, the request button is hidden for users.": "Khi tắt, nút yêu cầu sẽ bị ẩn."
+    "When disabled, the request button is hidden for users.": "Khi tắt, nút yêu cầu sẽ bị ẩn.",
+    "Upstream service is unstable": "Dịch vụ thượng nguồn không ổn định",
+    "{{capability}} requests are failing: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "Yêu cầu {{capability}} đang thất bại: {{failures}}/{{attempts}} lần thất bại trong {{minutes}} phút gần đây.",
+    "{{capability}} requests are slower or failing intermittently: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "Yêu cầu {{capability}} chậm hơn hoặc thất bại ngắt quãng: {{failures}}/{{attempts}} lần thất bại trong {{minutes}} phút gần đây."
   }
 }

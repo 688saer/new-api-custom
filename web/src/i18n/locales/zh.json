@@ -8126,6 +8126,9 @@
     "Waiting to be issued": "待开具",
     "We review every request before issuing the invoice.": "每笔申请都需要审核后才会开具。",
     "We review every request before issuing the invoice. Issued invoices can be downloaded here.": "每笔申请都需要审核后才会开具，开具后可在本页下载。",
-    "When disabled, the request button is hidden for users.": "关闭后用户侧不再显示申请按钮。"
+    "When disabled, the request button is hidden for users.": "关闭后用户侧不再显示申请按钮。",
+    "Upstream service is unstable": "上游服务不稳定",
+    "{{capability}} requests are failing: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "{{capability}}请求调用失败：最近 {{minutes}} 分钟内 {{attempts}} 次里有 {{failures}} 次失败。",
+    "{{capability}} requests are slower or failing intermittently: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "{{capability}}请求变慢或偶发失败：最近 {{minutes}} 分钟内 {{attempts}} 次里有 {{failures}} 次失败。"
   }
 }

@@ -8126,6 +8126,9 @@
     "Waiting to be issued": "発行待ち",
     "We review every request before issuing the invoice.": "発行前にすべての申請を審査します。",
     "We review every request before issuing the invoice. Issued invoices can be downloaded here.": "発行前に審査します。発行済みの請求書はここからダウンロードできます。",
-    "When disabled, the request button is hidden for users.": "オフにすると申請ボタンは表示されません。"
+    "When disabled, the request button is hidden for users.": "オフにすると申請ボタンは表示されません。",
+    "Upstream service is unstable": "上流サービスが不安定です",
+    "{{capability}} requests are failing: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "{{capability}}リクエストが失敗しています: 直近 {{minutes}} 分間で {{attempts}} 件中 {{failures}} 件が失敗しました。",
+    "{{capability}} requests are slower or failing intermittently: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "{{capability}}リクエストが遅いか断続的に失敗しています: 直近 {{minutes}} 分間で {{attempts}} 件中 {{failures}} 件が失敗しました。"
   }
 }

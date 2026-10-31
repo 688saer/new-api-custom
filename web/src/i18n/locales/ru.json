@@ -8126,6 +8126,9 @@
     "Waiting to be issued": "Ожидает оформления",
     "We review every request before issuing the invoice.": "Каждая заявка проверяется перед оформлением.",
     "We review every request before issuing the invoice. Issued invoices can be downloaded here.": "Каждая заявка проверяется перед оформлением; готовые счета можно скачать здесь.",
-    "When disabled, the request button is hidden for users.": "При отключении кнопка запроса скрывается."
+    "When disabled, the request button is hidden for users.": "При отключении кнопка запроса скрывается.",
+    "Upstream service is unstable": "Нестабильная работа вышестоящего сервиса",
+    "{{capability}} requests are failing: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "Запросы «{{capability}}» завершаются ошибкой: {{failures}} из {{attempts}} за последние {{minutes}} мин.",
+    "{{capability}} requests are slower or failing intermittently: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "Запросы «{{capability}}» работают медленнее или периодически завершаются ошибкой: {{failures}} из {{attempts}} за последние {{minutes}} мин."
   }
 }

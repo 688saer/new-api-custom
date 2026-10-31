@@ -8126,6 +8126,9 @@
     "Waiting to be issued": "Waiting to be issued",
     "We review every request before issuing the invoice.": "We review every request before issuing the invoice.",
     "We review every request before issuing the invoice. Issued invoices can be downloaded here.": "We review every request before issuing the invoice. Issued invoices can be downloaded here.",
-    "When disabled, the request button is hidden for users.": "When disabled, the request button is hidden for users."
+    "When disabled, the request button is hidden for users.": "When disabled, the request button is hidden for users.",
+    "Upstream service is unstable": "Upstream service is unstable",
+    "{{capability}} requests are failing: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "{{capability}} requests are failing: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.",
+    "{{capability}} requests are slower or failing intermittently: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "{{capability}} requests are slower or failing intermittently: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes."
   }
 }

@@ -8126,6 +8126,9 @@
     "Waiting to be issued": "En attente d'émission",
     "We review every request before issuing the invoice.": "Chaque demande est vérifiée avant l'émission.",
     "We review every request before issuing the invoice. Issued invoices can be downloaded here.": "Chaque demande est vérifiée avant l'émission ; les factures émises se téléchargent ici.",
-    "When disabled, the request button is hidden for users.": "Une fois désactivé, le bouton de demande est masqué."
+    "When disabled, the request button is hidden for users.": "Une fois désactivé, le bouton de demande est masqué.",
+    "Upstream service is unstable": "Service amont instable",
+    "{{capability}} requests are failing: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "Les requêtes {{capability}} échouent : {{failures}} échecs sur {{attempts}} au cours des {{minutes}} dernières minutes.",
+    "{{capability}} requests are slower or failing intermittently: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "Les requêtes {{capability}} sont plus lentes ou échouent par intermittence : {{failures}} échecs sur {{attempts}} au cours des {{minutes}} dernières minutes."
   }
 }

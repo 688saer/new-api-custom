@@ -95,6 +95,17 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 
 	defer func() {
+		// 真实流量就是上游健康度的证据：控制台据此判断该不该挂「上游故障」提示。
+		// 合成探针要花额度，还可能和用户此刻的遭遇不一致。
+		statusCode := 0
+		errorCode := ""
+		if newAPIError != nil {
+			statusCode = newAPIError.StatusCode
+			errorCode = string(newAPIError.GetErrorCode())
+		}
+		if ok, recorded := service.UpstreamOutcomeForRelay(statusCode, errorCode, newAPIError == nil); recorded {
+			service.RecordUpstreamOutcome(service.UpstreamCapabilityForPath(c.Request.URL.Path), ok)
+		}
 		if newAPIError != nil {
 			service.RecordRequestPolicyTermination(c, newAPIError)
 			logger.LogError(c, common.LogText("relay error: %s", common.LocalLogPreview(newAPIError.Error())))

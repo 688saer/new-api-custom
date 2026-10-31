@@ -8126,6 +8126,9 @@
     "Waiting to be issued": "待開立",
     "We review every request before issuing the invoice.": "每筆申請都需要審核後才會開立。",
     "We review every request before issuing the invoice. Issued invoices can be downloaded here.": "每筆申請都需要審核後才會開立，開立後可在本頁下載。",
-    "When disabled, the request button is hidden for users.": "關閉後使用者端不再顯示申請按鈕。"
+    "When disabled, the request button is hidden for users.": "關閉後使用者端不再顯示申請按鈕。",
+    "Upstream service is unstable": "上游服務不穩定",
+    "{{capability}} requests are failing: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "{{capability}}請求呼叫失敗：最近 {{minutes}} 分鐘內 {{attempts}} 次中有 {{failures}} 次失敗。",
+    "{{capability}} requests are slower or failing intermittently: {{failures}} of {{attempts}} failed in the last {{minutes}} minutes.": "{{capability}}請求變慢或偶發失敗：最近 {{minutes}} 分鐘內 {{attempts}} 次中有 {{failures}} 次失敗。"
   }
 }

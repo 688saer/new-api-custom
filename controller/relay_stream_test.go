@@ -246,6 +246,23 @@ func TestRelayKeepAliveHonorsStreamSettings(t *testing.T) {
 		settings.PingIntervalEnabled = previousEnabled
 		constant.CountToken, constant.GetMediaToken, constant.GetMediaTokenNotStream = previousCount, previousMedia, previousNonStreamMedia
 	})
+	// A rejected request (here: an unreadable base64 image) says nothing about the
+	// provider, so it must not raise the console banner for everyone else.
+	chatFailuresBefore := 0
+	for _, capability := range service.SnapshotUpstreamHealth().Capabilities {
+		if capability.Capability == string(service.UpstreamCapabilityChat) {
+			chatFailuresBefore = capability.Failures
+		}
+	}
+	t.Cleanup(func() {
+		chatFailuresAfter := 0
+		for _, capability := range service.SnapshotUpstreamHealth().Capabilities {
+			if capability.Capability == string(service.UpstreamCapabilityChat) {
+				chatFailuresAfter = capability.Failures
+			}
+		}
+		require.Equal(t, chatFailuresBefore, chatFailuresAfter)
+	})
 	for _, test := range []struct {
 		name    string
 		enabled bool

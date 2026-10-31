@@ -47,6 +47,8 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/rankings", middleware.HeaderNavModuleAuth("rankings"), controller.GetRankings)
 		apiRouter.GET("/welfare-apis", middleware.TryUserAuth(), middleware.DisableCache(), controller.GetWelfareApis)
 		apiRouter.GET("/service-status", middleware.TryUserAuth(), middleware.DisableCache(), controller.GetServiceStatus)
+		// Upstream health is read from live traffic, so the console must not cache it.
+		apiRouter.GET("/upstream-status", middleware.DisableCache(), controller.GetUpstreamStatus)
 		apiRouter.GET("/verification", middleware.EmailVerificationRateLimit(), middleware.TurnstileCheck(), middleware.GeeTestCheck(system_setting.GeeTestActionEmailVerify), controller.SendEmailVerification)
 		apiRouter.GET("/reset_password", middleware.CriticalRateLimit(), middleware.TurnstileCheck(), middleware.GeeTestCheck(system_setting.GeeTestActionPasswordReset), controller.SendPasswordResetEmail)
 		apiRouter.POST("/user/reset", middleware.CriticalRateLimit(), anonymousRequestBodyLimit, controller.ResetPassword)

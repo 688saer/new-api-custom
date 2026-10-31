@@ -1407,11 +1407,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc51`（`/api/status` = `1.0.0-rc.51-fastcall`）；上一版 `:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc52`（`/api/status` = `1.0.0-rc.52-health`）；上一版 `:rc51`、`:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |
@@ -1617,6 +1617,60 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 > **注意**：想要「秒级 + 更强模型」的聊天，得接一条正式的对话上游（OpenAI / DeepSeek 官方 /
 > OpenRouter 等）；网关侧（鉴权 p50 2ms、连接复用、SSE 不缓冲、异常 240 秒内必报错）已无可再压空间。
 > 现在这 4 个 deepseek 是上游的推理模型，开着思考必然 60s 起步。
+
+### 上游健康探测 + 站点公告（rc.52）
+
+上游挂掉的时候，用户只会看到「站坏了」。这一版让控制台自己说出原因。
+
+**探测用的就是真实流量**，不额外发探针请求：探针要花额度，而且可能和用户此刻的遭遇不一致。
+`controller/relay.go` 里每次中转结束都会把成败写进 `service/upstream_health.go` 的滚动窗口
+（5 分钟），按能力分开计：`/v1/images/*` 记 image，`/v1/chat/completions`、`/v1/completions`、
+`/v1/messages`、`/v1/responses` 记 chat（embeddings / audio / tasks / realtime 不跟踪）。
+
+| 判定 | 条件 |
+|---|---|
+| `down` | 连续失败 ≥ 3 次，或窗口内 ≥ 3 次里 ≥ 50% 失败 |
+| `degraded` | 窗口内 ≥ 3 次里 ≥ 20% 失败 |
+| `ok` | 其余；也会在旧失败滑出 5 分钟窗口后自动回落 |
+
+**谁的错误不算在上游头上**（否则一个用户写错参数就让所有人看到公告）：
+
+- 4xx（除 429）：调用方请求本身有问题
+- 我方自己产生的错误码：`get_channel_failed`（没有渠道）、`gen_relay_info_failed`、
+  `invalid_api_type`、`count_token_failed`、`model_price_error`、`json_marshal_failed`、
+  `read_request_body_failed`、`convert_request_failed`、`bad_request_body`、`invalid_request`、
+  `access_denied`、`sensitive_words_detected`
+- 429 算上游的：那是上游把我们限流了
+
+接口 `GET /api/upstream-status`（公开、`DisableCache`，只读内存快照、不查库）：
+
+```json
+{"success":true,"data":{"state":"down","window_seconds":300,
+ "capabilities":[{"capability":"image","state":"down","attempts":3,"failures":3,"consecutive_failures":3}]}}
+```
+
+前端 `web/src/features/upstream-health/`：每 60 秒轮询一次，`down` 用 destructive 样式、
+`degraded` 用普通样式，横幅浮在页头下方右上角（`fixed`，不参与页面高度计算——侧边栏和内容区
+都是按 `--app-header-height` 定高的，插进流里会把它们顶出视口），上游恢复后 5 分钟内自动消失。
+健康时组件返回 `null`，不占位、不打扰。
+
+实测（线上）：
+
+| 场景 | 结果 |
+|---|---|
+| 起始（无流量） | `state: ok`，`capabilities: []` |
+| 3 次上游故障（临时渠道指向不可解析域名，用完即删） | `state: down`，image `3/3` 失败、连续 3 次 |
+| 3 次调用方错误（模型不存在 → 我方 503） | 计数不变，仍是 `3/3`（过滤生效） |
+| 公网域名读同一接口 | 同一份 `down` 数据 |
+| 删掉临时渠道后 | 渠道回到 1、3 两条，版本 `1.0.0-rc.52-health` |
+
+单测：`service/upstream_health_test.go` 覆盖无流量、连续失败、低样本多数失败、单次失败不报、
+稀疏失败=degraded、窗口滑出后自愈、路径映射、以及「谁的错误算上游」判定；
+`controller/relay_stream_test.go` 反向锁住「调用方错误不得抬高公告」这条契约。
+
+> **注意**：健康统计只在内存里，容器重启后清零（重启本来就是一次状态重置），不落库、不跨节点共享。
+> 多节点部署时每个节点各自判断，命中哪台就用哪台的视角。
+
 
 
 ---

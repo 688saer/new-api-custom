@@ -23,6 +23,7 @@ import { SkipToMain } from '@/components/skip-to-main'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { LayoutProvider } from '@/context/layout-provider'
 import { SearchProvider } from '@/context/search-provider'
+import { UpstreamStatusBanner } from '@/features/upstream-health/components/upstream-status-banner'
 import { getCookie } from '@/lib/cookies'
 import { cn } from '@/lib/utils'
 
@@ -42,6 +43,7 @@ export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
         <SidebarProvider defaultOpen={defaultOpen} className='flex-col'>
           <SkipToMain />
           <AppHeader />
+          <UpstreamStatusBanner />
           <div className='flex min-h-0 w-full flex-1'>
             <AppSidebar />
             <SidebarInset
