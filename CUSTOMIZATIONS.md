@@ -933,6 +933,28 @@ POST /api/user/alipay/pay {"amount":1}
 → {"message":"success","trade_no":"USR1NOldL3Gm1793439373","qr_code":"https://qr.alipay.com/bax02388afpru2ihx2bz25eb"}
 ```
 
+**检测余额（rc.58，用户报「点了没反应，不刷新不跳转」）**
+
+扫码弹窗原来那个「刷新余额」只是重新拉一次用户信息，异步通知没到或者刚到的时候余额不会变，
+用户只能自己刷新页面。现在整条链路都对上了：
+
+- 弹窗打开后每 4 秒自动查一次订单（最多 3 分钟），到账立刻提示并刷新钱包，不用刷新页面；
+- 「检测余额」按钮立即查一次，查询中按钮转圈，未付款和已关闭分别给不同提示；
+- 后端新增 `GET /api/user/alipay/status?trade_no=`：先看本地订单，`pending` 时主动调
+  `alipay.trade.query`，支付宝确认已付款就走异步通知那条幂等路径入账（行锁 + 事务内状态校验，
+  重复点击不会多给额度），且只能查自己的订单；
+- page/wap 产品回跳地址带上 `payment_return=alipay`，钱包页被带回后补 5 次额度刷新（每 3 秒），
+  免得通知晚到几秒时用户看到旧余额。
+
+实测（生产库，用本机假网关回 `TRADE_SUCCESS` 模拟已付款，配置测完已还原）：
+
+```
+未付款        → {"message":"success","status":"pending"}
+已付款        → {"message":"success","status":"success"}，额度 92824315 → 93324315（+500000 = 1 元）
+再点一次      → {"status":"success"}，额度不变（幂等）
+不存在的订单  → {"data":"Order not found","message":"error"}
+```
+
 **通知地址**：`<ServerAddress>/api/user/alipay/notify`（后台 Tab 里有蓝色提示框直接给出），
 反代场景可在配置里覆盖。相关代码：`service/alipay.go`、`controller/topup_alipay.go`、
 `web/src/features/wallet/**`、`web/src/features/system-settings/integrations/payment-settings-section.tsx`。
@@ -1489,11 +1511,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc57`（`/api/status` = `1.0.0-rc.57-alipay`）；上一版 `:rc56`~`:rc53`、`:rc52`、`:rc51`、`:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc58`（`/api/status` = `1.0.0-rc.58-balance`）；上一版 `:rc57`、`:rc53`、`:rc52`、`:rc51`、`:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 钱包新增 **8 项**（`payment.test.ts` 5 + `alipay-qr-dialog.test.tsx` 2 + 分类 1）；工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |

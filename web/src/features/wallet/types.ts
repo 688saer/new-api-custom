@@ -205,6 +205,17 @@ export interface AlipayPaymentResponse {
 }
 
 /**
+ * State of one official Alipay order.
+ *
+ * `success` means the balance is already credited, `pending` means Alipay has not
+ * seen the money yet, `closed` means this order will never be paid.
+ */
+export interface AlipayOrderStatusResponse {
+  message?: string
+  status?: 'pending' | 'success' | 'closed'
+}
+
+/**
  * Waffo payment request parameters
  */
 export interface WaffoPaymentRequest {

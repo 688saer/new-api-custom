@@ -8167,6 +8167,12 @@
     "Open Alipay and scan the code. The balance arrives automatically once payment succeeds.": "開啟支付寶掃一掃付款，付款成功後額度會自動到帳。",
     "Order number: {{tradeNo}}": "訂單號：{{tradeNo}}",
     "Refresh balance": "重新整理餘額",
-    "Provide a valid gateway URL starting with http:// or https://": "請填寫以 http:// 或 https:// 開頭的閘道位址"
+    "Provide a valid gateway URL starting with http:// or https://": "請填寫以 http:// 或 https:// 開頭的閘道位址",
+    "Payment received, balance updated": "已到帳，餘額已更新",
+    "No payment received yet": "還沒有收到付款",
+    "Failed to check the payment": "檢查支付狀態失敗",
+    "This order has been closed. Please start a new payment.": "訂單已關閉，請重新發起支付",
+    "Payment status is checked automatically every few seconds.": "系統每隔幾秒自動檢查支付狀態",
+    "Check payment status": "檢查餘額"
   }
 }

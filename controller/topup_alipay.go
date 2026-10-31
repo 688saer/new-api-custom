@@ -76,7 +76,8 @@ func alipayReturnUrl() string {
 	if returnUrl := strings.TrimSpace(setting.AlipayReturnUrl); returnUrl != "" {
 		return returnUrl
 	}
-	return paymentReturnPath("/wallet")
+	// payment_return=alipay 让钱包页在被带回后补几次额度刷新。
+	return paymentReturnPath("/wallet") + "?payment_return=alipay"
 }
 
 func RequestAlipay(c *gin.Context) {
@@ -238,4 +239,57 @@ func AlipayNotify(c *gin.Context) {
 // AlipayReturn 是用户付完款被带回站点的入口，只做跳转，不入账。
 func AlipayReturn(c *gin.Context) {
 	c.Redirect(http.StatusFound, alipayReturnUrl())
+}
+
+// AlipayOrderStatus 让用户主动核对一笔扫码订单：先看本地，再问支付宝。
+//
+// 异步通知仍是自动入账的主路径，但它可能延迟或丢包，用户付完款看到余额没变
+// 就以为白付了。这里在用户点「检测余额」时补一次主动查询，支付宝确认已付款
+// 就走通知那条幂等路径入账（行锁 + 状态校验，重复调用不会多给额度）。
+func AlipayOrderStatus(c *gin.Context) {
+	tradeNo := strings.TrimSpace(c.Query("trade_no"))
+	if tradeNo == "" {
+		paymentError(c, common.NewMessage("Invalid parameters"))
+		return
+	}
+	id := c.GetInt("id")
+	topUp := model.GetTopUpByTradeNo(tradeNo)
+	if topUp == nil || topUp.UserId != id {
+		paymentError(c, common.NewMessage("Order not found"))
+		return
+	}
+	if topUp.Status == common.TopUpStatusSuccess {
+		c.JSON(http.StatusOK, gin.H{"message": "success", "status": "success"})
+		return
+	}
+	if topUp.Status != common.TopUpStatusPending {
+		c.JSON(http.StatusOK, gin.H{"message": "success", "status": "closed"})
+		return
+	}
+
+	tradeStatus, paidAmount, err := service.QueryAlipayTrade(getAlipayConfig(), tradeNo)
+	if err != nil {
+		logger.LogWarn(c.Request.Context(), common.LogText("alipay query failed trade_no=%s error=%q", tradeNo, err.Error()))
+		c.JSON(http.StatusOK, gin.H{"message": "success", "status": "pending"})
+		return
+	}
+	switch tradeStatus {
+	case "TRADE_SUCCESS", "TRADE_FINISHED":
+	case "TRADE_CLOSED":
+		c.JSON(http.StatusOK, gin.H{"message": "success", "status": "closed"})
+		return
+	default:
+		c.JSON(http.StatusOK, gin.H{"message": "success", "status": "pending"})
+		return
+	}
+
+	LockOrder(tradeNo)
+	defer UnlockOrder(tradeNo)
+	if _, err := model.RechargeAlipay(tradeNo, paidAmount, c.ClientIP()); err != nil {
+		logger.LogError(c.Request.Context(), common.LogText("alipay query credit failed trade_no=%s user_id=%d error=%q", tradeNo, id, err.Error()))
+		c.JSON(http.StatusOK, gin.H{"message": "success", "status": "pending"})
+		return
+	}
+	logger.LogInfo(c.Request.Context(), common.LogText("alipay order settled by user query trade_no=%s user_id=%d", tradeNo, id))
+	c.JSON(http.StatusOK, gin.H{"message": "success", "status": "success"})
 }

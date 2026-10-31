@@ -30,6 +30,7 @@ import type {
   PaymentResponse,
   StripePaymentResponse,
   AlipayPaymentResponse,
+  AlipayOrderStatusResponse,
   AffiliateCodeResponse,
   AffiliateTransferResponse,
   BillingHistoryResponse,
@@ -139,6 +140,22 @@ export async function requestAlipayPayment(request: {
   }
 > {
   const res = await api.post('/api/user/alipay/pay', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Check one official Alipay order.
+ *
+ * The server asks the gateway on our behalf, so an order whose notification was
+ * delayed still lands: `success` means the balance has just been credited.
+ */
+export async function requestAlipayOrderStatus(request: {
+  trade_no: string
+}): Promise<AlipayOrderStatusResponse> {
+  const res = await api.get('/api/user/alipay/status', {
+    params: request,
     skipBusinessError: true,
   } as Record<string, unknown>)
   return res.data

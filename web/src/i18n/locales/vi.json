@@ -8167,6 +8167,12 @@
     "Open Alipay and scan the code. The balance arrives automatically once payment succeeds.": "Mở Alipay và quét mã. Số dư sẽ tự động cập nhật sau khi thanh toán thành công.",
     "Order number: {{tradeNo}}": "Mã đơn hàng: {{tradeNo}}",
     "Refresh balance": "Làm mới số dư",
-    "Provide a valid gateway URL starting with http:// or https://": "Nhập URL cổng hợp lệ bắt đầu bằng http:// hoặc https://"
+    "Provide a valid gateway URL starting with http:// or https://": "Nhập URL cổng hợp lệ bắt đầu bằng http:// hoặc https://",
+    "Payment received, balance updated": "Đã nhận thanh toán, số dư đã cập nhật",
+    "No payment received yet": "Chưa nhận được thanh toán",
+    "Failed to check the payment": "Không kiểm tra được thanh toán",
+    "This order has been closed. Please start a new payment.": "Đơn hàng đã đóng. Vui lòng tạo thanh toán mới.",
+    "Payment status is checked automatically every few seconds.": "Trạng thái thanh toán được kiểm tra tự động vài giây một lần.",
+    "Check payment status": "Kiểm tra trạng thái thanh toán"
   }
 }

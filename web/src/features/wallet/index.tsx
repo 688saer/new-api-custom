@@ -141,6 +141,30 @@ export function Wallet(props: WalletProps) {
     fetchUser()
   }, [fetchUser])
 
+  // 从支付宝跳回来时异步通知可能还没到，这里多刷几次余额，用户不必自己刷新。
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('payment_return') !== 'alipay') {
+      return
+    }
+    params.delete('payment_return')
+    const query = params.toString()
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}`
+    )
+    let attempts = 0
+    const timer = window.setInterval(() => {
+      attempts += 1
+      void fetchUser()
+      if (attempts >= 5) {
+        window.clearInterval(timer)
+      }
+    }, 3000)
+    return () => window.clearInterval(timer)
+  }, [fetchUser])
+
   useEffect(() => {
     if (props.initialShowHistory) {
       setBillingDialogOpen(true)
@@ -436,7 +460,7 @@ export function Wallet(props: WalletProps) {
         }}
         qrCode={alipayQrOrder?.qrCode ?? ''}
         tradeNo={alipayQrOrder?.tradeNo ?? ''}
-        onRefresh={() => {
+        onPaid={() => {
           void fetchUser()
         }}
       />

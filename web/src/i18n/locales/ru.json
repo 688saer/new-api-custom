@@ -8167,6 +8167,12 @@
     "Open Alipay and scan the code. The balance arrives automatically once payment succeeds.": "Откройте Alipay и отсканируйте код. Баланс зачисляется автоматически после оплаты.",
     "Order number: {{tradeNo}}": "Номер заказа: {{tradeNo}}",
     "Refresh balance": "Обновить баланс",
-    "Provide a valid gateway URL starting with http:// or https://": "Укажите корректный URL шлюза, начинающийся с http:// или https://"
+    "Provide a valid gateway URL starting with http:// or https://": "Укажите корректный URL шлюза, начинающийся с http:// или https://",
+    "Payment received, balance updated": "Платёж получен, баланс обновлён",
+    "No payment received yet": "Платёж пока не получен",
+    "Failed to check the payment": "Не удалось проверить платёж",
+    "This order has been closed. Please start a new payment.": "Заказ закрыт. Создайте новый платёж.",
+    "Payment status is checked automatically every few seconds.": "Статус платежа проверяется автоматически каждые несколько секунд.",
+    "Check payment status": "Проверить статус платежа"
   }
 }

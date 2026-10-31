@@ -8167,6 +8167,12 @@
     "Open Alipay and scan the code. The balance arrives automatically once payment succeeds.": "Open Alipay and scan the code. The balance arrives automatically once payment succeeds.",
     "Order number: {{tradeNo}}": "Order number: {{tradeNo}}",
     "Refresh balance": "Refresh balance",
-    "Provide a valid gateway URL starting with http:// or https://": "Provide a valid gateway URL starting with http:// or https://"
+    "Provide a valid gateway URL starting with http:// or https://": "Provide a valid gateway URL starting with http:// or https://",
+    "Payment received, balance updated": "Payment received, balance updated",
+    "No payment received yet": "No payment received yet",
+    "Failed to check the payment": "Failed to check the payment",
+    "This order has been closed. Please start a new payment.": "This order has been closed. Please start a new payment.",
+    "Payment status is checked automatically every few seconds.": "Payment status is checked automatically every few seconds.",
+    "Check payment status": "Check payment status"
   }
 }

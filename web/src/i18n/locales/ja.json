@@ -8167,6 +8167,12 @@
     "Open Alipay and scan the code. The balance arrives automatically once payment succeeds.": "Alipay を開いてコードをスキャンしてください。支払いが成功すると自動で残高に反映されます。",
     "Order number: {{tradeNo}}": "注文番号：{{tradeNo}}",
     "Refresh balance": "残高を更新",
-    "Provide a valid gateway URL starting with http:// or https://": "http:// または https:// で始まる有効なゲートウェイ URL を入力してください"
+    "Provide a valid gateway URL starting with http:// or https://": "http:// または https:// で始まる有効なゲートウェイ URL を入力してください",
+    "Payment received, balance updated": "お支払いを受け付けました。残高を更新しました",
+    "No payment received yet": "まだ入金が確認できません",
+    "Failed to check the payment": "支払い状況の確認に失敗しました",
+    "This order has been closed. Please start a new payment.": "この注文はクローズされました。もう一度お支払いを開始してください。",
+    "Payment status is checked automatically every few seconds.": "支払い状況は数秒ごとに自動で確認されます。",
+    "Check payment status": "支払い状況を確認"
   }
 }

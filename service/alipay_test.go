@@ -201,15 +201,62 @@ func TestCreateAlipayPrecreateReadsQrCodeFromGateway(t *testing.T) {
 	assert.Contains(t, received.Get("biz_content"), `"timeout_express":"30m"`)
 
 	// 网关只认签过名的请求：漏签会被回 40002 Invalid Arguments。
-	unsigned := make(map[string]string, len(received))
-	for key := range received {
+	require.NotEmpty(t, received.Get("sign"))
+	require.NoError(t, verifyWithPublicKey(t, AlipaySignContent(alipayUnsignedForm(received)), received.Get("sign"), keys.publicKey))
+}
+
+// alipayUnsignedForm 去掉 sign 后返回参与验签的参数，用来证明请求真的签过名。
+func alipayUnsignedForm(form url.Values) map[string]string {
+	unsigned := make(map[string]string, len(form))
+	for key := range form {
 		if key == "sign" {
 			continue
 		}
-		unsigned[key] = received.Get(key)
+		unsigned[key] = form.Get(key)
 	}
+	return unsigned
+}
+
+// TestQueryAlipayTradeReadsGatewayStatus 覆盖「检测余额」的兜底查询：异步通知
+// 没到时，前端靠它把已付款的订单补记回来。
+func TestQueryAlipayTradeReadsGatewayStatus(t *testing.T) {
+	keys := newAlipayTestKeys(t)
+	InitHttpClient()
+
+	var received url.Values
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, r.ParseForm())
+		received = r.PostForm
+		_, _ = w.Write([]byte(`{"alipay_trade_query_response":{"code":"10000","msg":"Success","trade_status":"TRADE_SUCCESS","total_amount":"10.00"}}`))
+	}))
+	defer gateway.Close()
+
+	cfg := AlipayConfig{AppId: "2021000000000000", PrivateKey: keys.privateKey, PublicKey: keys.publicKey, Gateway: gateway.URL}
+	tradeStatus, paidAmount, err := QueryAlipayTrade(cfg, "USR1NOABC123")
+	require.NoError(t, err)
+	assert.Equal(t, "TRADE_SUCCESS", tradeStatus)
+	assert.Equal(t, "10.00", paidAmount)
+	assert.Equal(t, "alipay.trade.query", received.Get("method"))
+	assert.Contains(t, received.Get("biz_content"), `"out_trade_no":"USR1NOABC123"`)
 	require.NotEmpty(t, received.Get("sign"))
-	require.NoError(t, verifyWithPublicKey(t, AlipaySignContent(unsigned), received.Get("sign"), keys.publicKey))
+	require.NoError(t, verifyWithPublicKey(t, AlipaySignContent(alipayUnsignedForm(received)), received.Get("sign"), keys.publicKey))
+}
+
+// 用户还没扫码时支付宝侧根本没有这笔交易，这条分支必须当成未支付而不是报错。
+func TestQueryAlipayTradeTreatsMissingOrderAsUnpaid(t *testing.T) {
+	keys := newAlipayTestKeys(t)
+	InitHttpClient()
+
+	gateway := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"alipay_trade_query_response":{"code":"40004","msg":"Business Failed","sub_code":"ACQ.TRADE_NOT_EXIST","sub_msg":"交易不存在"}}`))
+	}))
+	defer gateway.Close()
+
+	cfg := AlipayConfig{AppId: "2021000000000000", PrivateKey: keys.privateKey, PublicKey: keys.publicKey, Gateway: gateway.URL}
+	tradeStatus, paidAmount, err := QueryAlipayTrade(cfg, "USR1NOABC123")
+	require.NoError(t, err)
+	assert.Empty(t, tradeStatus)
+	assert.Empty(t, paidAmount)
 }
 
 func TestCreateAlipayPrecreateReportsGatewayRejection(t *testing.T) {

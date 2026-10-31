@@ -195,21 +195,7 @@ func CreateAlipayPrecreate(cfg AlipayConfig, order AlipayOrder) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	// 网关会校验 sign，缺了直接回 40002 Invalid Arguments。
-	if err := SignAlipayParams(cfg, params); err != nil {
-		return "", err
-	}
-	form := url.Values{}
-	for key, value := range params {
-		form.Set(key, value)
-	}
-
-	response, err := GetHttpClient().PostForm(AlipayGateway(cfg), form)
-	if err != nil {
-		return "", err
-	}
-	defer response.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+	body, err := alipayGatewayPost(cfg, params)
 	if err != nil {
 		return "", err
 	}
@@ -232,6 +218,77 @@ func CreateAlipayPrecreate(cfg AlipayConfig, order AlipayOrder) (string, error) 
 		return "", errors.New("alipay precreate returned no qr code")
 	}
 	return payload.Response.QrCode, nil
+}
+
+// QueryAlipayTrade 主动问一次支付宝：这笔订单到底付款了没有。
+//
+// 「检测余额」按钮靠它把异步通知丢失或延迟的订单补记回来。用户还没扫码时
+// 支付宝侧没有这笔交易（ACQ.TRADE_NOT_EXIST），这里按未支付处理，不是错误。
+func QueryAlipayTrade(cfg AlipayConfig, outTradeNo string) (tradeStatus string, paidAmount string, err error) {
+	outTradeNo = strings.TrimSpace(outTradeNo)
+	if outTradeNo == "" {
+		return "", "", errors.New("alipay trade no is required")
+	}
+	appId := strings.TrimSpace(cfg.AppId)
+	if appId == "" {
+		return "", "", errors.New("alipay app id is not configured")
+	}
+	bizContent, err := common.Marshal(map[string]any{"out_trade_no": outTradeNo})
+	if err != nil {
+		return "", "", err
+	}
+	body, err := alipayGatewayPost(cfg, map[string]string{
+		"app_id":      appId,
+		"method":      "alipay.trade.query",
+		"format":      "JSON",
+		"charset":     "utf-8",
+		"sign_type":   alipaySignType,
+		"timestamp":   time.Now().In(alipayTimeZone).Format(alipayTimeLayout),
+		"version":     "1.0",
+		"biz_content": string(bizContent),
+	})
+	if err != nil {
+		return "", "", err
+	}
+
+	var payload struct {
+		Response struct {
+			Code        string `json:"code"`
+			Msg         string `json:"msg"`
+			SubCode     string `json:"sub_code"`
+			SubMsg      string `json:"sub_msg"`
+			TradeStatus string `json:"trade_status"`
+			TotalAmount string `json:"total_amount"`
+		} `json:"alipay_trade_query_response"`
+	}
+	if err := common.Unmarshal(body, &payload); err != nil {
+		return "", "", fmt.Errorf("alipay query response is not readable: %w", err)
+	}
+	if payload.Response.Code == alipaySuccessCode {
+		return strings.TrimSpace(payload.Response.TradeStatus), strings.TrimSpace(payload.Response.TotalAmount), nil
+	}
+	if payload.Response.SubCode == "ACQ.TRADE_NOT_EXIST" {
+		return "", "", nil
+	}
+	return "", "", fmt.Errorf("alipay query rejected code=%s msg=%s sub_msg=%s", payload.Response.Code, payload.Response.Msg, payload.Response.SubMsg)
+}
+
+// alipayGatewayPost 补上签名后把公共参数按表单发给网关，返回原始响应体。
+// 网关会校验 sign，缺了直接回 40002 Invalid Arguments。
+func alipayGatewayPost(cfg AlipayConfig, params map[string]string) ([]byte, error) {
+	if err := SignAlipayParams(cfg, params); err != nil {
+		return nil, err
+	}
+	form := url.Values{}
+	for key, value := range params {
+		form.Set(key, value)
+	}
+	response, err := GetHttpClient().PostForm(AlipayGateway(cfg), form)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	return io.ReadAll(io.LimitReader(response.Body, 1<<20))
 }
 
 func alipayOrderParams(cfg AlipayConfig, order AlipayOrder) (map[string]string, error) {
