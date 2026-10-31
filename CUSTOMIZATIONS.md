@@ -933,7 +933,7 @@ POST /api/user/alipay/pay {"amount":1}
 → {"message":"success","trade_no":"USR1NOldL3Gm1793439373","qr_code":"https://qr.alipay.com/bax02388afpru2ihx2bz25eb"}
 ```
 
-**检测余额（rc.58，用户报「点了没反应，不刷新不跳转」）**
+**检测余额（rc.47-16，用户报「点了没反应，不刷新不跳转」）**
 
 扫码弹窗原来那个「刷新余额」只是重新拉一次用户信息，异步通知没到或者刚到的时候余额不会变，
 用户只能自己刷新页面。现在整条链路都对上了：
@@ -959,7 +959,7 @@ POST /api/user/alipay/pay {"amount":1}
 反代场景可在配置里覆盖。相关代码：`service/alipay.go`、`controller/topup_alipay.go`、
 `web/src/features/wallet/**`、`web/src/features/system-settings/integrations/payment-settings-section.tsx`。
 
-**微信官方通道（rc.59，Native 扫码）**
+**微信官方通道（rc.47-17，Native 扫码）**
 
 用户开通的是微信支付 APIv3 的 **Native** 支付，所以这条通道只做扫码：下单只返回一个
 `weixin://wxpay/bizpayurl?pr=...` 链接。电脑上画成二维码给手机扫；**手机浏览器没法扫自己
@@ -1493,7 +1493,7 @@ where user_id=<id> and status='active' and user_agent like 'curl/%';
 
 ```
 v<上游基线>-<两位序号>
-例：v1.0.0-rc.47-03
+例：v1.0.0-rc.47-17（当前最新）
 ```
 
 - **上游基线** = 最近一次合并的官方版本（当前 `1.0.0-rc.47`）
@@ -1502,15 +1502,30 @@ v<上游基线>-<两位序号>
 - Docker 镜像 tag 与序号对应，去掉点号：`new-api-lottery:rc47-03`
 - **不要用 `custom-` 之类的前缀**，CI 只认 `v*` 开头的 tag
 
-当前基线（rc.47）上的迭代记录：
+当前基线（rc.47）上的全部发布记录，**按发布时间排序，序号即顺序，序号最大的就是最新版**：
 
 | 版本 | 内容 | 旧命名 |
 |---|---|---|
-| `v1.0.0-rc.47-01` | 支付宝官方通道（同时开启易支付也可用、路由授权、预下单签名） | `v1.0.0-rc.57-alipay` |
-| `v1.0.0-rc.47-02` | 扫码「检测余额」：主动查单 + 自动轮询 + 回跳补刷 | `v1.0.0-rc.58-balance` |
-| `v1.0.0-rc.47-03` | 微信支付官方通道（Native 扫码 + 手机一键唤起） | `v1.0.0-rc.59-wechat` |
+| `v1.0.0-rc.47-01` | 看板娘（gt6） | `v1.0.0-rc.46-gt6` |
+| `v1.0.0-rc.47-02` | 看板娘动画引擎 | `v1.0.0-rc.46-mascot` |
+| `v1.0.0-rc.47-03` | 看板娘宠物 | `v1.0.0-rc.46-pet` |
+| `v1.0.0-rc.47-04` | 画布丢图修复 | `v1.0.0-rc.46-canvas` |
+| `v1.0.0-rc.47-05` | 公告中心 `/announcements` | `v1.0.0-rc.46-announcements` |
+| `v1.0.0-rc.47-06` | 随机额度发放 + 券面 | `v1.0.0-rc.47-random` |
+| `v1.0.0-rc.47-07` | 奖励领取窗口 | `v1.0.0-rc.47-claimwindow` |
+| `v1.0.0-rc.47-08` | 首页改版（ovo1 版式 + 旋转星球） | `v1.0.0-rc.47-home` |
+| `v1.0.0-rc.47-09` | 工单系统 | `v1.0.0-rc.48-tickets` |
+| `v1.0.0-rc.47-10` | 工单图片与归档修复 | `v1.0.0-rc.48-tickets-fix` |
+| `v1.0.0-rc.47-11` | 发票系统 + 购买协议 | `v1.0.0-rc.49-invoice` |
+| `v1.0.0-rc.47-12` | 调用链路优化（生成 + 聊天） | `v1.0.0-rc.50-relay` |
+| `v1.0.0-rc.47-13` | 聊天首字 63–99s → 1.77s | `v1.0.0-rc.51-fastcall` |
+| `v1.0.0-rc.47-14` | 上游健康探测 + 控制台公告 | `v1.0.0-rc.52-health` |
+| `v1.0.0-rc.47-15` | 支付宝官方支付通道 | `v1.0.0-rc.53-alipay` |
+| `v1.0.0-rc.47-16` | 支付宝官方通道修复 + 扫码检测余额 | `v1.0.0-rc.57-alipay` / `rc.58-balance` |
+| `v1.0.0-rc.47-17` | **微信支付官方通道（Native 扫码 + 手机一键唤起）← 最新** | `v1.0.0-rc.59-wechat` |
 
-> 早于 `rc.47-01` 的 tag（`v1.0.0-rc.50-relay` … `v1.0.0-rc.53-alipay`）是旧命名法，保留作历史，不再新增。
+> 2026-10-31 起所有 tag / Release 已按上表统一改名（tag 与 Release 一一对应，资产包原样保留在各自 Release 下）。
+> 中间态 tag `v1.0.0-rc.58-balance`（无 Release，内容已并入 `47-17`）已删除。
 
 ### 发布步骤
 
@@ -1567,11 +1582,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc47-03`（`/api/status` = `1.0.0-rc.47-03`）；上一版 `:rc59`、`:rc58`、`:rc57`、`:rc53`、`:rc52`、`:rc51`、`:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc47-17`（`/api/status` = `1.0.0-rc.47-17`）；上一版 `:rc47-03`、`:rc59`、`:rc58`、`:rc57`、`:rc53`、`:rc52`、`:rc51`、`:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.47-03`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起；旧名 `v1.0.0-rc.59-wechat`）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.47-17`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起；旧名 `v1.0.0-rc.59-wechat`）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 钱包新增 **8 项**（`payment.test.ts` 5 + `alipay-qr-dialog.test.tsx` 2 + 分类 1）；工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |
