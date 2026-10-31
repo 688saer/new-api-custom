@@ -868,6 +868,50 @@ MySQL 事务**，其中消费日志一次 INSERT 就占 3.3 ms，而小响应体
 
 ---
 
+### 3.13 支付宝官方支付通道（`alipay_official`）
+
+新增一条**直连支付宝开放平台**的充值通道，与易支付聚合里的 `alipay` 渠道完全独立
+（类型 id 用 `alipay_official`，不会和聚合渠道撞车）。
+
+**后台配置**（`系统设置 → 支付网关 → 支付宝`）：开关、沙箱开关、`AppID`、应用私钥、
+支付宝公钥、支付产品（`page` / `wap` / `qr`）、网关地址、最小充值额、通知/回跳地址覆盖。
+10 个配置键全部落在 `setting/payment_alipay.go` + `model/option.go` 的白名单里，
+只填 `AppID` 和两把密钥才会真正生效（`isAlipayWebhookConfigured()`）。
+
+**签名与验签**：RSA2（`SHA256withRSA`）本地签名，签名串规则是
+「去掉 `sign` 与 `sign_type`、去掉空值、按 key 升序、拼 `k=v&…`、值不做 URL 编码」；
+验签时额外剔除 `sign_type`。私钥/公钥允许直接粘贴裸 base64（自动补 PEM 头、按 64 列折行），
+PKCS8 / PKCS1 均支持。
+
+**三种产品**：`page` → `alipay.trade.page.pay`（`FAST_INSTANT_TRADE_PAY`）、
+`wap` → `alipay.trade.wap.pay`（`QUICK_WAP_WAY`）返回可直接跳转的签名 URL；
+`qr` → `alipay.trade.precreate` 由服务端 POST 网关取 `qr_code`，前端在钱包里用 `QRCodeSVG`
+弹出扫码窗（可点「刷新余额」）。
+
+**入账规则**：只有**验签通过的异步通知**才加钱，同步回跳只做 302 跳转。
+校验顺序为 验签 → `app_id` 一致 → `trade_status ∈ {TRADE_SUCCESS, TRADE_FINISHED}` →
+行锁读订单 → 状态/渠道幂等 → **金额必须与订单 `money` 相等（两位小数比较）** →
+`creditTopUpQuota` + 额度缓存同步 + 充值日志。金额不符返回 `failure` 且订单保持 `pending`，
+重复通知返回 `success` 但不重复加钱。
+
+**生产实测**（`rc53`，随机 2048 位测试密钥，测完已清理）：
+
+| 场景 | 结果 |
+|---|---|
+| 未配置密钥时投递通知 | `failure`，日志 `alipay notification rejected reason=disabled` |
+| 配置后投递伪造签名 | `failure`，日志 `signature verification failed ... does not match` |
+| 正确签名的通知 + 真实订单（10 元） | `success`，订单 `success` 且写入 `complete_time`，额度 `94624315 → 99624315`（+5000000 = 10 × 500000） |
+| 同一条通知重复投递 | `success`，额度不变（`delta 0`），日志 `already processed` |
+| 金额改成 0.01 的通知 | `failure`，日志 `amount mismatch`，订单仍 `pending` |
+
+测完执行：删除两条测试订单、`quota` 回滚 5000000、删除 `Alipay*` 配置行与临时令牌、
+重启后通知回到 `rejected reason=disabled`，`/api/status` 仍是 `1.0.0-rc.53-alipay`。
+
+**通知地址**：`<ServerAddress>/api/user/alipay/notify`（后台 Tab 里有蓝色提示框直接给出），
+反代场景可在配置里覆盖。相关代码：`service/alipay.go`、`controller/topup_alipay.go`、
+`web/src/features/wallet/**`、`web/src/features/system-settings/integrations/payment-settings-section.tsx`。
+
+---
 ## 四、代码结构：哪些是我们的
 
 ### 新增文件（纯新增，升级不会冲突）
@@ -901,6 +945,10 @@ model/ticket_agent.go                             ~560
 model/ticket_attachment.go                        217
 middleware/ticket-agent-auth.go                   123
 setting/operation_setting/ticket_setting.go        ~90
+setting/payment_alipay.go                          ~120（支付宝配置项）
+service/alipay.go                                  ~520（RSA2 签名/验签/下单）
+service/alipay_test.go                             ~330（9 项签名与下单回归）
+controller/topup_alipay.go                         ~260（下单/异步通知/回跳）
 ```
 
 **前端**
@@ -912,6 +960,7 @@ web/src/features/lucky-bonus/             ~1900 行
 web/src/features/rewards/                 ~2792 行
 web/src/features/service-status/          ~985 行
 web/src/features/welfare-api/             ~540 行
+web/src/features/wallet/components/dialogs/alipay-qr-dialog.tsx  ~90（支付宝扫码弹窗）
 web/src/features/tickets/                 ~1500 行
 web/src/features/ticket-console/          ~2100 行
 web/src/features/system-settings/general/lottery-settings-section.tsx
@@ -941,7 +990,7 @@ web/public/static/welfare-chests/        （图片资源）
 
 ### 修改的官方文件（升级时唯一可能冲突的地方）
 
-一共 **24 个**，每处改动都很小、很集中：
+一共 **30 个**，每处改动都很小、很集中：
 
 | 文件 | 改动内容 |
 |---|---|
@@ -968,7 +1017,13 @@ web/public/static/welfare-chests/        （图片资源）
 | `web/src/features/home/components/sections/own-features.tsx` | 自有入口加「工单」一项（9 → 10 个） |
 | `web/src/styles/index.css` | 新增 `@keyframes marquee-left` 与服务商跑马灯类 |
 | `web/src/routeTree.gen.ts` | 路由树（构建时自动生成） |
-| `web/src/i18n/locales/*.json` × 7 | 自定义文案，rc.48 合并后每语言 8014 键 |
+| `model/option.go` | 支付宝配置项默认值 + 写入分支（10 个键） |
+| `model/topup.go` | 新增 `RechargeAlipay`（行锁、渠道/状态幂等、金额校验、加额度、写充值日志） |
+| `controller/topup.go` | 充值方式列表按开关插入「支付宝」渠道，并下发 `enable_alipay_topup` / `alipay_min_topup` / `alipay_product` |
+| `controller/payment_webhook_availability.go` | 支付宝开关判定（合规确认 + 开关 + 三要素齐备） |
+| `web/src/features/wallet/*` | 新增渠道常量/类型/下单接口/分发分支/扫码弹窗，钱包页接入 |
+| `web/src/features/system-settings/integrations/payment-settings-section.tsx` | 支付网关新增「支付宝」Tab（配置项 + 通知地址提示） |
+| `web/src/i18n/locales/*.json` × 7 | 自定义文案，rc.53 合并后每语言 8168 键 |
 
 > 原本的 `web/src/features/dashboard/components/overview/announcement-detail-dialog.tsx`（82 行）已**删除**，
 > 弹窗迁到 `web/src/features/announcements/components/announcement-detail-dialog.tsx` 由看板与公告页共用。
@@ -1407,16 +1462,16 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc52`（`/api/status` = `1.0.0-rc.52-health`）；上一版 `:rc51`、`:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc53`（`/api/status` = `1.0.0-rc.53-alipay`）；上一版 `:rc52`、`:rc51`、`:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
-| 前端测试 | 工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |
-| typecheck | 通过（1556 文件，2 个项目） |
-| oxlint | 工单相关文件 0 warning / 0 error |
+| 前端测试 | 钱包新增 **8 项**（`payment.test.ts` 5 + `alipay-qr-dialog.test.tsx` 2 + 分类 1）；工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |
+| typecheck | 通过（1589 文件，2 个项目） |
+| oxlint | 注意：本机 `oxlint` 二进制在 bun 1.4.3 / node 22 容器里都会 panic（`oxc_allocator` 池断言，未改动目录同样复现），落地校验改用 `bun check -b` + `oxfmt --check` + `vitest` |
 | gofmt | 干净 |
 | go vet | `./controller/ ./model/ ./middleware/ ./router/ ./setting/...` 全通过 |
 | Go 单测 | `./model/` 全 `ok`（含 `ticket_archive_test.go` 4 项归档回归） |

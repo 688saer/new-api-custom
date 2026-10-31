@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -94,6 +94,16 @@ export function isStripePayment(paymentType: string): boolean {
 }
 
 /**
+ * Check if payment method is the official Alipay channel
+ *
+ * The aggregator (epay) may also advertise an `alipay` method, so the official
+ * channel keeps its own type and its own endpoint.
+ */
+export function isAlipayOfficialPayment(paymentType: string): boolean {
+  return paymentType === PAYMENT_TYPES.ALIPAY_OFFICIAL
+}
+
+/**
  * Check if payment method is Waffo
  */
 export function isWaffoPayment(paymentType: string): boolean {
@@ -113,6 +123,7 @@ export function isWaffoPancakePayment(paymentType: string): boolean {
 
 export interface PaymentProcessors {
   regular: (topupAmount: number, paymentType: string) => Promise<boolean>
+  alipay: (topupAmount: number) => Promise<boolean>
   waffo: (topupAmount: number, payMethodIndex: number) => Promise<boolean>
   waffoPancake: (topupAmount: number) => Promise<boolean>
 }
@@ -123,6 +134,10 @@ export async function dispatchSelectedPayment(
   waffoMethodIndex: number | null,
   processors: PaymentProcessors
 ): Promise<boolean> {
+  if (isAlipayOfficialPayment(paymentMethod.type)) {
+    return processors.alipay(topupAmount)
+  }
+
   if (isWaffoPayment(paymentMethod.type)) {
     if (waffoMethodIndex === null) {
       return false
@@ -171,6 +186,10 @@ export function getDefaultPaymentType(topupInfo: TopupInfo | null): string {
 export function getMinTopupAmount(topupInfo: TopupInfo | null): number {
   if (!topupInfo) {
     return DEFAULT_MIN_TOPUP
+  }
+
+  if (topupInfo.enable_alipay_topup) {
+    return topupInfo.alipay_min_topup || DEFAULT_MIN_TOPUP
   }
 
   if (topupInfo.enable_online_topup) {

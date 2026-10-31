@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -44,8 +44,16 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import { getPaymentErrorTranslation } from '@/features/wallet/lib/payment'
 import { handleServerError } from '@/lib/handle-server-error'
 import { cn } from '@/lib/utils'
@@ -178,6 +186,20 @@ const paymentSchema = z.object({
   WaffoPancakeMerchantID: z.string(),
   WaffoPancakePrivateKey: z.string(),
   WaffoPancakeReturnURL: z.string(),
+  AlipayEnabled: z.boolean(),
+  AlipaySandbox: z.boolean(),
+  AlipayAppId: z.string(),
+  AlipayPrivateKey: z.string(),
+  AlipayPublicKey: z.string(),
+  AlipayProductType: z.string(),
+  AlipayMinTopUp: z.coerce.number().min(0),
+  AlipayGateway: z.string().refine((value) => {
+    const trimmed = value.trim()
+    if (!trimmed) return true
+    return /^https?:\/\//.test(trimmed)
+  }, 'Provide a valid gateway URL starting with http:// or https://'),
+  AlipayNotifyUrl: z.string(),
+  AlipayReturnUrl: z.string(),
 })
 
 type PaymentFormValues = z.infer<typeof paymentSchema>
@@ -440,6 +462,16 @@ export function PaymentSettingsSection({
       CreemTestMode: values.CreemTestMode,
       CreemProducts: values.CreemProducts.trim(),
       WaffoEnabled: values.WaffoEnabled,
+      AlipayEnabled: values.AlipayEnabled,
+      AlipaySandbox: values.AlipaySandbox,
+      AlipayAppId: values.AlipayAppId.trim(),
+      AlipayPrivateKey: values.AlipayPrivateKey.trim(),
+      AlipayPublicKey: values.AlipayPublicKey.trim(),
+      AlipayProductType: values.AlipayProductType || 'page',
+      AlipayMinTopUp: values.AlipayMinTopUp,
+      AlipayGateway: removeTrailingSlash(values.AlipayGateway.trim()),
+      AlipayNotifyUrl: values.AlipayNotifyUrl.trim(),
+      AlipayReturnUrl: values.AlipayReturnUrl.trim(),
       WaffoSandbox: values.WaffoSandbox,
       WaffoMerchantId: values.WaffoMerchantId.trim(),
       WaffoCurrency: values.WaffoCurrency.trim() || 'USD',
@@ -485,6 +517,18 @@ export function PaymentSettingsSection({
       CreemTestMode: initialRef.current.CreemTestMode,
       CreemProducts: initialRef.current.CreemProducts.trim(),
       WaffoEnabled: initialRef.current.WaffoEnabled,
+      AlipayEnabled: initialRef.current.AlipayEnabled,
+      AlipaySandbox: initialRef.current.AlipaySandbox,
+      AlipayAppId: initialRef.current.AlipayAppId.trim(),
+      AlipayPrivateKey: initialRef.current.AlipayPrivateKey.trim(),
+      AlipayPublicKey: initialRef.current.AlipayPublicKey.trim(),
+      AlipayProductType: initialRef.current.AlipayProductType || 'page',
+      AlipayMinTopUp: initialRef.current.AlipayMinTopUp,
+      AlipayGateway: removeTrailingSlash(
+        initialRef.current.AlipayGateway.trim()
+      ),
+      AlipayNotifyUrl: initialRef.current.AlipayNotifyUrl.trim(),
+      AlipayReturnUrl: initialRef.current.AlipayReturnUrl.trim(),
       WaffoSandbox: initialRef.current.WaffoSandbox,
       WaffoMerchantId: initialRef.current.WaffoMerchantId.trim(),
       WaffoCurrency: initialRef.current.WaffoCurrency.trim() || 'USD',
@@ -562,6 +606,68 @@ export function PaymentSettingsSection({
         key: 'payment_setting.amount_discount',
         value: sanitized.AmountDiscount,
       })
+    }
+
+    if (sanitized.AlipayEnabled !== initial.AlipayEnabled) {
+      updates.push({
+        key: 'AlipayEnabled',
+        value: sanitized.AlipayEnabled ? 'true' : 'false',
+      })
+    }
+
+    if (sanitized.AlipaySandbox !== initial.AlipaySandbox) {
+      updates.push({
+        key: 'AlipaySandbox',
+        value: sanitized.AlipaySandbox ? 'true' : 'false',
+      })
+    }
+
+    if (sanitized.AlipayAppId !== initial.AlipayAppId) {
+      updates.push({ key: 'AlipayAppId', value: sanitized.AlipayAppId })
+    }
+
+    // 密钥读取时是打码的，留空表示"不修改"，只有真的填了新值才写回。
+    if (
+      sanitized.AlipayPrivateKey &&
+      sanitized.AlipayPrivateKey !== initial.AlipayPrivateKey
+    ) {
+      updates.push({
+        key: 'AlipayPrivateKey',
+        value: sanitized.AlipayPrivateKey,
+      })
+    }
+
+    if (
+      sanitized.AlipayPublicKey &&
+      sanitized.AlipayPublicKey !== initial.AlipayPublicKey
+    ) {
+      updates.push({
+        key: 'AlipayPublicKey',
+        value: sanitized.AlipayPublicKey,
+      })
+    }
+
+    if (sanitized.AlipayProductType !== initial.AlipayProductType) {
+      updates.push({
+        key: 'AlipayProductType',
+        value: sanitized.AlipayProductType,
+      })
+    }
+
+    if (sanitized.AlipayMinTopUp !== initial.AlipayMinTopUp) {
+      updates.push({ key: 'AlipayMinTopUp', value: sanitized.AlipayMinTopUp })
+    }
+
+    if (sanitized.AlipayGateway !== initial.AlipayGateway) {
+      updates.push({ key: 'AlipayGateway', value: sanitized.AlipayGateway })
+    }
+
+    if (sanitized.AlipayNotifyUrl !== initial.AlipayNotifyUrl) {
+      updates.push({ key: 'AlipayNotifyUrl', value: sanitized.AlipayNotifyUrl })
+    }
+
+    if (sanitized.AlipayReturnUrl !== initial.AlipayReturnUrl) {
+      updates.push({ key: 'AlipayReturnUrl', value: sanitized.AlipayReturnUrl })
     }
 
     if (
@@ -882,8 +988,9 @@ export function PaymentSettingsSection({
           />
           <Tabs defaultValue='general' className='min-w-0'>
             <div className='overflow-x-auto pb-1'>
-              <TabsList className='grid min-w-[44rem] grid-cols-6'>
+              <TabsList className='grid min-w-[52rem] grid-cols-7'>
                 <TabsTrigger value='general'>{t('General')}</TabsTrigger>
+                <TabsTrigger value='alipay'>{t('Alipay')}</TabsTrigger>
                 <TabsTrigger value='epay'>Epay</TabsTrigger>
                 <TabsTrigger value='stripe'>{t('Stripe')}</TabsTrigger>
                 <TabsTrigger value='creem'>Creem</TabsTrigger>
@@ -1139,6 +1246,313 @@ export function PaymentSettingsSection({
               </div>
             </TabsContent>
 
+            <TabsContent value='alipay' className={paymentTabContentClassName}>
+              <div className='space-y-4'>
+                <div>
+                  <h3 className='text-lg font-medium'>
+                    {t('Alipay (official channel)')}
+                  </h3>
+                  <p className='text-muted-foreground text-sm'>
+                    {t(
+                      'Connects straight to the Alipay Open Platform: the checkout request is signed locally with your app private key, and credit is only granted after a verified async notification.'
+                    )}
+                  </p>
+                </div>
+
+                <div className='rounded-md bg-blue-50 p-4 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100'>
+                  <p className='mb-2 font-medium'>
+                    {t('Notification configuration:')}
+                  </p>
+                  <ul className='list-inside list-disc space-y-1'>
+                    <li>
+                      {t('Async notify URL:')}{' '}
+                      <code className='rounded bg-blue-100 px-1 py-0.5 text-xs dark:bg-blue-900'>
+                        {'<ServerAddress>/api/user/alipay/notify'}
+                      </code>
+                    </li>
+                    <li>
+                      {t(
+                        'Sync return goes back to the wallet page by default; both URLs can be overridden below.'
+                      )}
+                    </li>
+                    <li>
+                      {t('Configure at:')}{' '}
+                      <a
+                        href='https://open.alipay.com/develop/manage'
+                        target='_blank'
+                        rel='noreferrer'
+                        className='underline hover:no-underline'
+                      >
+                        {t('Alipay Open Platform')}
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className='grid gap-6 md:grid-cols-2'>
+                  <FormField
+                    control={form.control}
+                    name='AlipayEnabled'
+                    render={({ field }) => (
+                      <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
+                        <div className='space-y-0.5'>
+                          <FormLabel>
+                            {t('Enable official Alipay channel')}
+                          </FormLabel>
+                          <FormDescription>
+                            {t(
+                              'Takes effect only when the app id and both keys are filled in.'
+                            )}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='AlipaySandbox'
+                    render={({ field }) => (
+                      <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
+                        <div className='space-y-0.5'>
+                          <FormLabel>{t('Sandbox environment')}</FormLabel>
+                          <FormDescription>
+                            {t(
+                              'Use the sandbox gateway with your sandbox app credentials.'
+                            )}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='AlipayAppId'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('App ID')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder='2021000000000000'
+                            {...field}
+                            onChange={(event) =>
+                              field.onChange(event.target.value)
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'The APPID of your Alipay Open Platform application'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='AlipayProductType'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Payment product')}</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value='page'>
+                              {t('PC web checkout (page)')}
+                            </SelectItem>
+                            <SelectItem value='wap'>
+                              {t('Mobile web checkout (wap)')}
+                            </SelectItem>
+                            <SelectItem value='qr'>
+                              {t('QR code payment (precreate)')}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          {t(
+                            'page and wap send the user to the checkout page; qr renders a code inside the wallet.'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='AlipayPrivateKey'
+                    render={({ field }) => (
+                      <FormItem className='md:col-span-2'>
+                        <FormLabel>{t('Application private key')}</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            rows={4}
+                            spellCheck={false}
+                            className='font-mono text-xs'
+                            placeholder={t(
+                              'Paste the app private key, PEM headers optional'
+                            )}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'RSA2 private key generated for your app. It never leaves your server.'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='AlipayPublicKey'
+                    render={({ field }) => (
+                      <FormItem className='md:col-span-2'>
+                        <FormLabel>{t('Alipay public key')}</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            {...field}
+                            rows={4}
+                            spellCheck={false}
+                            className='font-mono text-xs'
+                            placeholder={t(
+                              'Paste the Alipay public key, PEM headers optional'
+                            )}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'Used to verify every async notification signature'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='AlipayMinTopUp'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Minimum top-up amount')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type='number'
+                            {...safeNumberFieldProps(field)}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t('Smallest amount accepted by this channel')}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='AlipayGateway'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Gateway URL')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder='https://openapi.alipay.com/gateway.do'
+                            {...field}
+                            onChange={(event) =>
+                              field.onChange(event.target.value)
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'Leave empty to use the official or sandbox gateway'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='AlipayNotifyUrl'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Notify URL override')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t(
+                              'Leave empty to use the server address'
+                            )}
+                            {...field}
+                            onChange={(event) =>
+                              field.onChange(event.target.value)
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'Absolute URL Alipay posts the async notification to'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='AlipayReturnUrl'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Return URL override')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t(
+                              'Leave empty to return to the wallet'
+                            )}
+                            {...field}
+                            onChange={(event) =>
+                              field.onChange(event.target.value)
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t('Where the browser lands after payment')}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            </TabsContent>
             <TabsContent value='epay' className={paymentTabContentClassName}>
               <div className='space-y-4'>
                 <div>

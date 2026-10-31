@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -247,6 +247,16 @@ const BILLING_SECTIONS = [
           PayMethods: settings.PayMethods,
           AmountOptions: settings['payment_setting.amount_options'],
           AmountDiscount: settings['payment_setting.amount_discount'],
+          AlipayEnabled: settings.AlipayEnabled ?? false,
+          AlipaySandbox: settings.AlipaySandbox ?? false,
+          AlipayAppId: settings.AlipayAppId ?? '',
+          AlipayPrivateKey: settings.AlipayPrivateKey ?? '',
+          AlipayPublicKey: settings.AlipayPublicKey ?? '',
+          AlipayProductType: settings.AlipayProductType ?? 'page',
+          AlipayMinTopUp: settings.AlipayMinTopUp ?? 1,
+          AlipayGateway: settings.AlipayGateway ?? '',
+          AlipayNotifyUrl: settings.AlipayNotifyUrl ?? '',
+          AlipayReturnUrl: settings.AlipayReturnUrl ?? '',
           StripeApiSecret: settings.StripeApiSecret,
           StripeWebhookSecret: settings.StripeWebhookSecret,
           StripePriceId: settings.StripePriceId,

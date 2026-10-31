@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -74,6 +74,16 @@ const defaultBillingSettings: BillingSettings = {
   'payment_setting.compliance_confirmed_at': 0,
   'payment_setting.compliance_confirmed_by': 0,
   'payment_setting.compliance_confirmed_ip': '',
+  AlipayEnabled: false,
+  AlipaySandbox: false,
+  AlipayAppId: '',
+  AlipayPrivateKey: '',
+  AlipayPublicKey: '',
+  AlipayProductType: 'page',
+  AlipayMinTopUp: 1,
+  AlipayGateway: '',
+  AlipayNotifyUrl: '',
+  AlipayReturnUrl: '',
   StripeApiSecret: '',
   StripeWebhookSecret: '',
   StripePriceId: '',

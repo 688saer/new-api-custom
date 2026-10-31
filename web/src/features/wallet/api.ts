@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -29,6 +29,7 @@ import type {
   AmountResponse,
   PaymentResponse,
   StripePaymentResponse,
+  AlipayPaymentResponse,
   AffiliateCodeResponse,
   AffiliateTransferResponse,
   BillingHistoryResponse,
@@ -119,6 +120,28 @@ export async function requestPayment(
     ...res.data,
     url: res.data.url || (res as unknown as { url?: string }).url,
   }
+}
+
+/**
+ * Request an official Alipay payment
+ *
+ * page/wap products answer with a checkout URL to navigate to; the qr product
+ * answers with the code to render. Errors arrive as {message:"error",data:text}
+ * so the caller keeps the generic handler.
+ */
+export async function requestAlipayPayment(request: {
+  amount: number
+}): Promise<
+  AlipayPaymentResponse & {
+    message?: string
+    success?: boolean
+    data?: unknown
+  }
+> {
+  const res = await api.post('/api/user/alipay/pay', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
 }
 
 /**

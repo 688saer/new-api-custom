@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -19,8 +19,11 @@ For commercial licensing, please contact support@quantumnous.com
 import { describe, expect, test } from 'vitest'
 
 import { PAYMENT_TYPES } from '../constants'
+import type { TopupInfo } from '../types'
 import {
   dispatchSelectedPayment,
+  getMinTopupAmount,
+  isAlipayOfficialPayment,
   isStripePayment,
   isWaffoPayment,
   isWaffoPancakePayment,
@@ -48,6 +51,7 @@ describe('payment dispatch', () => {
           calls.push('regular')
           return false
         },
+        alipay: async () => false,
         waffo: async (amount, index) => {
           calls.push(`waffo:${amount}:${index}`)
           return true
@@ -71,6 +75,7 @@ describe('payment dispatch', () => {
       null,
       {
         regular: async () => false,
+        alipay: async () => false,
         waffo: async () => {
           called = true
           return true
@@ -81,5 +86,52 @@ describe('payment dispatch', () => {
 
     expect(success).toBe(false)
     expect(called).toBe(false)
+  })
+})
+describe('official Alipay channel', () => {
+  test('routes the official Alipay method to its own processor', async () => {
+    const calls: string[] = []
+    const success = await dispatchSelectedPayment(
+      { name: '支付宝', type: PAYMENT_TYPES.ALIPAY_OFFICIAL },
+      50,
+      null,
+      {
+        regular: async () => {
+          calls.push('regular')
+          return false
+        },
+        alipay: async (amount) => {
+          calls.push(`alipay:${amount}`)
+          return true
+        },
+        waffo: async () => false,
+        waffoPancake: async () => false,
+      }
+    )
+
+    expect(success).toBe(true)
+    expect(calls).toEqual(['alipay:50'])
+  })
+
+  test('keeps the aggregator alipay method off the official flow', () => {
+    // 易支付也会挂一个叫 alipay 的渠道，两者是不同的支付路径。
+    expect(isAlipayOfficialPayment(PAYMENT_TYPES.ALIPAY)).toBe(false)
+    expect(isAlipayOfficialPayment(PAYMENT_TYPES.ALIPAY_OFFICIAL)).toBe(true)
+  })
+
+  test('uses the official channel minimum when only that channel is enabled', () => {
+    const topupInfo = {
+      enable_online_topup: false,
+      enable_stripe_topup: false,
+      enable_alipay_topup: true,
+      alipay_min_topup: 30,
+      pay_methods: [],
+      min_topup: 1,
+      stripe_min_topup: 1,
+      amount_options: [],
+      discount: {},
+    } satisfies TopupInfo
+
+    expect(getMinTopupAmount(topupInfo)).toBe(30)
   })
 })

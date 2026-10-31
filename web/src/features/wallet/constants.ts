@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -31,6 +31,8 @@ export const DEFAULT_PRESET_MULTIPLIERS = [1, 5, 10, 30, 50, 100, 300, 500]
  */
 export const PAYMENT_TYPES = {
   ALIPAY: 'alipay',
+  /** 支付宝官方通道（直连开放平台），与易支付的 alipay 渠道并存但走不同接口 */
+  ALIPAY_OFFICIAL: 'alipay_official',
   WECHAT: 'wxpay',
   STRIPE: 'stripe',
   CREEM: 'creem',
@@ -48,6 +50,7 @@ export const DEFAULT_PAYMENT_TYPE = PAYMENT_TYPES.ALIPAY
  */
 export const PAYMENT_ICON_COLORS = {
   [PAYMENT_TYPES.ALIPAY]: '#1677FF',
+  [PAYMENT_TYPES.ALIPAY_OFFICIAL]: '#1677FF',
   [PAYMENT_TYPES.WECHAT]: '#07C160',
   [PAYMENT_TYPES.STRIPE]: '#635BFF',
   [PAYMENT_TYPES.CREEM]: '#6366F1',

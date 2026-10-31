@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+﻿import { Link } from '@tanstack/react-router'
 import { Receipt } from 'lucide-react'
 /*
 Copyright (C) 2023-2026 QuantumNous
@@ -32,6 +32,7 @@ import { useSystemConfig } from '@/hooks/use-system-config'
 import { getSelf } from '@/lib/api'
 
 import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
+import { AlipayQrDialog } from './components/dialogs/alipay-qr-dialog'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
@@ -102,8 +103,11 @@ export function Wallet(props: WalletProps) {
     amount: paymentAmount,
     calculating,
     processing,
+    alipayQrOrder,
+    clearAlipayQrOrder,
     calculatePaymentAmount,
     processPayment,
+    processAlipayPayment,
   } = usePayment()
   const {
     affiliateLink,
@@ -212,6 +216,7 @@ export function Wallet(props: WalletProps) {
       selectedWaffoMethodIndex,
       {
         regular: processPayment,
+        alipay: processAlipayPayment,
         waffo: processWaffoPayment,
         waffoPancake: processWaffoPancakePayment,
       }
@@ -422,6 +427,18 @@ export function Wallet(props: WalletProps) {
         onConfirm={handleCreemConfirm}
         product={selectedCreemProduct}
         processing={creemProcessing}
+      />
+
+      <AlipayQrDialog
+        open={alipayQrOrder !== null}
+        onOpenChange={(open) => {
+          if (!open) clearAlipayQrOrder()
+        }}
+        qrCode={alipayQrOrder?.qrCode ?? ''}
+        tradeNo={alipayQrOrder?.tradeNo ?? ''}
+        onRefresh={() => {
+          void fetchUser()
+        }}
       />
 
       <PurchaseAgreementGate />

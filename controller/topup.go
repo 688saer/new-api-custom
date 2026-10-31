@@ -75,6 +75,27 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
+	// 支付宝官方通道排在最前：国内用户最常用的就是它。
+	enableAlipay := isAlipayTopUpEnabled()
+	if enableAlipay {
+		hasAlipay := false
+		for _, method := range payMethods {
+			if method["type"] == model.PaymentMethodAlipayOfficial {
+				hasAlipay = true
+				break
+			}
+		}
+
+		if !hasAlipay {
+			payMethods = append([]map[string]string{{
+				"name":      "支付宝",
+				"type":      model.PaymentMethodAlipayOfficial,
+				"color":     "#1677FF",
+				"min_topup": strconv.FormatInt(getAlipayMinTopup(), 10),
+			}}, payMethods...)
+		}
+	}
+
 	// 如果启用了 Waffo 支付，添加到支付方法列表
 	enableWaffo := isWaffoTopUpEnabled()
 	if enableWaffo {
@@ -99,6 +120,9 @@ func GetTopUpInfo(c *gin.Context) {
 
 	data := gin.H{
 		"enable_online_topup":              isEpayTopUpEnabled(),
+		"enable_alipay_topup":              enableAlipay,
+		"alipay_min_topup":                 getAlipayMinTopup(),
+		"alipay_product":                   getAlipayProduct(),
 		"enable_stripe_topup":              isStripeTopUpEnabled(),
 		"enable_creem_topup":               isCreemTopUpEnabled(),
 		"enable_waffo_topup":               enableWaffo,

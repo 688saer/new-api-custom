@@ -113,6 +113,16 @@ func InitOptionMap() {
 	common.OptionMap["WaffoSandboxApiKey"] = setting.WaffoSandboxApiKey
 	common.OptionMap["WaffoSandboxPrivateKey"] = setting.WaffoSandboxPrivateKey
 	common.OptionMap["WaffoSandbox"] = strconv.FormatBool(setting.WaffoSandbox)
+	common.OptionMap["AlipayEnabled"] = strconv.FormatBool(setting.AlipayEnabled)
+	common.OptionMap["AlipayAppId"] = setting.AlipayAppId
+	common.OptionMap["AlipayPrivateKey"] = setting.AlipayPrivateKey
+	common.OptionMap["AlipayPublicKey"] = setting.AlipayPublicKey
+	common.OptionMap["AlipayGateway"] = setting.AlipayGateway
+	common.OptionMap["AlipayProductType"] = setting.AlipayProductType
+	common.OptionMap["AlipayMinTopUp"] = strconv.Itoa(setting.AlipayMinTopUp)
+	common.OptionMap["AlipaySandbox"] = strconv.FormatBool(setting.AlipaySandbox)
+	common.OptionMap["AlipayNotifyUrl"] = setting.AlipayNotifyUrl
+	common.OptionMap["AlipayReturnUrl"] = setting.AlipayReturnUrl
 	common.OptionMap["WaffoMerchantId"] = setting.WaffoMerchantId
 	common.OptionMap["WaffoNotifyUrl"] = setting.WaffoNotifyUrl
 	common.OptionMap["WaffoReturnUrl"] = setting.WaffoReturnUrl
@@ -575,6 +585,26 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.WaffoSandboxPrivateKey = value
 	case "WaffoSandbox":
 		setting.WaffoSandbox = value == "true"
+	case "AlipayEnabled":
+		setting.AlipayEnabled = value == "true"
+	case "AlipayAppId":
+		setting.AlipayAppId = value
+	case "AlipayPrivateKey":
+		setting.AlipayPrivateKey = value
+	case "AlipayPublicKey":
+		setting.AlipayPublicKey = value
+	case "AlipayGateway":
+		setting.AlipayGateway = value
+	case "AlipayProductType":
+		setting.AlipayProductType = value
+	case "AlipayMinTopUp":
+		setting.AlipayMinTopUp, _ = strconv.Atoi(value)
+	case "AlipaySandbox":
+		setting.AlipaySandbox = value == "true"
+	case "AlipayNotifyUrl":
+		setting.AlipayNotifyUrl = value
+	case "AlipayReturnUrl":
+		setting.AlipayReturnUrl = value
 	case "WaffoMerchantId":
 		setting.WaffoMerchantId = value
 	case "WaffoNotifyUrl":

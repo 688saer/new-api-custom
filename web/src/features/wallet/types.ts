@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -124,6 +124,12 @@ export interface TopupInfo {
   enable_online_topup: boolean
   /** Whether Stripe topup is enabled */
   enable_stripe_topup: boolean
+  /** Whether the official Alipay channel is enabled */
+  enable_alipay_topup?: boolean
+  /** Minimum topup amount for the official Alipay channel */
+  alipay_min_topup?: number
+  /** Official Alipay product: page, wap or qr */
+  alipay_product?: string
   /** Available payment methods */
   pay_methods: PaymentMethod[]
   /** Minimum topup amount for online topup */
@@ -184,6 +190,18 @@ export interface PaymentRequest {
   amount: number
   /** Payment method identifier */
   payment_method: string
+}
+
+/**
+ * Official Alipay payment response
+ *
+ * page/wap products answer with a checkout URL to navigate to; the qr product
+ * answers with the code to render plus the order number to track.
+ */
+export interface AlipayPaymentResponse {
+  url?: string
+  qr_code?: string
+  trade_no?: string
 }
 
 /**

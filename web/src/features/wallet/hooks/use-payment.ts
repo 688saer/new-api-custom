@@ -1,4 +1,4 @@
-/*
+﻿/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -27,6 +27,7 @@ import {
   calculateStripeAmount,
   calculateWaffoAmount,
   calculateWaffoPancakeAmount,
+  requestAlipayPayment,
   requestPayment,
   requestStripePayment,
   isApiSuccess,
@@ -81,10 +82,17 @@ export async function requestPaymentAmount(
   return Number.parseFloat(response.data)
 }
 
+/** An official Alipay order that waits for the user to scan a QR code. */
+export interface AlipayQrOrder {
+  tradeNo: string
+  qrCode: string
+}
+
 export function usePayment() {
   const [amount, setAmount] = useState<number>(0)
   const [calculating, setCalculating] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [alipayQrOrder, setAlipayQrOrder] = useState<AlipayQrOrder | null>(null)
 
   // Calculate payment amount
   const calculatePaymentAmount = useCallback(
@@ -159,12 +167,54 @@ export function usePayment() {
     []
   )
 
+  // Official Alipay: page/wap navigation takes the user to the checkout page,
+  // the qr product hands back a code that this console renders instead.
+  const processAlipayPayment = useCallback(async (topupAmount: number) => {
+    try {
+      setProcessing(true)
+      const response = await requestAlipayPayment({
+        amount: Math.floor(topupAmount),
+      })
+
+      if (!isApiSuccess(response)) {
+        handleServerError(response, i18next.t('Payment request failed'))
+        return false
+      }
+
+      if (response.qr_code) {
+        setAlipayQrOrder({
+          tradeNo: response.trade_no || '',
+          qrCode: response.qr_code,
+        })
+        return true
+      }
+
+      if (response.url) {
+        window.location.assign(response.url)
+        toast.success(i18next.t('Redirecting to payment page...'))
+        return true
+      }
+
+      return false
+    } catch (error) {
+      handleServerError(error, i18next.t('Payment request failed'))
+      return false
+    } finally {
+      setProcessing(false)
+    }
+  }, [])
+
+  const clearAlipayQrOrder = useCallback(() => setAlipayQrOrder(null), [])
+
   return {
     amount,
     calculating,
     processing,
+    alipayQrOrder,
+    clearAlipayQrOrder,
     calculatePaymentAmount,
     processPayment,
+    processAlipayPayment,
     setAmount,
   }
 }
