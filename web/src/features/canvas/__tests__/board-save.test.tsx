@@ -19,13 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { CanvasImageNode } from '../types'
+import type { CanvasImageNode, CanvasNode } from '../types'
 
 const {
   loadBoard,
   saveNodes,
   saveViewport,
-  saveImage,
   journalNodes,
   journalViewport,
   ensurePersistentStorage,
@@ -33,20 +32,25 @@ const {
   loadBoard: vi.fn(),
   saveNodes: vi.fn(),
   saveViewport: vi.fn(),
-  saveImage: vi.fn(),
   journalNodes: vi.fn(),
   journalViewport: vi.fn(),
   ensurePersistentStorage: vi.fn(),
 }))
 
-vi.mock('../lib/board-storage', () => ({
-  loadBoard,
-  saveNodes,
-  saveViewport,
-  saveImage,
-  journalNodes,
-  journalViewport,
-}))
+// Only the storage calls are replaced: the writer bookkeeping that tells one
+// board instance about another's write runs for real, because that is the path
+// this file has to protect.
+vi.mock('../lib/board-storage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/board-storage')>()
+  return {
+    ...actual,
+    loadBoard,
+    saveNodes,
+    saveViewport,
+    journalNodes,
+    journalViewport,
+  }
+})
 
 vi.mock('../lib/storage-durability', () => ({ ensurePersistentStorage }))
 
@@ -68,12 +72,17 @@ function imageNode(id: string): CanvasImageNode {
 /** Long enough for the hook's save debounce to have elapsed. */
 const PAST_DEBOUNCE_MS = 900
 
+/** What the browser store would hold after the writes seen so far. */
+let stored: CanvasNode[] = []
+
 beforeEach(() => {
+  stored = []
   // `loadBoard` answers with the split-storage shape, never null.
-  loadBoard.mockResolvedValue({ nodes: [], viewport: null })
-  saveNodes.mockResolvedValue(undefined)
+  loadBoard.mockImplementation(async () => ({ nodes: stored, viewport: null }))
+  saveNodes.mockImplementation(async (nodes: CanvasNode[]) => {
+    stored = nodes
+  })
   saveViewport.mockResolvedValue(undefined)
-  saveImage.mockResolvedValue(undefined)
   ensurePersistentStorage.mockResolvedValue({
     durability: 'persisted',
     usage: null,
@@ -217,16 +226,17 @@ describe('canvas autosave', () => {
     expect(saveNodes).not.toHaveBeenCalled()
   })
 
-  it('stores a new picture immediately instead of waiting for the debounce', async () => {
+  it('stores a new picture as soon as it exists', async () => {
     const { result } = renderHook(() => useCanvasBoard())
     await waitFor(() => expect(result.current.ready).toBe(true))
 
     act(() => result.current.addNodes([imageNode('fresh')]))
 
-    // The bytes are the part that cannot be regenerated, so they must not
-    // depend on a timer that a closing tab can outrun.
-    await waitFor(() => expect(saveImage).toHaveBeenCalled())
-    expect(saveImage).toHaveBeenCalledWith('fresh', imageNode('fresh').image)
+    // Opening another page unmounts this board, and a debounce that never fires
+    // would leave the picture in a component that is already gone.
+    await waitFor(() => expect(saveNodes).toHaveBeenCalled())
+    const saved = saveNodes.mock.calls.at(-1)?.[0] as CanvasImageNode[]
+    expect(saved.map((node) => node.id)).toEqual(['fresh'])
   })
 
   it('journals the layout synchronously on every edit', async () => {
@@ -249,5 +259,60 @@ describe('canvas autosave', () => {
     act(() => result.current.setViewport({ x: 12, y: -8, zoom: 1.5 }))
 
     expect(journalViewport).toHaveBeenCalledWith({ x: 12, y: -8, zoom: 1.5 })
+  })
+
+  it('shows a picture finished while the board was on another page', async () => {
+    // The board that started the drawing is the one that gets unmounted when
+    // the operator opens another page; the request answers afterwards.
+    const away = renderHook(() => useCanvasBoard())
+    await waitFor(() => expect(away.result.current.ready).toBe(true))
+    away.unmount()
+
+    const returned = renderHook(() => useCanvasBoard())
+    await waitFor(() => expect(returned.result.current.ready).toBe(true))
+
+    await act(async () => {
+      away.result.current.addNodes([imageNode('finished-elsewhere')])
+    })
+
+    await waitFor(() =>
+      expect(returned.result.current.nodes.map((node) => node.id)).toContain(
+        'finished-elsewhere'
+      )
+    )
+  })
+
+  it('keeps its own layout when it adopts a stored one', async () => {
+    const kept = renderHook(() => useCanvasBoard())
+    await waitFor(() => expect(kept.result.current.ready).toBe(true))
+    act(() => kept.result.current.addNodes([imageNode('mine')]))
+
+    // A picture drawn elsewhere lands while this board holds unsaved edits: the
+    // adopted layout may only add to what is on screen, never replace it.
+    const away = renderHook(() => useCanvasBoard())
+    await waitFor(() => expect(away.result.current.ready).toBe(true))
+    await act(async () => {
+      away.result.current.addNodes([imageNode('theirs')])
+    })
+
+    await waitFor(() =>
+      expect(kept.result.current.nodes.map((node) => node.id)).toContain(
+        'theirs'
+      )
+    )
+    expect(kept.result.current.nodes.map((node) => node.id)).toContain('mine')
+  })
+
+  it('does not reread the board after its own write', async () => {
+    const { result } = renderHook(() => useCanvasBoard())
+    await waitFor(() => expect(result.current.ready).toBe(true))
+    const readsAfterRestore = loadBoard.mock.calls.length
+
+    await act(async () => {
+      result.current.addNodes([imageNode('own')])
+    })
+    await waitFor(() => expect(saveNodes).toHaveBeenCalled())
+
+    expect(loadBoard.mock.calls.length).toBe(readsAfterRestore)
   })
 })

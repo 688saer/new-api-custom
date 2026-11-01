@@ -19,18 +19,20 @@ For commercial licensing, please contact support@quantumnous.com
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
+  createBoardWriterId,
   journalNodes,
   journalViewport,
   loadBoard,
-  saveImage,
+  notifyBoardStored,
   saveNodes,
   saveViewport,
+  subscribeBoardStored,
 } from '../lib/board-storage'
 import {
   ensurePersistentStorage,
   type StorageHealth,
 } from '../lib/storage-durability'
-import type { CanvasImageNode, CanvasNode, CanvasViewport } from '../types'
+import type { CanvasNode, CanvasViewport } from '../types'
 
 /** Identity camera: the board origin sits at the container's top-left corner. */
 export const DEFAULT_VIEWPORT: CanvasViewport = { x: 0, y: 0, zoom: 1 }
@@ -65,6 +67,8 @@ export function useCanvasBoard() {
     null
   )
   const [storage, setStorage] = useState<StorageHealth | null>(null)
+  /** Identifies this board among the instances that share one browser store. */
+  const [writerId] = useState(createBoardWriterId)
 
   // A flush can be triggered by the browser at any moment, so the writers read
   // the newest state from refs rather than from a captured render.
@@ -109,6 +113,37 @@ export function useCanvasBoard() {
   useEffect(() => {
     refreshStorage()
   }, [refreshStorage])
+
+  /**
+   * Take over a layout another instance wrote.
+   *
+   * A picture finished while the operator was browsing elsewhere is stored by
+   * the board that asked for it, and that board is unmounted by then. Reading
+   * the store back here is what shows the picture on the page they returned to
+   * instead of only after a reload; the board still being restored needs no
+   * help, because its own read sees the same layout.
+   */
+  useEffect(
+    () =>
+      subscribeBoardStored((origin) => {
+        if (origin === writerId || !readyRef.current) return
+        void loadBoard().then(
+          (board) => {
+            setNodes((previous) => {
+              const known = new Set(previous.map((node) => node.id))
+              const additions = board.nodes.filter(
+                (node) => !known.has(node.id)
+              )
+              return additions.length === 0
+                ? previous
+                : [...previous, ...additions]
+            })
+          },
+          () => undefined
+        )
+      }),
+    [writerId]
+  )
 
   /**
    * Commit whatever the debounce is still holding.
@@ -171,27 +206,44 @@ export function useCanvasBoard() {
     }
   }, [flush])
 
-  const addNodes = useCallback((incoming: CanvasNode[]) => {
-    const next = [...nodesRef.current, ...incoming]
-    dirtyRef.current.nodes = true
-    journalNodes(next)
-    setNodes(next)
+  /**
+   * Add nodes and commit them before the caller moves on.
+   *
+   * Saving is not left to the debounce. A generated picture outlives the page
+   * that asked for it: by the time the request answers, the board instance that
+   * would have flushed it is unmounted, so a layout held only in this tab's
+   * memory never reaches storage. Writing it here — additions only, never the
+   * pictures already stored — is what lets another page read it back.
+   */
+  const addNodes = useCallback(
+    (incoming: CanvasNode[]) => {
+      const next = [...nodesRef.current, ...incoming]
+      journalNodes(next)
+      setNodes(next)
 
-    // A picture cannot be recreated from anything else, so its bytes are
-    // committed the moment they exist instead of waiting for the debounce.
-    for (const node of incoming) {
-      if (node.kind !== 'image') continue
-      const image = (node as CanvasImageNode).image
-      void saveImage(node.id, image).catch((error: unknown) => {
-        setSaveFailure({
-          operation: 'write',
-          quotaExceeded: Boolean(
-            (error as { quotaExceeded?: boolean } | null)?.quotaExceeded
-          ),
-        })
-      })
-    }
-  }, [])
+      void saveNodes(next).then(
+        () => {
+          dirtyRef.current.nodes = false
+          setSaveFailure(null)
+          // Announced only after the write commits, so a board reacting to this
+          // signal cannot read the layout from before it.
+          notifyBoardStored(writerId)
+        },
+        (error: unknown) => {
+          // Stay dirty, so the debounced save tries again instead of leaving
+          // the picture in this tab only.
+          dirtyRef.current.nodes = true
+          setSaveFailure({
+            operation: 'write',
+            quotaExceeded: Boolean(
+              (error as { quotaExceeded?: boolean } | null)?.quotaExceeded
+            ),
+          })
+        }
+      )
+    },
+    [writerId]
+  )
 
   const moveNodes = useCallback(
     (moves: { id: string; x: number; y: number }[]) => {

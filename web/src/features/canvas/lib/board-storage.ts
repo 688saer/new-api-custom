@@ -388,23 +388,43 @@ export async function saveNodes(nodes: CanvasNode[]): Promise<void> {
   )
 }
 
-/**
- * Keep one picture right away.
- *
- * A generated picture is the expensive part of the board and the part that
- * cannot be recreated from anything else, so it is committed the moment it
- * exists rather than waiting for the debounced save.
- */
-export async function saveImage(id: string, image: string): Promise<void> {
-  const database = await openDatabase()
-  await runTransaction(database, [IMAGE_STORE], 'readwrite', (transaction) => {
-    transaction.objectStore(IMAGE_STORE).put(image, id)
-  })
-}
-
 export async function saveViewport(viewport: CanvasViewport): Promise<void> {
   const database = await openDatabase()
   await runTransaction(database, [BOARD_STORE], 'readwrite', (transaction) => {
     transaction.objectStore(BOARD_STORE).put(viewport, VIEWPORT_KEY)
   })
+}
+
+/** Board instances currently able to hear about a layout written elsewhere. */
+const storedListeners = new Set<(writerId: number) => void>()
+
+let nextWriterId = 1
+
+/** Tag one board instance, so a write can skip notifying the one that made it. */
+export function createBoardWriterId(): number {
+  const id = nextWriterId
+  nextWriterId += 1
+  return id
+}
+
+/**
+ * Announce that a newer layout is stored, once its write has committed.
+ *
+ * Drawing outlives the page that asked for it: the operator can open another
+ * page while a picture is still being generated, which unmounts the board that
+ * started the request. Its result is only worth anything if the board the
+ * operator comes back to learns about it, and that board is a different
+ * instance with its own copy of the layout in memory.
+ */
+export function notifyBoardStored(writerId: number): void {
+  for (const listener of storedListeners) listener(writerId)
+}
+
+export function subscribeBoardStored(
+  listener: (writerId: number) => void
+): () => void {
+  storedListeners.add(listener)
+  return () => {
+    storedListeners.delete(listener)
+  }
 }

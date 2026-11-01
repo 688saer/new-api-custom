@@ -249,8 +249,10 @@ if option.Key == "service_status_setting.targets" || option.Key == "service_stat
 | `components/canvas-image-node.tsx` | 图片节点 + 操作菜单（重生成/参考图/下载/删除） |
 | `components/canvas-text-node.tsx` | 便签节点（双击编辑） |
 | `components/canvas-prompt-panel.tsx` | 左侧面板：提示词、密钥、模型、尺寸、数量 |
-| `hooks/use-canvas-board.ts` | 状态：节点、视口、增删改、500ms 防抖持久化 |
-| `lib/board-storage.ts` | IndexedDB 存储（库 `newapi-canvas`，表 `boards`） |
+| `hooks/use-canvas-board.ts` | 状态：节点、视口、增删改；新增节点即时落库；接收其它实例的写入通知 |
+| `hooks/use-pending-generations.ts` | 订阅模块级「生成中」计数（跨页面存活） |
+| `lib/board-storage.ts` | IndexedDB 存储（库 `newapi-canvas`，`board` + `images` 两表）+ localStorage 布局日志 + 跨实例写入广播 |
+| `lib/generation-status.ts` | 生成中请求计数与订阅（模块级，切页面不丢） |
 | `lib/connectors.ts` | 连接线几何：锚点选择 + 贝塞尔曲线 |
 | `types.ts` | `CanvasNode = CanvasImageNode \| CanvasTextNode` 联合类型 |
 
@@ -1522,7 +1524,8 @@ v<上游基线>-<两位序号>
 | `v1.0.0-rc.47-14` | 上游健康探测 + 控制台公告 | `v1.0.0-rc.52-health` |
 | `v1.0.0-rc.47-15` | 支付宝官方支付通道 | `v1.0.0-rc.53-alipay` |
 | `v1.0.0-rc.47-16` | 支付宝官方通道修复 + 扫码检测余额 | `v1.0.0-rc.57-alipay` / `rc.58-balance` |
-| `v1.0.0-rc.47-17` | **微信支付官方通道（Native 扫码 + 手机一键唤起）← 最新** | `v1.0.0-rc.59-wechat` |
+| `v1.0.0-rc.47-17` | 微信支付官方通道（Native 扫码 + 手机一键唤起） | `v1.0.0-rc.59-wechat` |
+| `v1.0.0-rc.47-18` | **画布：生成中切页面再回来丢图修复 ← 最新** | — |
 
 > 2026-10-31 起所有 tag / Release 已按上表统一改名（tag 与 Release 一一对应，资产包原样保留在各自 Release 下）。
 > 中间态 tag `v1.0.0-rc.58-balance`（无 Release，内容已并入 `47-17`）已删除。
@@ -1582,11 +1585,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc47-17`（`/api/status` = `1.0.0-rc.47-17`）；上一版 `:rc47-03`、`:rc59`、`:rc58`、`:rc57`、`:rc53`、`:rc52`、`:rc51`、`:rc50`、`:rc49`、`:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc47-18`（`/api/status` = `1.0.0-rc.47-18`）；上一版 `:rc47-17`、`:rc47-03`、`:rc58`、`:rc57`、`:rc53`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.47-17`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起；旧名 `v1.0.0-rc.59-wechat`）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.47-18`（画布：生成中切走再回来丢图修复）、`v1.0.0-rc.47-17`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起；旧名 `v1.0.0-rc.59-wechat`）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 钱包新增 **8 项**（`payment.test.ts` 5 + `alipay-qr-dialog.test.tsx` 2 + 分类 1）；工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |
@@ -1642,6 +1645,42 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 | 临时链接生图 | 直接保存供应商 `url`（分钟级过期） | 取回字节转 data URL 永久保存；跨域不可读时保留链接 |
 
 > **注意**：布局日志只存节点元数据，不含图片字节（`localStorage` 配额小，图片在 IndexedDB）。
+
+### 画布「生成中切走再回来」修复实测记录（rc.47-18）
+
+用户报：在无限画布点生成，趁等待切到别的页面，再回到画布时那张图不见了。
+
+原因：生成结果只回填到「发起请求的那个画布实例」的 React 状态里。切换页面会卸载该组件，
+`setNodes` 变成空操作；而把整板写进 IndexedDB 的动作还挂在 500ms 防抖上，这个定时器随组件一起
+消失。于是图片字节虽被 `saveImage()` 立刻落盘，**布局记录永远没更新**，新实例挂载时读到的是
+旧布局——回到画布自然看不到那张图。
+
+修法三条，都不依赖组件存活：
+
+1. `addNodes` 改成**立即** `saveNodes()` 整板落库（只写新增图片，不重写已存图片），成功后清脏标记；
+2. 落库**提交后**再广播 `notifyBoardStored(writerId)`：其它画布实例收到后重新 `loadBoard()`，
+   **只追加**自己内存里没有的节点（绝不覆盖正在编辑的内容），发起写入的实例忽略自己的广播；
+3. 「生成中」计数搬到模块级（`lib/generation-status.ts` + `useSyncExternalStore`），切走再回来
+   仍然显示生成中，不会看起来像请求丢了。
+
+| 场景 | 修复前 | 修复后 |
+|---|---|---|
+| 生成中切走，生成在离开**之后**完成 | 回画布看不到图（布局没落库） | `addNodes` 当场落库，返回时 `loadBoard()` 读得到 |
+| 返回画布**之后**才完成 | 页面毫无反应，要手动刷新 | 落库后广播 → 当前实例追加该图，无需刷新 |
+| 切回后的面板 | 显示空闲，像请求丢了 | 模块级计数仍在，继续显示「生成中」 |
+| 未保存编辑 | — | 采纳新布局时只追加、不替换，编辑不丢 |
+
+回归用例（`web/src/features/canvas/__tests__/board-save.test.tsx`，**先红后绿**验证过）：
+
+| 用例 | 旧实现 | 修复后 |
+|---|---|---|
+| `shows a picture finished while the board was on another page` | FAIL（5.1s 超时） | PASS |
+| `keeps its own layout when it adopts a stored one` | FAIL | PASS |
+| `stores a new picture as soon as it exists` | — | PASS（保护即时落库） |
+| `does not reread the board after its own write` | — | PASS（自写不重复读盘） |
+
+`generation-status.test.ts` 另测计数、归零、订阅广播 3 项。校验：`vitest src/features/canvas` **9 个文件全过**、
+`bun check -b` 1,594 文件 0 错误、`oxfmt --check` 干净。
 
 ### 公告页实测记录
 

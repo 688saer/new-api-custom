@@ -34,6 +34,8 @@ import {
 } from './components/canvas-prompt-panel'
 import { CanvasStorageAlerts } from './components/canvas-storage-alerts'
 import { useCanvasBoard } from './hooks/use-canvas-board'
+import { usePendingGenerations } from './hooks/use-pending-generations'
+import { finishGeneration, startGeneration } from './lib/generation-status'
 import { stepIntoFreeSpot } from './lib/selection'
 import type { CanvasImageNode, CanvasTextNode } from './types'
 
@@ -72,7 +74,7 @@ export function CanvasWorkspace() {
   const { t } = useTranslation()
   const board = useCanvasBoard()
   const [draft, setDraft] = useState<CanvasDraft>(EMPTY_DRAFT)
-  const [generating, setGenerating] = useState(false)
+  const generating = usePendingGenerations() > 0
   const [view, setView] = useState(FALLBACK_VIEW)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [reference, setReference] = useState<CanvasReference | null>(null)
@@ -124,7 +126,10 @@ export function CanvasWorkspace() {
       return
     }
 
-    setGenerating(true)
+    // Counted outside this component: the request keeps running after the
+    // operator opens another page, and the panel must not look idle if they
+    // come back while it is still drawing.
+    startGeneration()
     try {
       let apiKey = revealedKeys.current.get(apiKeyId)
       if (!apiKey) {
@@ -215,7 +220,7 @@ export function CanvasWorkspace() {
     } catch (error) {
       handleServerError(error, t('Could not generate the image.'))
     } finally {
-      setGenerating(false)
+      finishGeneration()
     }
   }
 
