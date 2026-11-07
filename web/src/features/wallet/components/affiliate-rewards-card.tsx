@@ -128,29 +128,35 @@ export function AffiliateRewardsCard({
             tooltip={t('Copy referral link')}
             aria-label={t('Copy referral link')}
           />
-          {hasRewards && (
-            <div className='flex shrink-0 items-center gap-2'>
-              <Button
-                onClick={onTransfer}
-                disabled={!complianceConfirmed}
-                className='h-9 px-3'
-                size='sm'
-              >
-                {t('Transfer to Balance')}
-              </Button>
-              {alipayEnabled && onWithdrawAlipay ? (
-                <Button
-                  onClick={onWithdrawAlipay}
-                  disabled={!complianceConfirmed}
-                  variant='outline'
-                  className='bg-background h-9 px-3'
-                  size='sm'
-                >
-                  {t('Withdraw to Alipay')}
-                </Button>
-              ) : null}
-            </div>
-          )}
+        </div>
+
+        <div className='flex flex-wrap items-center gap-2 lg:col-span-3'>
+          <Button
+            onClick={onTransfer}
+            disabled={!complianceConfirmed || !hasRewards}
+            className='h-9 px-3'
+            size='sm'
+          >
+            {t('Transfer to Balance')}
+          </Button>
+          {alipayEnabled && onWithdrawAlipay ? (
+            <Button
+              onClick={onWithdrawAlipay}
+              disabled={!complianceConfirmed || !hasRewards}
+              variant='outline'
+              className='bg-background h-9 px-3'
+              size='sm'
+            >
+              {t('Withdraw to Alipay')}
+            </Button>
+          ) : null}
+          {!hasRewards ? (
+            <span className='text-muted-foreground text-xs'>
+              {t(
+                'Referral rewards become available for withdrawal after you earn them.'
+              )}
+            </span>
+          ) : null}
         </div>
         {!complianceConfirmed ? (
           <p className='text-muted-foreground text-xs lg:col-span-3'>

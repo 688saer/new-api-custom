@@ -569,11 +569,26 @@ func HardDeleteUserById(id int) (int64, error) {
 	return user.HardDelete()
 }
 
-func inviteUser(inviterId int) error {
+// recordInvite counts a successful invitation. The count is factual and must
+// not depend on the reward switch or the configured bonus amounts.
+func recordInvite(inviterId int) error {
+	result := DB.Model(&User{}).Where("id = ?", inviterId).
+		Update("aff_count", gorm.Expr("aff_count + ?", 1))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// creditInviteBonus pays the one-off sign-up bonus to the inviter and keeps the
+// historical total in sync.
+func creditInviteBonus(inviterId int, quota int) error {
 	result := DB.Model(&User{}).Where("id = ?", inviterId).Updates(map[string]any{
-		"aff_count":   gorm.Expr("aff_count + ?", 1),
-		"aff_quota":   gorm.Expr("aff_quota + ?", common.QuotaForInviter),
-		"aff_history": gorm.Expr("aff_history + ?", common.QuotaForInviter),
+		"aff_quota":   gorm.Expr("aff_quota + ?", quota),
+		"aff_history": gorm.Expr("aff_history + ?", quota),
 	})
 	if result.Error != nil {
 		return result.Error
@@ -584,15 +599,20 @@ func inviteUser(inviterId int) error {
 	return nil
 }
 
-// grantInviteRewards pays the one-off sign-up bonus to the invitee and to the
-// inviter. Both the administrator's switch and a non-zero amount must be in
-// place: the switch lets a site keep the amounts on file while the programme is
-// paused, and compliance confirmation stays a hard requirement.
+// grantInviteRewards records the invitation and pays the one-off sign-up bonus
+// to the invitee and to the inviter. Both the administrator's switch and a
+// non-zero amount must be in place: the switch lets a site keep the amounts on
+// file while the programme is paused, and compliance confirmation stays a hard
+// requirement for money. The invite count itself is always recorded, so the
+// referral dashboard keeps working while rewards are paused.
 func (user *User) grantInviteRewards(inviterId int) {
-	if inviterId == 0 || !common.InviteRegisterRewardEnabled {
+	if inviterId == 0 {
 		return
 	}
-	if !operation_setting.IsPaymentComplianceConfirmed() {
+	if err := recordInvite(inviterId); err != nil {
+		common.SysLog(common.LogText("failed to record invite for user %d: %v", inviterId, err))
+	}
+	if !common.InviteRegisterRewardEnabled || !operation_setting.IsPaymentComplianceConfirmed() {
 		return
 	}
 	if common.QuotaForInvitee > 0 {
@@ -601,7 +621,9 @@ func (user *User) grantInviteRewards(inviterId int) {
 	}
 	if common.QuotaForInviter > 0 {
 		RecordLog(inviterId, LogTypeSystem, common.NewMessage("Bonus for inviting a user {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInviter)}))
-		_ = inviteUser(inviterId)
+		if err := creditInviteBonus(inviterId, common.QuotaForInviter); err != nil {
+			common.SysLog(common.LogText("failed to credit invite bonus for user %d: %v", inviterId, err))
+		}
 	}
 }
 

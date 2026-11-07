@@ -3058,7 +3058,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相关项目",
     "footer.defaultCopyright": "版权所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
+    "footer.newapi.projectAttributionSuffix": "版权所有，由项目贡献者设计与开发。",
     "For advanced custom channels this applies only to /v1/responses routes without protocol conversion.": "高级自定义渠道仅对 /v1/responses 且不做协议转换的路由生效。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "对于 2025 年 5 月 10 日之后添加的渠道，在部署时无需从模型名称中移除 \".\"",
     "For example: video task failed without a refund": "例如：视频任务失败但没有退款",
@@ -8268,6 +8268,7 @@
     "Alipay withdrawal approved {{quota}}": "支付宝提现已打款 {{quota}}",
     "Alipay withdrawal rejected and rewards returned {{quota}}": "支付宝提现已驳回，奖励已退回 {{quota}}",
     "The withdrawal fee percentage must be between 0 and 100": "提现费率必须在 0 到 100 之间",
-    "The minimum withdrawal quota cannot be negative": "最低提现额度不能为负数"
+    "The minimum withdrawal quota cannot be negative": "最低提现额度不能为负数",
+    "Referral rewards become available for withdrawal after you earn them.": "获得邀请奖励后即可提现或转入余额。"
   }
 }

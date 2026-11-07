@@ -82,7 +82,7 @@ func TestInviteRegisterRewardAndRebateSwitchIndependently(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, credited)
 
-	// 只开消费返利
+	// 只开消费返利：邀请人数仍然累计，注册奖励不发放
 	setInviteProgram(t, false, true, 5)
 	rebateInvitee := createInviteTestUser(t, "rebate-only-invitee", inviter.Id)
 	rebateInvitee.grantInviteRewards(inviter.Id)
@@ -90,7 +90,7 @@ func TestInviteRegisterRewardAndRebateSwitchIndependently(t *testing.T) {
 	var inviterAfterOff User
 	require.NoError(t, DB.First(&inviterAfterOff, inviter.Id).Error)
 	assert.Equal(t, common.QuotaForInviter, inviterAfterOff.AffQuota)
-	assert.Equal(t, 1, inviterAfterOff.AffCount)
+	assert.Equal(t, 2, inviterAfterOff.AffCount)
 
 	credited, err = CreditInviteRebate(rebateInvitee.Id, 1000)
 	require.NoError(t, err)
@@ -128,4 +128,27 @@ func TestCreditInviteRebateSkipsWhenNothingIsOwed(t *testing.T) {
 	var stored User
 	require.NoError(t, DB.First(&stored, inviter.Id).Error)
 	assert.Equal(t, 10, stored.AffQuota)
+}
+
+// 邀请人数是事实数据：奖励总额为 0、开关关闭或未确认合规时也要累计，
+// 否则钱包的「邀请人数 / 总收入」永远显示 0。
+func TestInviteCountRecordsWithoutRewardPayout(t *testing.T) {
+	setupUserUpdateTestState(t)
+	setInviteProgram(t, false, false, 0)
+	common.QuotaForInviter = 0
+	common.QuotaForInvitee = 0
+
+	inviter := createInviteTestUser(t, "count-only-inviter", 0)
+	invitee := createInviteTestUser(t, "count-only-invitee", inviter.Id)
+	invitee.grantInviteRewards(inviter.Id)
+
+	var stored User
+	require.NoError(t, DB.First(&stored, inviter.Id).Error)
+	assert.Equal(t, 1, stored.AffCount)
+	assert.Zero(t, stored.AffQuota)
+	assert.Zero(t, stored.AffHistoryQuota)
+
+	var inviteeStored User
+	require.NoError(t, DB.First(&inviteeStored, invitee.Id).Error)
+	require.Zero(t, inviteeStored.Quota)
 }
