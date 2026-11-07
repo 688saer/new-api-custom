@@ -138,6 +138,7 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/rewards/admin': { section: 'admin', module: 'rewards' },
   '/subscriptions': { section: 'admin', module: 'subscription' },
   '/invoice-console': { section: 'admin', module: 'subscription' },
+  '/aff-withdrawals-console': { section: 'admin', module: 'rewards' },
   '/system-settings': { section: 'admin', module: 'setting' },
   '/system-settings/site': { section: 'admin', module: 'setting' },
 }

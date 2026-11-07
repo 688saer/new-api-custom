@@ -170,6 +170,9 @@ const BILLING_SECTIONS = [
           InviteRegisterRewardEnabled: settings.InviteRegisterRewardEnabled,
           InviteRebateEnabled: settings.InviteRebateEnabled,
           InviteRebatePercent: settings.InviteRebatePercent,
+          AffWithdrawAlipayEnabled: settings.AffWithdrawAlipayEnabled,
+          AffWithdrawFeePercent: settings.AffWithdrawFeePercent,
+          AffWithdrawMinQuota: settings.AffWithdrawMinQuota,
           TopUpLink: settings.TopUpLink,
           quota_setting: {
             trust_quota_usd: settings['quota_setting.trust_quota_usd'],

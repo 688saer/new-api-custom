@@ -521,6 +521,9 @@ func buildSelfUserData(user *model.User) map[string]any {
 		"invite_register_reward_enabled": common.InviteRegisterRewardEnabled,
 		"invite_rebate_enabled":          common.InviteRebateEnabled,
 		"invite_rebate_percent":          common.InviteRebatePercent,
+		"aff_withdraw_alipay_enabled":    common.AffWithdrawAlipayEnabled,
+		"aff_withdraw_fee_percent":       common.AffWithdrawFeePercent,
+		"aff_withdraw_min_quota":         common.AffWithdrawMinQuota,
 		"setting":                        user.Setting,
 		"stripe_customer":                user.StripeCustomer,
 		"sidebar_modules":                userSetting.SidebarModules, // 正确提取sidebar_modules字段

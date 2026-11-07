@@ -58,6 +58,9 @@ const quotaSchema = z.object({
   InviteRegisterRewardEnabled: z.boolean(),
   InviteRebateEnabled: z.boolean(),
   InviteRebatePercent: z.coerce.number().min(0).max(100),
+  AffWithdrawAlipayEnabled: z.boolean(),
+  AffWithdrawFeePercent: z.coerce.number().min(0).max(100),
+  AffWithdrawMinQuota: z.coerce.number().min(0),
   TopUpLink: z.string(),
   quota_setting: z.object({
     enable_free_model_pre_consume: z.boolean(),
@@ -120,6 +123,7 @@ export function QuotaSettingsSection({
 
   const registerRewardEnabled = form.watch('InviteRegisterRewardEnabled')
   const rebateEnabled = form.watch('InviteRebateEnabled')
+  const alipayEnabled = form.watch('AffWithdrawAlipayEnabled')
 
   return (
     <SettingsSection title={t('Quota Settings')}>
@@ -363,6 +367,91 @@ export function QuotaSettingsSection({
                   <FormDescription>
                     {t(
                       'Percent of the invited users spending that the inviter receives, from 0 to 100.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <SettingsFormGridItem span='full'>
+              <FormField
+                control={form.control}
+                name='AffWithdrawAlipayEnabled'
+                render={({ field }) => (
+                  <SettingsSwitchItem>
+                    <SettingsSwitchContent>
+                      <FormLabel>{t('Alipay withdrawal')}</FormLabel>
+                      <FormDescription>
+                        {t(
+                          'Let users withdraw referral rewards to Alipay. Requests are reviewed and paid out manually in the admin console.'
+                        )}
+                      </FormDescription>
+                    </SettingsSwitchContent>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={updateOption.isPending}
+                      />
+                    </FormControl>
+                  </SettingsSwitchItem>
+                )}
+              />
+            </SettingsFormGridItem>
+
+            <FormField
+              control={form.control}
+              name='AffWithdrawFeePercent'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Withdrawal fee percentage')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      min={0}
+                      max={100}
+                      value={field.value ?? ''}
+                      onChange={handleNumberChange(field.onChange)}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      disabled={!alipayEnabled}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Percent of each Alipay withdrawal the site keeps, from 0 to 100. Balance transfers stay fee-free.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='AffWithdrawMinQuota'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Minimum withdrawal quota')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      value={field.value ?? ''}
+                      onChange={handleNumberChange(field.onChange)}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      disabled={!alipayEnabled}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'The smallest referral quota that may be withdrawn ({{formattedQuota}}). 0 disables the minimum.',
+                      {
+                        formattedQuota: formatQuotaInputValue(field.value),
+                      }
                     )}
                   </FormDescription>
                   <FormMessage />

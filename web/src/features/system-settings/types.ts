@@ -292,6 +292,9 @@ export type BillingSettings = {
   InviteRegisterRewardEnabled: boolean
   InviteRebateEnabled: boolean
   InviteRebatePercent: number
+  AffWithdrawAlipayEnabled: boolean
+  AffWithdrawFeePercent: number
+  AffWithdrawMinQuota: number
   TopUpLink: string
   'quota_setting.enable_free_model_pre_consume': boolean
   'quota_setting.trust_quota_usd': number

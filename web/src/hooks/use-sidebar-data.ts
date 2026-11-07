@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import {
   Activity,
+  Banknote,
   Box,
   ClipboardList,
   CreditCard,
@@ -214,6 +215,12 @@ export function useSidebarData(): SidebarData {
             title: t('Invoices'),
             url: '/invoice-console',
             icon: Receipt,
+            requiredRole: ROLE.ADMIN,
+          },
+          {
+            title: t('Referral Withdrawals'),
+            url: '/aff-withdrawals-console',
+            icon: Banknote,
             requiredRole: ROLE.ADMIN,
           },
           {

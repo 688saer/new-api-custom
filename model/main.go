@@ -390,6 +390,7 @@ func migrateDB() error {
 		&Invoice{},
 		&InvoiceOrder{},
 		&PurchaseAgreementSignature{},
+		&AffWithdrawal{},
 	)
 	if err != nil {
 		return err

@@ -1082,6 +1082,35 @@ POST /api/user/wechat/pay {"amount":1}
 `web/src/features/wallet/components/affiliate-rewards-card.tsx`。
 
 ---
+### 3.16 邀请奖励提现：钱包余额 / 支付宝（rc.47-23）
+
+邀请奖励（`aff_quota`）原本只能一键转到钱包余额。现在在钱包「推介计划」卡片上：
+
+1. **显示返利百分比**：开启消费返利后，标题旁显示 `+比例%` 徽标。
+2. **提现到支付宝**：后台开启 `AffWithdrawAlipayEnabled` 后出现「Withdraw to Alipay」按钮，
+   用户填写额度、支付宝账号、收款人姓名提交申请；申请先**冻结**邀请额度，后台人工审核：
+   - **通过（标记已打款）**：`fee_quota` 归平台、其余按当前站点汇率折算人民币后由管理员线下打款；
+   - **驳回**：冻结的额度退回用户的 `aff_quota`，必须填驳回原因。
+3. **提现费率**：`AffWithdrawFeePercent` 0–100，按额度整数扣费
+   （`int64(quota) * percent / 100` 向下取整，与消费返利同一套算法）。
+4. **最低提现额度**：`AffWithdrawMinQuota`，0 表示不限制。
+5. **折算规则**：`payout_quota / QuotaPerUnit × USDExchangeRate`，保留两位小数（shopspring decimal）。
+   钱包余额转移（原有 `/aff_transfer`）继续免手续费。
+
+后台新增「邀请奖励提现」控制台 `/aff-withdrawals-console`（角色 ≥ ADMIN）：状态筛选、关键词搜索、
+查看账号/费率/预计到账，待审核单可「标记已打款」或「驳回」。
+
+涉及文件：`common/constants.go`、`model/option.go`、`controller/option.go`、
+`model/aff_withdrawal.go`、`model/main.go`、`controller/aff_withdrawal.go`、`router/api-router.go`、
+`controller/user.go`、`model/aff_withdrawal_test.go`、`model/migration_dialector_test.go`、
+`web/src/features/wallet/{types.ts,api.ts,index.tsx,lib/aff-withdrawal.ts,hooks/use-aff-withdrawal.ts,
+components/affiliate-rewards-card.tsx,components/aff-withdrawal-history-card.tsx,
+components/dialogs/alipay-withdraw-dialog.tsx}`、
+`web/src/features/aff-withdrawal-admin/**`、`web/src/routes/_authenticated/aff-withdrawals-console/index.tsx`、
+`web/src/hooks/use-sidebar-{data,config}.ts`、系统设置额度设置页。
+
+---
+
 ## 四、代码结构：哪些是我们的
 
 ### 新增文件（纯新增，升级不会冲突）
@@ -1214,7 +1243,7 @@ web/public/static/welfare-chests/        （图片资源）
 
 ## 五、数据库
 
-### 自定义表（6 张）
+### 自定义表（10 张）
 
 | 表 | 用途 |
 |---|---|
@@ -1224,7 +1253,10 @@ web/public/static/welfare-chests/        （图片资源）
 | `service_status_samples` | 可用性探测样本 |
 | `reward_campaigns` | 奖励活动（含 `random_min_quota` / `random_max_quota`） |
 | `reward_grants` | 逐人发放明细，唯一键 `(campaign_id, user_id)` |
+| `invoices` | 发票申请（金额以 `amount_cents` 分存储） |
+| `purchase_agreement_signatures` | 购买协议签署，唯一键 `user_id + agreement_key + version` |
 | `invoice_orders` | 发票所选订单快照（订单号/金额分/支付方式/支付时间），被驳回的申请会释放订单 |
+| `aff_withdrawals` | 邀请奖励支付宝提现申请（额度/费率/预计到账/账号/状态），驳回时退回冻结额度 |
 
 全部通过 `model/main.go` 的 `AutoMigrate` 自动建表，**无需手工执行 SQL**。
 
@@ -1241,12 +1273,15 @@ geetest_setting.*
 reward_setting.*
 ```
 
-另有三个直接存在 `options` 表里的键（邀请奖励，见 3.15）：
+另有六个直接存在 `options` 表里的键（邀请奖励，见 3.15 / 3.16）：
 
 ```
 InviteRegisterRewardEnabled     # 邀请注册奖励开关，默认 true
 InviteRebateEnabled             # 消费返利开关，默认 false
 InviteRebatePercent             # 返利比例 0-100，默认 0
+AffWithdrawAlipayEnabled        # 支付宝提现开关，默认 false（开启要求已确认合规条款）
+AffWithdrawFeePercent           # 提现费率 0-100，默认 0
+AffWithdrawMinQuota             # 最低提现额度，默认 0（0 表示不限制）
 ```
 
 `service_status_samples` 会持续增长，按 `sample_retention_days` 清理（默认 30 天）。
@@ -1619,7 +1654,8 @@ v<上游基线>-<两位序号>
 | `v1.0.0-rc.47-17` | 微信支付官方通道（Native 扫码 + 手机一键唤起） | `v1.0.0-rc.59-wechat` |
 | `v1.0.0-rc.47-18` | 画布：生成中切页面再回来丢图修复 | — |
 | `v1.0.0-rc.47-21` | 画布：拖拽/手势/自适应修复（图片拖不动、移动端、窗口变化） | — |
-| `v1.0.0-rc.47-22` | **发票按已支付订单开票 + 邀请注册奖励/消费返利 + 渠道不可用提示可关闭 ← 最新** | — |
+| `v1.0.0-rc.47-22` | 发票按已支付订单开票 + 邀请注册奖励/消费返利 + 渠道不可用提示可关闭 | — |
+| `v1.0.0-rc.47-23` | **邀请奖励提现：返利百分比展示 + 支付宝提现（费率/最低额度/后台审核打款）← 最新** | — |
 
 > 2026-10-31 起所有 tag / Release 已按上表统一改名（tag 与 Release 一一对应，资产包原样保留在各自 Release 下）。
 > 中间态 tag `v1.0.0-rc.58-balance`（无 Release，内容已并入 `47-17`）已删除。
@@ -1679,20 +1715,20 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc47-22`（`/api/status` = `1.0.0-rc.47-22`）；上一版 `:rc47-21`、`:rc47-18`、`:rc47-17`、`:rc47-03`、`:rc58`、`:rc57`、`:rc53`、`:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc47-23`（`/api/status` = `1.0.0-rc.47-23`）；上一版 `:rc47-22`、`:rc47-21`、`:rc47-18`、`:rc47-17`、`:rc47-03`、`:rc58`、`:rc57`、`:rc53`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.47-22`（发票改为只能选择本账户已支付订单、金额服务端汇总、提交带订单快照；邀请新增注册奖励与消费返利两个独立开关；渠道/密钥页右上角不可用提示可关闭）、`v1.0.0-rc.47-21`（画布：图片拖不动 / 生成中遮挡 / 移动端抽屉与单指平移双指缩放 / 视口自适应 / 跨页写入合并）、`v1.0.0-rc.47-18`（画布：生成中切走再回来丢图修复）、`v1.0.0-rc.47-17`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起；旧名 `v1.0.0-rc.59-wechat`）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.47-23`（邀请奖励提现：返利百分比展示 + 支付宝提现，支持提现费率、最低额度、后台审核打款/驳回退额度）、`v1.0.0-rc.47-22`（发票改为只能选择本账户已支付订单、金额服务端汇总、提交带订单快照；邀请新增注册奖励与消费返利两个独立开关；渠道/密钥页右上角不可用提示可关闭）、`v1.0.0-rc.47-21`（画布：图片拖不动 / 生成中遮挡 / 移动端抽屉与单指平移双指缩放 / 视口自适应 / 跨页写入合并）、`v1.0.0-rc.47-18`（画布：生成中切走再回来丢图修复）、`v1.0.0-rc.47-17`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起；旧名 `v1.0.0-rc.59-wechat`）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
-| 前端测试 | 钱包新增 **8 项**（`payment.test.ts` 5 + `alipay-qr-dialog.test.tsx` 2 + 分类 1）；工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |
-| typecheck | 通过（1589 文件，2 个项目） |
+| 前端测试 | 钱包新增 **8 项**（`payment.test.ts` 5 + `alipay-qr-dialog.test.tsx` 2 + 分类 1）；工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；提现新增 **6 项**（`aff-withdrawal.test.ts` 4 + `alipay-withdraw-dialog.test.tsx` 2）；侧边栏/首页测试随入口数量同步更新 |
+| typecheck | 通过（1604 文件，2 个项目） |
 | oxlint | 注意：本机 `oxlint` 二进制在 bun 1.4.3 / node 22 容器里都会 panic（`oxc_allocator` 池断言，未改动目录同样复现），落地校验改用 `bun check -b` + `oxfmt --check` + `vitest` |
 | gofmt | 干净 |
 | go vet | `./controller/ ./model/ ./middleware/ ./router/ ./setting/...` 全通过 |
 | Go 单测 | `./model/` 全 `ok`（含 `ticket_archive_test.go` 4 项归档回归） |
-| 数据库迁移 | SQLite / MySQL 8.2 / PostgreSQL 16 三库各跑两次 `AutoMigrate`，含 5 张工单表，幂等且旧数据完好 |
+| 数据库迁移 | SQLite / MySQL 8.2 / PostgreSQL 16 三库各跑两次 `AutoMigrate`，含 5 张工单表 + `aff_withdrawals`，幂等且旧数据完好 |
 | 极验 | **已上线并开启**（登录 + 注册）；验证 ID 已填入 |
 | 看板娘 | **已上线并默认开启**，106 个动画 + 12 张立绘全部内置 |
 | 看板娘体积 | 动画 12.8MB（原 53MB）+ 立绘 2.1MB；首屏只加载 1 个待机片段 |

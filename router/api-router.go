@@ -147,6 +147,8 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/waffo-pancake/amount", controller.RequestWaffoPancakeAmount)
 				selfRoute.POST("/waffo-pancake/pay", middleware.CriticalRateLimit(), controller.RequestWaffoPancakePay)
 				selfRoute.POST("/aff_transfer", middleware.UserCriticalRateLimit("aff-transfer"), controller.TransferAffQuota)
+				selfRoute.GET("/aff/withdrawals", controller.GetMyAffWithdrawals)
+				selfRoute.POST("/aff/withdrawals", middleware.UserCriticalRateLimit("aff-withdraw"), controller.CreateMyAffWithdrawal)
 				selfRoute.PUT("/setting", controller.UpdateUserSetting)
 
 				// 2FA routes
@@ -276,6 +278,14 @@ func SetApiRouter(router *gin.Engine) {
 			invoiceAdminRoute.PUT("/:id/review", controller.ReviewInvoiceAdmin)
 			invoiceAdminRoute.POST("/:id/issue", middleware.UploadRateLimit(), controller.IssueInvoiceAdmin)
 			invoiceAdminRoute.GET("/:id/file", controller.DownloadInvoiceAdmin)
+		}
+
+		// Referral withdrawal management (admin console)
+		affWithdrawalAdminRoute := apiRouter.Group("/aff_withdrawals")
+		affWithdrawalAdminRoute.Use(middleware.AdminAuth())
+		{
+			affWithdrawalAdminRoute.GET("/", controller.ListAffWithdrawalsAdmin)
+			affWithdrawalAdminRoute.PUT("/:id", controller.ReviewAffWithdrawalAdmin)
 		}
 
 		// Subscription payment callbacks (no auth)

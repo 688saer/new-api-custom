@@ -37,6 +37,7 @@ import { Route as ServiceStatusIndexRouteImport } from './routes/service-status/
 import { Route as SetupIndexRouteImport } from './routes/setup/index'
 import { Route as WelfareApisIndexRouteImport } from './routes/welfare-apis/index'
 import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
+import { Route as AuthenticatedAffWithdrawalsConsoleIndexRouteImport } from './routes/_authenticated/aff-withdrawals-console/index'
 import { Route as AuthenticatedAnnouncementsIndexRouteImport } from './routes/_authenticated/announcements/index'
 import { Route as AuthenticatedCanvasIndexRouteImport } from './routes/_authenticated/canvas/index'
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
@@ -44,6 +45,8 @@ import { Route as AuthenticatedChatChatIdRouteImport } from './routes/_authentic
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedDashboardSectionRouteImport } from './routes/_authenticated/dashboard/$section'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
+import { Route as AuthenticatedInvoiceConsoleIndexRouteImport } from './routes/_authenticated/invoice-console/index'
+import { Route as AuthenticatedInvoicesIndexRouteImport } from './routes/_authenticated/invoices/index'
 import { Route as AuthenticatedKeysIndexRouteImport } from './routes/_authenticated/keys/index'
 import { Route as AuthenticatedLotteryIndexRouteImport } from './routes/_authenticated/lottery/index'
 import { Route as AuthenticatedModelsIndexRouteImport } from './routes/_authenticated/models/index'
@@ -222,6 +225,12 @@ const authUserResetRoute = authUserResetRouteImport.update({
   path: '/user/reset',
   getParentRoute: () => authRouteRoute,
 } as any)
+const AuthenticatedAffWithdrawalsConsoleIndexRoute =
+  AuthenticatedAffWithdrawalsConsoleIndexRouteImport.update({
+    id: '/aff-withdrawals-console/',
+    path: '/aff-withdrawals-console/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAnnouncementsIndexRoute =
   AuthenticatedAnnouncementsIndexRouteImport.update({
     id: '/announcements/',
@@ -261,6 +270,18 @@ const AuthenticatedErrorsErrorRoute =
   AuthenticatedErrorsErrorRouteImport.update({
     id: '/errors/$error',
     path: '/errors/$error',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedInvoiceConsoleIndexRoute =
+  AuthenticatedInvoiceConsoleIndexRouteImport.update({
+    id: '/invoice-console/',
+    path: '/invoice-console/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedInvoicesIndexRoute =
+  AuthenticatedInvoicesIndexRouteImport.update({
+    id: '/invoices/',
+    path: '/invoices/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedKeysIndexRoute = AuthenticatedKeysIndexRouteImport.update({
@@ -523,10 +544,13 @@ export interface FileRoutesByFullPath {
   '/rewards/admin': typeof AuthenticatedRewardsAdminRoute
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
+  '/aff-withdrawals-console/': typeof AuthenticatedAffWithdrawalsConsoleIndexRoute
   '/announcements/': typeof AuthenticatedAnnouncementsIndexRoute
   '/canvas/': typeof AuthenticatedCanvasIndexRoute
   '/channels/': typeof AuthenticatedChannelsIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/invoice-console/': typeof AuthenticatedInvoiceConsoleIndexRoute
+  '/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/keys/': typeof AuthenticatedKeysIndexRoute
   '/lottery/': typeof AuthenticatedLotteryIndexRoute
   '/models/': typeof AuthenticatedModelsIndexRoute
@@ -595,10 +619,13 @@ export interface FileRoutesByTo {
   '/rewards/admin': typeof AuthenticatedRewardsAdminRoute
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
+  '/aff-withdrawals-console': typeof AuthenticatedAffWithdrawalsConsoleIndexRoute
   '/announcements': typeof AuthenticatedAnnouncementsIndexRoute
   '/canvas': typeof AuthenticatedCanvasIndexRoute
   '/channels': typeof AuthenticatedChannelsIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
+  '/invoice-console': typeof AuthenticatedInvoiceConsoleIndexRoute
+  '/invoices': typeof AuthenticatedInvoicesIndexRoute
   '/keys': typeof AuthenticatedKeysIndexRoute
   '/lottery': typeof AuthenticatedLotteryIndexRoute
   '/models': typeof AuthenticatedModelsIndexRoute
@@ -671,10 +698,13 @@ export interface FileRoutesById {
   '/_authenticated/rewards/admin': typeof AuthenticatedRewardsAdminRoute
   '/_authenticated/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/_authenticated/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
+  '/_authenticated/aff-withdrawals-console/': typeof AuthenticatedAffWithdrawalsConsoleIndexRoute
   '/_authenticated/announcements/': typeof AuthenticatedAnnouncementsIndexRoute
   '/_authenticated/canvas/': typeof AuthenticatedCanvasIndexRoute
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/_authenticated/invoice-console/': typeof AuthenticatedInvoiceConsoleIndexRoute
+  '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/_authenticated/keys/': typeof AuthenticatedKeysIndexRoute
   '/_authenticated/lottery/': typeof AuthenticatedLotteryIndexRoute
   '/_authenticated/models/': typeof AuthenticatedModelsIndexRoute
@@ -746,10 +776,13 @@ export interface FileRouteTypes {
     | '/rewards/admin'
     | '/usage-logs/$section'
     | '/usage-logs/audit'
+    | '/aff-withdrawals-console/'
     | '/announcements/'
     | '/canvas/'
     | '/channels/'
     | '/dashboard/'
+    | '/invoice-console/'
+    | '/invoices/'
     | '/keys/'
     | '/lottery/'
     | '/models/'
@@ -818,10 +851,13 @@ export interface FileRouteTypes {
     | '/rewards/admin'
     | '/usage-logs/$section'
     | '/usage-logs/audit'
+    | '/aff-withdrawals-console'
     | '/announcements'
     | '/canvas'
     | '/channels'
     | '/dashboard'
+    | '/invoice-console'
+    | '/invoices'
     | '/keys'
     | '/lottery'
     | '/models'
@@ -893,10 +929,13 @@ export interface FileRouteTypes {
     | '/_authenticated/rewards/admin'
     | '/_authenticated/usage-logs/$section'
     | '/_authenticated/usage-logs/audit'
+    | '/_authenticated/aff-withdrawals-console/'
     | '/_authenticated/announcements/'
     | '/_authenticated/canvas/'
     | '/_authenticated/channels/'
     | '/_authenticated/dashboard/'
+    | '/_authenticated/invoice-console/'
+    | '/_authenticated/invoices/'
     | '/_authenticated/keys/'
     | '/_authenticated/lottery/'
     | '/_authenticated/models/'
@@ -1153,6 +1192,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authUserResetRouteImport
       parentRoute: typeof authRouteRoute
     }
+    '/_authenticated/aff-withdrawals-console/': {
+      id: '/_authenticated/aff-withdrawals-console/'
+      path: '/aff-withdrawals-console'
+      fullPath: '/aff-withdrawals-console/'
+      preLoaderRoute: typeof AuthenticatedAffWithdrawalsConsoleIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/announcements/': {
       id: '/_authenticated/announcements/'
       path: '/announcements'
@@ -1200,6 +1246,20 @@ declare module '@tanstack/react-router' {
       path: '/errors/$error'
       fullPath: '/errors/$error'
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/invoice-console/': {
+      id: '/_authenticated/invoice-console/'
+      path: '/invoice-console'
+      fullPath: '/invoice-console/'
+      preLoaderRoute: typeof AuthenticatedInvoiceConsoleIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/invoices/': {
+      id: '/_authenticated/invoices/'
+      path: '/invoices'
+      fullPath: '/invoices/'
+      preLoaderRoute: typeof AuthenticatedInvoicesIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/keys/': {
@@ -1570,10 +1630,13 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRewardsAdminRoute: typeof AuthenticatedRewardsAdminRoute
   AuthenticatedUsageLogsSectionRoute: typeof AuthenticatedUsageLogsSectionRoute
   AuthenticatedUsageLogsAuditRoute: typeof AuthenticatedUsageLogsAuditRoute
+  AuthenticatedAffWithdrawalsConsoleIndexRoute: typeof AuthenticatedAffWithdrawalsConsoleIndexRoute
   AuthenticatedAnnouncementsIndexRoute: typeof AuthenticatedAnnouncementsIndexRoute
   AuthenticatedCanvasIndexRoute: typeof AuthenticatedCanvasIndexRoute
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
+  AuthenticatedInvoiceConsoleIndexRoute: typeof AuthenticatedInvoiceConsoleIndexRoute
+  AuthenticatedInvoicesIndexRoute: typeof AuthenticatedInvoicesIndexRoute
   AuthenticatedKeysIndexRoute: typeof AuthenticatedKeysIndexRoute
   AuthenticatedLotteryIndexRoute: typeof AuthenticatedLotteryIndexRoute
   AuthenticatedModelsIndexRoute: typeof AuthenticatedModelsIndexRoute
@@ -1603,10 +1666,14 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRewardsAdminRoute: AuthenticatedRewardsAdminRoute,
   AuthenticatedUsageLogsSectionRoute: AuthenticatedUsageLogsSectionRoute,
   AuthenticatedUsageLogsAuditRoute: AuthenticatedUsageLogsAuditRoute,
+  AuthenticatedAffWithdrawalsConsoleIndexRoute:
+    AuthenticatedAffWithdrawalsConsoleIndexRoute,
   AuthenticatedAnnouncementsIndexRoute: AuthenticatedAnnouncementsIndexRoute,
   AuthenticatedCanvasIndexRoute: AuthenticatedCanvasIndexRoute,
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
+  AuthenticatedInvoiceConsoleIndexRoute: AuthenticatedInvoiceConsoleIndexRoute,
+  AuthenticatedInvoicesIndexRoute: AuthenticatedInvoicesIndexRoute,
   AuthenticatedKeysIndexRoute: AuthenticatedKeysIndexRoute,
   AuthenticatedLotteryIndexRoute: AuthenticatedLotteryIndexRoute,
   AuthenticatedModelsIndexRoute: AuthenticatedModelsIndexRoute,

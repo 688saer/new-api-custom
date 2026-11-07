@@ -128,6 +128,34 @@ func TestMigrationSchemaStability(t *testing.T) {
 				}
 			})
 
+			t.Run("aff_withdrawal_schema", func(t *testing.T) {
+				const table = "aff_withdrawal_migration_test"
+				t.Cleanup(func() { _ = db.Migrator().DropTable(table) })
+				require.NoError(t, db.Table(table).AutoMigrate(&AffWithdrawal{}))
+				recorder.reset()
+				require.NoError(t, db.Table(table).AutoMigrate(&AffWithdrawal{}))
+				assert.Empty(t, recorder.schemaMutations())
+
+				row := AffWithdrawal{
+					Id:          1,
+					UserId:      42,
+					Username:    "inviter",
+					Quota:       1000,
+					FeePercent:  10,
+					FeeQuota:    100,
+					PayoutQuota: 900,
+					Money:       12.34,
+					Account:     "alipay@example.com",
+					Name:        "张三",
+					Status:      AffWithdrawalStatusPending,
+					CreateTime:  1730000000,
+				}
+				require.NoError(t, db.Table(table).Create(&row).Error)
+				var saved AffWithdrawal
+				require.NoError(t, db.Table(table).First(&saved, 1).Error)
+				assert.Equal(t, row, saved)
+			})
+
 			t.Run("unique_constraint_changes", func(t *testing.T) {
 				const table = "migration_constraint_test"
 				t.Cleanup(func() { _ = db.Migrator().DropTable(table) })

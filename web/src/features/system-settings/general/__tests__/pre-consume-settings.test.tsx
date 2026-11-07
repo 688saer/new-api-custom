@@ -47,6 +47,9 @@ function Fixture() {
             InviteRegisterRewardEnabled: true,
             InviteRebateEnabled: false,
             InviteRebatePercent: 0,
+            AffWithdrawAlipayEnabled: false,
+            AffWithdrawFeePercent: 0,
+            AffWithdrawMinQuota: 0,
             TopUpLink: '',
             quota_setting: {
               enable_free_model_pre_consume: true,

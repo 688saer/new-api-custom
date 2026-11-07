@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -35,6 +35,9 @@ import type {
   WechatOrderStatusResponse,
   AffiliateCodeResponse,
   AffiliateTransferResponse,
+  AffWithdrawalCreateResponse,
+  AffWithdrawalListResponse,
+  AffWithdrawalRequest,
   BillingHistoryResponse,
   CompleteOrderRequest,
   CreemPaymentRequest,
@@ -275,6 +278,29 @@ export async function transferAffiliateQuota(
   request: AffiliateTransferRequest
 ): Promise<AffiliateTransferResponse> {
   const res = await api.post('/api/user/aff_transfer', request)
+  return res.data
+}
+
+/**
+ * List my Alipay withdrawal applications
+ */
+export async function listMyAffWithdrawals(
+  page = 1,
+  pageSize = 20
+): Promise<AffWithdrawalListResponse> {
+  const res = await api.get('/api/user/aff/withdrawals', {
+    params: { page, page_size: pageSize },
+  })
+  return res.data
+}
+
+/**
+ * Submit an Alipay withdrawal application
+ */
+export async function createAffWithdrawal(
+  request: AffWithdrawalRequest
+): Promise<AffWithdrawalCreateResponse> {
+  const res = await api.post('/api/user/aff/withdrawals', request)
   return res.data
 }
 

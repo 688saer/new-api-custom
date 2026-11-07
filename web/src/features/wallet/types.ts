@@ -41,6 +41,13 @@ export type PaymentResponse = ApiResponse<Record<string, unknown>> & {
 export type StripePaymentResponse = ApiResponse<{ pay_link: string }>
 export type AffiliateCodeResponse = ApiResponse<string>
 export type AffiliateTransferResponse = ApiResponse
+export type AffWithdrawalCreateResponse = ApiResponse<AffWithdrawal>
+export type AffWithdrawalListResponse = ApiResponse<{
+  items: AffWithdrawal[]
+  total: number
+  page: number
+  page_size: number
+}>
 export type CreemPaymentResponse = ApiResponse<{ checkout_url: string }>
 export type WaffoPaymentResponse = ApiResponse<
   { payment_url?: string } | string
@@ -275,6 +282,48 @@ export interface AffiliateTransferRequest {
 }
 
 /**
+ * Alipay withdrawal application status
+ */
+export type AffWithdrawalStatus = 'pending' | 'approved' | 'rejected'
+
+/**
+ * A referral reward withdrawal to Alipay
+ */
+export interface AffWithdrawal {
+  id: number
+  user_id: number
+  username: string
+  /** Frozen referral quota */
+  quota: number
+  /** Fee rate applied at request time, in percent */
+  fee_percent: number
+  /** Quota kept by the site as the fee */
+  fee_quota: number
+  /** Quota actually paid out */
+  payout_quota: number
+  /** CNY amount to pay out */
+  money: number
+  /** Alipay account */
+  account: string
+  /** Account holder name */
+  name: string
+  status: AffWithdrawalStatus
+  admin_note: string
+  reviewer_name: string
+  create_time: number
+  review_time: number
+}
+
+/**
+ * Alipay withdrawal request
+ */
+export interface AffWithdrawalRequest {
+  quota: number
+  account: string
+  name: string
+}
+
+/**
  * User wallet data
  */
 export interface UserWalletData {
@@ -300,6 +349,12 @@ export interface UserWalletData {
   invite_rebate_enabled?: boolean
   /** Share of invited spending credited to the inviter, in percent */
   invite_rebate_percent?: number
+  /** Whether Alipay cash withdrawal of referral rewards is enabled */
+  aff_withdraw_alipay_enabled?: boolean
+  /** Fee rate for Alipay withdrawals, in percent */
+  aff_withdraw_fee_percent?: number
+  /** Minimum referral quota that may be withdrawn */
+  aff_withdraw_min_quota?: number
   /** User group */
   group: string
 }

@@ -20,6 +20,7 @@ import { Share2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
@@ -33,6 +34,7 @@ interface AffiliateRewardsCardProps {
   user: UserWalletData | null
   affiliateLink: string
   onTransfer: () => void
+  onWithdrawAlipay?: () => void
   complianceConfirmed?: boolean
   loading?: boolean
 }
@@ -41,6 +43,7 @@ export function AffiliateRewardsCard({
   user,
   affiliateLink,
   onTransfer,
+  onWithdrawAlipay,
   complianceConfirmed = true,
   loading,
 }: AffiliateRewardsCardProps) {
@@ -65,6 +68,7 @@ export function AffiliateRewardsCard({
     (user?.invite_rebate_enabled ?? false) &&
     (user?.invite_rebate_percent ?? 0) > 0
   const registerRewardEnabled = user?.invite_register_reward_enabled ?? false
+  const alipayEnabled = user?.aff_withdraw_alipay_enabled ?? false
 
   return (
     <Card data-card-hover='false' className='bg-muted/20 py-0'>
@@ -74,8 +78,16 @@ export function AffiliateRewardsCard({
             <Share2 />
           </IconBadge>
           <div className='min-w-0'>
-            <h3 className='truncate text-sm font-semibold'>
-              {t('Referral Program')}
+            <h3 className='flex items-center gap-2 text-sm font-semibold'>
+              <span className='truncate'>{t('Referral Program')}</span>
+              {rebateEnabled ? (
+                <Badge
+                  variant='outline'
+                  className='border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
+                >
+                  +{user?.invite_rebate_percent ?? 0}%
+                </Badge>
+              ) : null}
             </h3>
             <p className='text-muted-foreground line-clamp-1 text-xs'>
               {t(
@@ -117,14 +129,27 @@ export function AffiliateRewardsCard({
             aria-label={t('Copy referral link')}
           />
           {hasRewards && (
-            <Button
-              onClick={onTransfer}
-              disabled={!complianceConfirmed}
-              className='h-9 shrink-0 px-3'
-              size='sm'
-            >
-              {t('Transfer to Balance')}
-            </Button>
+            <div className='flex shrink-0 items-center gap-2'>
+              <Button
+                onClick={onTransfer}
+                disabled={!complianceConfirmed}
+                className='h-9 px-3'
+                size='sm'
+              >
+                {t('Transfer to Balance')}
+              </Button>
+              {alipayEnabled && onWithdrawAlipay ? (
+                <Button
+                  onClick={onWithdrawAlipay}
+                  disabled={!complianceConfirmed}
+                  variant='outline'
+                  className='bg-background h-9 px-3'
+                  size='sm'
+                >
+                  {t('Withdraw to Alipay')}
+                </Button>
+              ) : null}
+            </div>
           )}
         </div>
         {!complianceConfirmed ? (

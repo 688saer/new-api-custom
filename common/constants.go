@@ -138,6 +138,14 @@ var QuotaForInvitee = 0
 var InviteRegisterRewardEnabled = true
 var InviteRebateEnabled = false
 var InviteRebatePercent = 0
+
+// AffWithdrawAlipayEnabled gates Alipay cash withdrawals of referral rewards.
+// AffWithdrawFeePercent is the share of each Alipay withdrawal the site keeps,
+// in percent (0..100). AffWithdrawMinQuota is the smallest referral quota that
+// may be withdrawn; 0 disables the minimum. Balance transfers stay fee-free.
+var AffWithdrawAlipayEnabled = false
+var AffWithdrawFeePercent = 0
+var AffWithdrawMinQuota = 0
 var ChannelDisableThreshold = 5.0
 var AutomaticDisableChannelEnabled = false
 var AutomaticEnableChannelEnabled = false

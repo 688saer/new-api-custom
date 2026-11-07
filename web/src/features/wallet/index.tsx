@@ -1,4 +1,4 @@
-﻿import { Link } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import { Receipt } from 'lucide-react'
 /*
 Copyright (C) 2023-2026 QuantumNous
@@ -31,8 +31,10 @@ import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { getSelf } from '@/lib/api'
 
+import { AffWithdrawalHistoryCard } from './components/aff-withdrawal-history-card'
 import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
 import { AlipayQrDialog } from './components/dialogs/alipay-qr-dialog'
+import { AlipayWithdrawDialog } from './components/dialogs/alipay-withdraw-dialog'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
@@ -47,6 +49,7 @@ import {
   useTopupInfo,
   usePayment,
   useAffiliate,
+  useAffWithdrawal,
   useRedemption,
   useCreemPayment,
   useWaffoPayment,
@@ -83,6 +86,8 @@ export function Wallet(props: WalletProps) {
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
+  const [alipayWithdrawDialogOpen, setAlipayWithdrawDialogOpen] =
+    useState(false)
   const [billingDialogOpen, setBillingDialogOpen] = useState(false)
   const [redemptionCode, setRedemptionCode] = useState('')
   const [creemDialogOpen, setCreemDialogOpen] = useState(false)
@@ -119,6 +124,11 @@ export function Wallet(props: WalletProps) {
     transferQuota,
     transferring,
   } = useAffiliate()
+  const {
+    withdrawals,
+    submitting: withdrawSubmitting,
+    withdrawToAlipay,
+  } = useAffWithdrawal()
   const { redeeming, redeemCode } = useRedemption()
   const { processing: creemProcessing, processCreemPayment } = useCreemPayment()
   const { processing: waffoProcessing, processWaffoPayment } = useWaffoPayment()
@@ -281,6 +291,19 @@ export function Wallet(props: WalletProps) {
     return success
   }
 
+  // Handle Alipay withdrawal
+  const handleWithdrawAlipay = async (
+    amount: number,
+    account: string,
+    name: string
+  ) => {
+    const success = await withdrawToAlipay(amount, account, name)
+    if (success) {
+      await fetchUser()
+    }
+    return success
+  }
+
   // Handle Creem product selection
   const handleCreemProductSelect = async (product: CreemProduct) => {
     if (!(await ensurePurchaseAgreement('topup'))) {
@@ -415,11 +438,14 @@ export function Wallet(props: WalletProps) {
               user={user}
               affiliateLink={affiliateLink}
               onTransfer={() => setTransferDialogOpen(true)}
+              onWithdrawAlipay={() => setAlipayWithdrawDialogOpen(true)}
               complianceConfirmed={
                 topupInfo?.payment_compliance_confirmed !== false
               }
               loading={affiliateLoading}
             />
+
+            <AffWithdrawalHistoryCard items={withdrawals} />
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>
@@ -443,6 +469,16 @@ export function Wallet(props: WalletProps) {
         onConfirm={handleTransfer}
         availableQuota={user?.aff_quota ?? 0}
         transferring={transferring}
+      />
+
+      <AlipayWithdrawDialog
+        open={alipayWithdrawDialogOpen}
+        onOpenChange={setAlipayWithdrawDialogOpen}
+        onConfirm={handleWithdrawAlipay}
+        availableQuota={user?.aff_quota ?? 0}
+        feePercent={user?.aff_withdraw_fee_percent ?? 0}
+        minQuota={user?.aff_withdraw_min_quota ?? 0}
+        submitting={withdrawSubmitting}
       />
 
       <BillingHistoryDialog

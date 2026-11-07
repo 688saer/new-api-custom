@@ -220,6 +220,23 @@ func UpdateOption(c *gin.Context) {
 			common.ApiErrorT(c, "Payment, redemption, subscription, and invitation reward features are disabled. The administrator must confirm compliance terms before enabling them.")
 			return
 		}
+	case "AffWithdrawAlipayEnabled":
+		if option.Value.(string) == "true" && !operation_setting.IsPaymentComplianceConfirmed() {
+			common.ApiErrorT(c, "Payment, redemption, subscription, and invitation reward features are disabled. The administrator must confirm compliance terms before enabling them.")
+			return
+		}
+	case "AffWithdrawFeePercent":
+		percent, err := strconv.Atoi(option.Value.(string))
+		if err != nil || percent < 0 || percent > 100 {
+			common.ApiErrorT(c, "The withdrawal fee percentage must be between 0 and 100")
+			return
+		}
+	case "AffWithdrawMinQuota":
+		minQuota, err := strconv.Atoi(option.Value.(string))
+		if err != nil || minQuota < 0 {
+			common.ApiErrorT(c, "The minimum withdrawal quota cannot be negative")
+			return
+		}
 	default:
 		if isPaymentComplianceOptionKey(option.Key) {
 			common.ApiErrorT(c, "Compliance confirmation fields cannot be changed through the general settings API")

@@ -169,6 +169,9 @@ func InitOptionMap() {
 	common.OptionMap["InviteRegisterRewardEnabled"] = strconv.FormatBool(common.InviteRegisterRewardEnabled)
 	common.OptionMap["InviteRebateEnabled"] = strconv.FormatBool(common.InviteRebateEnabled)
 	common.OptionMap["InviteRebatePercent"] = strconv.Itoa(common.InviteRebatePercent)
+	common.OptionMap["AffWithdrawAlipayEnabled"] = strconv.FormatBool(common.AffWithdrawAlipayEnabled)
+	common.OptionMap["AffWithdrawFeePercent"] = strconv.Itoa(common.AffWithdrawFeePercent)
+	common.OptionMap["AffWithdrawMinQuota"] = strconv.Itoa(common.AffWithdrawMinQuota)
 	common.OptionMap["QuotaRemindEnabled"] = strconv.FormatBool(common.QuotaRemindEnabled)
 	common.OptionMap["QuotaRemindThreshold"] = strconv.Itoa(common.QuotaRemindThreshold)
 	common.OptionMap["PreConsumedQuota"] = strconv.Itoa(common.PreConsumedQuota)
@@ -710,6 +713,12 @@ func updateOptionMap(key string, value string) (err error) {
 		common.InviteRebateEnabled, _ = strconv.ParseBool(value)
 	case "InviteRebatePercent":
 		common.InviteRebatePercent, _ = strconv.Atoi(value)
+	case "AffWithdrawAlipayEnabled":
+		common.AffWithdrawAlipayEnabled, _ = strconv.ParseBool(value)
+	case "AffWithdrawFeePercent":
+		common.AffWithdrawFeePercent, _ = strconv.Atoi(value)
+	case "AffWithdrawMinQuota":
+		common.AffWithdrawMinQuota, _ = strconv.Atoi(value)
 	case "QuotaRemindThreshold":
 		common.QuotaRemindThreshold, _ = strconv.Atoi(value)
 	case "PreConsumedQuota":
