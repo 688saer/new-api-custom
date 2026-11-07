@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -115,6 +115,27 @@ export function InvoiceReviewDialog(props: InvoiceReviewDialogProps) {
         </>
       }
     >
+      {invoice.orders && invoice.orders.length > 0 ? (
+        <div className='space-y-1 rounded-lg border p-2'>
+          <p className='text-muted-foreground text-xs font-medium'>
+            {t('Invoiced orders')}
+          </p>
+          {invoice.orders.map((order) => (
+            <div
+              key={order.id}
+              className='flex items-center justify-between gap-2 text-xs'
+            >
+              <span className='min-w-0 truncate font-mono'>
+                {order.trade_no || `#${order.topup_id}`}
+              </span>
+              <span className='tabular-nums'>
+                ¥{(order.amount_cents / 100).toFixed(2)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       {props.approve ? (
         <p className='text-muted-foreground text-sm'>
           {t(

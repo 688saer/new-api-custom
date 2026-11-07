@@ -40,3 +40,16 @@ export function describeWindowMinutes(health: UpstreamHealth | null): number {
   }
   return Math.max(1, Math.round(health.window_seconds / 60))
 }
+
+/**
+ * Identifies the current set of warnings so a dismissed banner stays dismissed
+ * while nothing new breaks, but returns as soon as another capability fails or
+ * a capability goes from degraded to down. Counts are deliberately left out:
+ * they drift on every poll and would resurrect the banner every minute.
+ */
+export function warningSignature(warnings: UpstreamWarning[]): string {
+  return warnings
+    .map((warning) => `${warning.capability}:${warning.state}`)
+    .sort()
+    .join(',')
+}

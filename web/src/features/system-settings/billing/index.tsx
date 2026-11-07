@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -28,6 +28,9 @@ const defaultBillingSettings: BillingSettings = {
   QuotaForNewUser: 0,
   QuotaForInviter: 0,
   QuotaForInvitee: 0,
+  InviteRegisterRewardEnabled: true,
+  InviteRebateEnabled: false,
+  InviteRebatePercent: 0,
   TopUpLink: '',
   'quota_setting.enable_free_model_pre_consume': true,
   'quota_setting.trust_quota_usd': 10,

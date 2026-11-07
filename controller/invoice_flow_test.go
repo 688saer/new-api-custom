@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 package controller
 
 import (
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -54,8 +55,27 @@ func setupInvoiceTestDB(t *testing.T) *gorm.DB {
 		}
 	})
 
-	require.NoError(t, db.AutoMigrate(&model.Invoice{}, &model.PurchaseAgreementSignature{}))
+	require.NoError(t, db.AutoMigrate(&model.Invoice{}, &model.InvoiceOrder{}, &model.TopUp{}, &model.PurchaseAgreementSignature{}))
 	return db
+}
+
+// seedPaidTopUp 造一笔已支付订单，发票金额现在完全由这些订单决定
+func seedPaidTopUp(t *testing.T, userId int, tradeNo string, money float64, status string) *model.TopUp {
+	t.Helper()
+
+	topUp := &model.TopUp{
+		UserId:          userId,
+		Amount:          int64(money * 500000),
+		Money:           money,
+		TradeNo:         tradeNo,
+		PaymentMethod:   model.PaymentMethodAlipayOfficial,
+		PaymentProvider: model.PaymentProviderAlipay,
+		CreateTime:      1700000000,
+		CompleteTime:    1700000100,
+		Status:          status,
+	}
+	require.NoError(t, model.DB.Create(topUp).Error)
+	return topUp
 }
 
 func newInvoiceTestContext(t *testing.T, userId int, body string) (*gin.Context, *httptest.ResponseRecorder) {
@@ -71,10 +91,24 @@ func newInvoiceTestContext(t *testing.T, userId int, body string) (*gin.Context,
 }
 
 // 申请 → 审核 → 开具 → 下载 的完整链路，以及驳回必须带原因。
+// 金额只能来自本账户已支付的订单，手写金额与重复开票都会被拒绝。
 func TestInvoiceRequestLifecycle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	setupInvoiceTestDB(t)
 	t.Setenv("INVOICE_FILE_DIR", t.TempDir())
+
+	setting := operation_setting.GetInvoiceSetting()
+	setting.Enabled = true
+	previousMin, previousMax := setting.MinAmount, setting.MaxAmount
+	setting.MinAmount, setting.MaxAmount = 0, 0
+	t.Cleanup(func() {
+		setting.MinAmount, setting.MaxAmount = previousMin, previousMax
+	})
+
+	first := seedPaidTopUp(t, 7, "trade-paid-1", 88.5, "success")
+	second := seedPaidTopUp(t, 7, "trade-paid-2", 11.5, "success")
+	pending := seedPaidTopUp(t, 7, "trade-pending", 30, "pending")
+	foreign := seedPaidTopUp(t, 99, "trade-foreign", 20, "success")
 
 	create := func(body string) *httptest.ResponseRecorder {
 		ctx, recorder := newInvoiceTestContext(t, 7, body)
@@ -82,17 +116,41 @@ func TestInvoiceRequestLifecycle(t *testing.T) {
 		return recorder
 	}
 
-	invalid := create(`{"title_type":"company","title_name":"测试公司","email":"fin@example.com","amount":10}`)
+	invalid := create(`{"title_type":"company","title_name":"测试公司","email":"fin@example.com","topup_ids":[1]}`)
 	assert.Contains(t, invalid.Body.String(), model.InvoiceCodeInvalidTaxId)
 
-	created := create(`{"title_type":"company","title_name":"测试公司","tax_id":"91310000MA1K35Q12X","email":"fin@example.com","amount":88.5,"content":"技术服务费"}`)
+	// 未支付、他人订单、以及手写金额都不能通过
+	unpaid := create(fmt.Sprintf(`{"title_type":"personal","title_name":"张三","email":"a@b.com","topup_ids":[%d]}`, pending.Id))
+	assert.Contains(t, unpaid.Body.String(), "not a paid order")
+
+	borrowed := create(fmt.Sprintf(`{"title_type":"personal","title_name":"张三","email":"a@b.com","topup_ids":[%d]}`, foreign.Id))
+	assert.Contains(t, borrowed.Body.String(), "not a paid order")
+
+	typed := create(fmt.Sprintf(`{"title_type":"personal","title_name":"张三","email":"a@b.com","topup_ids":[%d],"amount":10}`, first.Id))
+	assert.Contains(t, typed.Body.String(), model.InvoiceCodeInvalidAmount)
+
+	noOrder := create(`{"title_type":"personal","title_name":"张三","email":"a@b.com"}`)
+	assert.Contains(t, noOrder.Body.String(), model.InvoiceCodeInvalidAmount)
+
+	created := create(fmt.Sprintf(`{"title_type":"company","title_name":"测试公司","tax_id":"91310000MA1K35Q12X","email":"fin@example.com","topup_ids":[%d,%d],"content":"技术服务费"}`, first.Id, second.Id))
 	require.Contains(t, created.Body.String(), `"success":true`)
 
 	var invoice model.Invoice
 	require.NoError(t, model.DB.Order("id desc").First(&invoice).Error)
 	assert.Equal(t, model.InvoiceStatusPending, invoice.Status)
-	assert.Equal(t, int64(8850), invoice.AmountCents)
+	assert.Equal(t, int64(10000), invoice.AmountCents)
 	assert.Equal(t, 7, invoice.UserId)
+
+	var orders []model.InvoiceOrder
+	require.NoError(t, model.DB.Where("invoice_id = ?", invoice.Id).Find(&orders).Error)
+	require.Len(t, orders, 2)
+	assert.Equal(t, "trade-paid-1", orders[0].TradeNo)
+	assert.Equal(t, int64(8850), orders[0].AmountCents)
+	assert.Equal(t, int64(1150), orders[1].AmountCents)
+
+	// 已被占用的订单不能再次开票
+	again := create(fmt.Sprintf(`{"title_type":"personal","title_name":"张三","email":"a@b.com","topup_ids":[%d]}`, first.Id))
+	assert.Contains(t, again.Body.String(), "already been invoiced")
 
 	reviewed, err := model.ReviewInvoice(invoice.Id, true, "", 1, "admin")
 	require.NoError(t, err)
@@ -117,8 +175,9 @@ func TestInvoiceRequestLifecycle(t *testing.T) {
 	assert.Equal(t, pdf, stored)
 
 	// 驳回路径：原因必填，驳回后不再允许开具
+	third := seedPaidTopUp(t, 7, "trade-paid-3", 20, "success")
 	rejectedCtx, rejectedRecorder := newInvoiceTestContext(t, 7,
-		`{"title_type":"personal","title_name":"张三","email":"a@b.com","amount":20}`)
+		fmt.Sprintf(`{"title_type":"personal","title_name":"张三","email":"a@b.com","topup_ids":[%d]}`, third.Id))
 	CreateMyInvoice(rejectedCtx)
 	require.Contains(t, rejectedRecorder.Body.String(), `"success":true`)
 
@@ -135,6 +194,21 @@ func TestInvoiceRequestLifecycle(t *testing.T) {
 
 	_, err = model.IssueInvoice(personal.Id, "INV-2026-0002", "invoice.pdf", pdf, 1, "admin")
 	require.Error(t, err)
+
+	// 驳回释放订单：同一笔订单可以重新申请
+	available, err := model.InvoiceableOrders(7)
+	require.NoError(t, err)
+	var reopened model.InvoiceableOrder
+	for _, order := range available {
+		if order.TopUpId == third.Id {
+			reopened = order
+		}
+	}
+	require.NotZero(t, reopened.TopUpId)
+	assert.Zero(t, reopened.InvoiceId)
+
+	retry := create(fmt.Sprintf(`{"title_type":"personal","title_name":"张三","email":"a@b.com","topup_ids":[%d]}`, third.Id))
+	assert.Contains(t, retry.Body.String(), `"success":true`)
 }
 
 // 购买协议：未签署时 confirm 拒绝购买，签署后放行，重复签署不产生第二条记录。

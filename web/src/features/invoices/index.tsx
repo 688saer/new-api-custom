@@ -81,6 +81,77 @@ export function Invoices() {
     }
   }
 
+  let listBody = (
+    <div className='space-y-2.5'>
+      {items.map((invoice) => (
+        <Card key={invoice.id} className='border-muted shadow-none'>
+          <CardContent className='flex flex-wrap items-center gap-3 p-3 sm:gap-4 sm:p-4'>
+            <div className='min-w-0 flex-1 space-y-1'>
+              <div className='flex flex-wrap items-center gap-2'>
+                <span className='font-semibold'>
+                  ¥{formatNumber(invoice.amount_cents / 100)}
+                </span>
+                <Badge
+                  variant='outline'
+                  className={cn('text-[11px]', STATUS_TONE[invoice.status])}
+                >
+                  {statusLabel(invoice.status)}
+                </Badge>
+              </div>
+              <div className='text-muted-foreground truncate text-xs'>
+                {invoice.title_name} · {invoice.email}
+              </div>
+              <div className='text-muted-foreground text-xs'>
+                {formatTimestamp(invoice.created_at)}
+                {invoice.invoice_no
+                  ? ` · ${t('Invoice number')}: ${invoice.invoice_no}`
+                  : ''}
+              </div>
+              {invoice.status === 'rejected' && invoice.reject_reason ? (
+                <div className='text-xs text-rose-600'>
+                  {t('Rejected reason')}: {invoice.reject_reason}
+                </div>
+              ) : null}
+            </div>
+            {invoice.status === 'issued' ? (
+              <Button
+                variant='outline'
+                size='sm'
+                className='gap-2'
+                disabled={downloadMutation.isPending}
+                onClick={() => downloadMutation.mutate(invoice)}
+              >
+                {downloadMutation.isPending ? (
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                ) : (
+                  <Download className='h-4 w-4' />
+                )}
+                {t('Download')}
+              </Button>
+            ) : null}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+  if (query.isLoading) {
+    listBody = (
+      <div className='text-muted-foreground flex items-center gap-2 py-10 text-sm'>
+        <Loader2 className='h-4 w-4 animate-spin' />
+        {t('Loading')}
+      </div>
+    )
+  } else if (items.length === 0) {
+    listBody = (
+      <EmptyState
+        title={t('No invoice requests yet')}
+        description={t(
+          'Request an invoice for the amount you have paid, and we will issue it after review.'
+        )}
+      />
+    )
+  }
+
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Invoices')}</SectionPageLayout.Title>
@@ -114,75 +185,7 @@ export function Invoices() {
               </p>
             ) : null}
 
-            {query.isLoading ? (
-              <div className='text-muted-foreground flex items-center gap-2 py-10 text-sm'>
-                <Loader2 className='h-4 w-4 animate-spin' />
-                {t('Loading')}
-              </div>
-            ) : items.length === 0 ? (
-              <EmptyState
-                title={t('No invoice requests yet')}
-                description={t(
-                  'Request an invoice for the amount you have paid, and we will issue it after review.'
-                )}
-              />
-            ) : (
-              <div className='space-y-2.5'>
-                {items.map((invoice) => (
-                  <Card key={invoice.id} className='border-muted shadow-none'>
-                    <CardContent className='flex flex-wrap items-center gap-3 p-3 sm:gap-4 sm:p-4'>
-                      <div className='min-w-0 flex-1 space-y-1'>
-                        <div className='flex flex-wrap items-center gap-2'>
-                          <span className='font-semibold'>
-                            ¥{formatNumber(invoice.amount_cents / 100)}
-                          </span>
-                          <Badge
-                            variant='outline'
-                            className={cn(
-                              'text-[11px]',
-                              STATUS_TONE[invoice.status]
-                            )}
-                          >
-                            {statusLabel(invoice.status)}
-                          </Badge>
-                        </div>
-                        <div className='text-muted-foreground truncate text-xs'>
-                          {invoice.title_name} · {invoice.email}
-                        </div>
-                        <div className='text-muted-foreground text-xs'>
-                          {formatTimestamp(invoice.created_at)}
-                          {invoice.invoice_no
-                            ? ` · ${t('Invoice number')}: ${invoice.invoice_no}`
-                            : ''}
-                        </div>
-                        {invoice.status === 'rejected' &&
-                        invoice.reject_reason ? (
-                          <div className='text-xs text-rose-600'>
-                            {t('Rejected reason')}: {invoice.reject_reason}
-                          </div>
-                        ) : null}
-                      </div>
-                      {invoice.status === 'issued' ? (
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          className='gap-2'
-                          disabled={downloadMutation.isPending}
-                          onClick={() => downloadMutation.mutate(invoice)}
-                        >
-                          {downloadMutation.isPending ? (
-                            <Loader2 className='h-4 w-4 animate-spin' />
-                          ) : (
-                            <Download className='h-4 w-4' />
-                          )}
-                          {t('Download')}
-                        </Button>
-                      ) : null}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
+            {listBody}
 
             {totalPages > 1 ? (
               <div className='mt-4 flex items-center justify-between'>

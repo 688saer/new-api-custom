@@ -205,6 +205,21 @@ func UpdateOption(c *gin.Context) {
 			common.ApiErrorT(c, "Payment, redemption, subscription, and invitation reward features are disabled. The administrator must confirm compliance terms before enabling them.")
 			return
 		}
+	case "InviteRebatePercent":
+		percent, err := strconv.Atoi(option.Value.(string))
+		if err != nil || percent < 0 || percent > 100 {
+			common.ApiErrorT(c, "The rebate percentage must be between 0 and 100")
+			return
+		}
+		if percent > 0 && !operation_setting.IsPaymentComplianceConfirmed() {
+			common.ApiErrorT(c, "Payment, redemption, subscription, and invitation reward features are disabled. The administrator must confirm compliance terms before enabling them.")
+			return
+		}
+	case "InviteRebateEnabled", "InviteRegisterRewardEnabled":
+		if option.Value.(string) == "true" && !operation_setting.IsPaymentComplianceConfirmed() {
+			common.ApiErrorT(c, "Payment, redemption, subscription, and invitation reward features are disabled. The administrator must confirm compliance terms before enabling them.")
+			return
+		}
 	default:
 		if isPaymentComplianceOptionKey(option.Key) {
 			common.ApiErrorT(c, "Compliance confirmation fields cannot be changed through the general settings API")

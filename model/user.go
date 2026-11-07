@@ -584,6 +584,63 @@ func inviteUser(inviterId int) error {
 	return nil
 }
 
+// grantInviteRewards pays the one-off sign-up bonus to the invitee and to the
+// inviter. Both the administrator's switch and a non-zero amount must be in
+// place: the switch lets a site keep the amounts on file while the programme is
+// paused, and compliance confirmation stays a hard requirement.
+func (user *User) grantInviteRewards(inviterId int) {
+	if inviterId == 0 || !common.InviteRegisterRewardEnabled {
+		return
+	}
+	if !operation_setting.IsPaymentComplianceConfirmed() {
+		return
+	}
+	if common.QuotaForInvitee > 0 {
+		_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
+		RecordLog(user.Id, LogTypeSystem, common.NewMessage("Invitation code bonus {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInvitee)}))
+	}
+	if common.QuotaForInviter > 0 {
+		RecordLog(inviterId, LogTypeSystem, common.NewMessage("Bonus for inviting a user {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInviter)}))
+		_ = inviteUser(inviterId)
+	}
+}
+
+// CreditInviteRebate hands the inviter a share of what an invited user just
+// spent. cost is the settled charge in quota units, so a request that is
+// refunded later also refunds proportionally. Returns the credited amount; zero
+// means nobody was paid (no inviter, switch off, or a share that rounds down).
+func CreditInviteRebate(userId int, cost int) (int, error) {
+	if cost <= 0 || !common.InviteRebateEnabled || common.InviteRebatePercent <= 0 {
+		return 0, nil
+	}
+	percent := min(common.InviteRebatePercent, 100)
+	rebate := int(int64(cost) * int64(percent) / 100)
+	if rebate <= 0 {
+		return 0, nil
+	}
+
+	var spender User
+	if err := DB.Select("id", "inviter_id").Where("id = ?", userId).First(&spender).Error; err != nil {
+		return 0, err
+	}
+	if spender.InviterId == 0 {
+		return 0, nil
+	}
+
+	result := DB.Model(&User{}).Where("id = ?", spender.InviterId).Updates(map[string]any{
+		"aff_quota":   gorm.Expr("aff_quota + ?", rebate),
+		"aff_history": gorm.Expr("aff_history + ?", rebate),
+	})
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return 0, gorm.ErrRecordNotFound
+	}
+	RecordLog(spender.InviterId, LogTypeSystem, common.NewMessage("Rebate from an invited user {{quota}}", map[string]any{"quota": logger.FormatQuota(rebate)}))
+	return rebate, nil
+}
+
 func (user *User) TransferAffQuotaToQuota(quota int) error {
 	// 检查quota是否小于最小额度
 	if float64(quota) < common.QuotaPerUnit {
@@ -717,17 +774,7 @@ func (user *User) finishInsert(inviterId int) {
 	if common.QuotaForNewUser > 0 {
 		RecordLog(user.Id, LogTypeSystem, common.NewMessage("New user sign-up bonus {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForNewUser)}))
 	}
-	if inviterId != 0 && operation_setting.IsPaymentComplianceConfirmed() {
-		if common.QuotaForInvitee > 0 {
-			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
-			RecordLog(user.Id, LogTypeSystem, common.NewMessage("Invitation code bonus {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInvitee)}))
-		}
-		if common.QuotaForInviter > 0 {
-			//_ = IncreaseUserQuota(inviterId, common.QuotaForInviter)
-			RecordLog(inviterId, LogTypeSystem, common.NewMessage("Bonus for inviting a user {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInviter)}))
-			_ = inviteUser(inviterId)
-		}
-	}
+	user.grantInviteRewards(inviterId)
 }
 
 func (user *User) FinishInsert(inviterId int) {
@@ -774,16 +821,7 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 	if common.QuotaForNewUser > 0 {
 		RecordLog(user.Id, LogTypeSystem, common.NewMessage("New user sign-up bonus {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForNewUser)}))
 	}
-	if inviterId != 0 && operation_setting.IsPaymentComplianceConfirmed() {
-		if common.QuotaForInvitee > 0 {
-			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
-			RecordLog(user.Id, LogTypeSystem, common.NewMessage("Invitation code bonus {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInvitee)}))
-		}
-		if common.QuotaForInviter > 0 {
-			RecordLog(inviterId, LogTypeSystem, common.NewMessage("Bonus for inviting a user {{quota}}", map[string]any{"quota": logger.FormatQuota(common.QuotaForInviter)}))
-			_ = inviteUser(inviterId)
-		}
-	}
+	user.grantInviteRewards(inviterId)
 }
 
 func (user *User) Update(updatePassword bool) error {

@@ -130,6 +130,14 @@ var TelegramBotName = ""
 var QuotaForNewUser = 0
 var QuotaForInviter = 0
 var QuotaForInvitee = 0
+
+// InviteRegisterRewardEnabled switches the one-off bonus paid when an invited
+// user registers; InviteRebateEnabled switches the share of an invited user's
+// spending that keeps going to the inviter. They are independent: a site can
+// run either, both, or neither.
+var InviteRegisterRewardEnabled = true
+var InviteRebateEnabled = false
+var InviteRebatePercent = 0
 var ChannelDisableThreshold = 5.0
 var AutomaticDisableChannelEnabled = false
 var AutomaticEnableChannelEnabled = false

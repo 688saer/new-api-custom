@@ -76,6 +76,16 @@ func GetMyInvoices(c *gin.Context) {
 	})
 }
 
+// GetMyInvoiceOrders 可开票的已支付订单（GET /api/user/invoices/orders）
+func GetMyInvoiceOrders(c *gin.Context) {
+	orders, err := model.InvoiceableOrders(c.GetInt("id"))
+	if err != nil {
+		common.ApiErrorStatus(c, 200, err, invoiceErrorFields(err))
+		return
+	}
+	common.ApiSuccess(c, gin.H{"items": orders})
+}
+
 // CreateMyInvoice 提交开票申请（POST /api/user/invoices）
 func CreateMyInvoice(c *gin.Context) {
 	var req struct {
@@ -84,6 +94,7 @@ func CreateMyInvoice(c *gin.Context) {
 		TaxId     string  `json:"tax_id"`
 		Email     string  `json:"email"`
 		Phone     string  `json:"phone"`
+		TopUpIds  []int   `json:"topup_ids"`
 		Amount    float64 `json:"amount"`
 		Content   string  `json:"content"`
 		Remark    string  `json:"remark"`
@@ -95,6 +106,15 @@ func CreateMyInvoice(c *gin.Context) {
 		}, gin.H{"code": model.InvoiceCodeInvalidTitle})
 		return
 	}
+	if len(req.TopUpIds) > 0 && req.Amount != 0 {
+		// The amount is derived from the selected orders; an explicit one only
+		// means an old client, which we reject instead of guessing.
+		common.ApiErrorStatus(c, 200, &model.InvoiceError{
+			Code:    model.InvoiceCodeInvalidAmount,
+			Message: "The invoice amount comes from the selected orders",
+		}, gin.H{"code": model.InvoiceCodeInvalidAmount})
+		return
+	}
 
 	invoice, err := model.CreateInvoice(model.CreateInvoiceParams{
 		UserId:    c.GetInt("id"),
@@ -104,7 +124,7 @@ func CreateMyInvoice(c *gin.Context) {
 		TaxId:     req.TaxId,
 		Email:     req.Email,
 		Phone:     req.Phone,
-		Amount:    req.Amount,
+		TopUpIds:  req.TopUpIds,
 		Content:   req.Content,
 		Remark:    req.Remark,
 	})

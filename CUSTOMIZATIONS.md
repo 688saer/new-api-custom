@@ -211,6 +211,16 @@ if option.Key == "service_status_setting.targets" || option.Key == "service_stat
 }
 ```
 
+**右上角不可用提示条（rc.47-22）**
+
+渠道页 `/channels`、API 密钥页 `/keys` 右上角有一条「上游不可用」浮层（`UpstreamStatusBanner`），
+以前既不能关闭也不能拖走，挡住页面右上角的按钮。现在：
+
+- 点击右侧 `×` 关闭，关闭状态记在 `sessionStorage`（键 `upstream-health-dismissed`）；
+- 记住的是**告警指纹**（能力 + 状态的排序串，不含失败次数），所以每分钟轮询刷新、失败次数变化不会把它重新顶出来；
+- 出现**新的能力故障**（例如原来只有图片降级，现在对话也挂了）指纹变化，提示条会重新出现；
+- 提示条里加了「查看渠道状态」链接，直达 `/service-status`。
+
 ### 3.5 公告中心 `/announcements`
 
 平台公告的独立阅读页。数据完全复用官方已有的 `console_setting.announcements`（`/api/status` 下发），
@@ -1021,6 +1031,56 @@ POST /api/user/wechat/pay {"amount":1}
 相关代码：`setting/payment_wechat.go`、`service/wechat.go`、`service/rsa_key.go`、
 `controller/topup_wechat.go`、`web/src/features/wallet/components/dialogs/wechat-qr-dialog.tsx`。
 
+### 3.14 发票：只能按已支付订单开票（rc.47-22）
+
+原来的开票申请是用户**手写金额**，与实际付款脱节（付 1 元可以申请开 1 万元），后台也无从核对。
+现在金额完全由订单决定：
+
+- 用户只能从**当前账户**里 `topups.status = success` 的订单中勾选，可多选；
+- 金额 = 所选订单之和，由服务端计算，前端不再提交金额；带 `amount` 提交的旧客户端会被直接拒绝；
+- 提交时把订单信息做**快照**写进 `invoice_orders`：订单号、金额（分）、支付方式、支付渠道、支付时间，
+  之后订单状态变化不影响已开的票；
+- 一张申请单占用它选中的订单：`pending` / `approved` / `issued` 期间不能再被别的申请选中；
+  **驳回后释放**，用户可以重新提交；
+- 后台审核弹窗直接列出「本次开票的订单」（订单号 + 金额），审核时能对上账。
+
+| 接口 | 说明 |
+|---|---|
+| `GET /api/user/invoices/orders` | 可开票的已支付订单（含 `invoice_id` / `invoice_status`，被占用时前端置灰并标「已开票」） |
+| `POST /api/user/invoices` | 请求体由 `amount` 改为 `topup_ids: int[]` |
+
+校验（`model/invoice.go` 的 `invoiceOrdersFor`）：订单不属于本人、未支付、已被占用、金额为 0
+全部拒绝；最小/最大金额仍按发票设置校验。
+
+涉及文件：`model/invoice.go`（`InvoiceOrder`、`InvoiceableOrders`、`invoiceOrdersFor`）、
+`model/main.go`（AutoMigrate）、`controller/invoice.go`（`GetMyInvoiceOrders`）、
+`router/api-router.go`、`web/src/features/invoices/{types.ts,api.ts,lib/invoice-form.ts,components/invoice-apply-dialog.tsx}`、
+`web/src/features/invoice-admin/components/invoice-review-dialog.tsx`。
+
+### 3.15 邀请返利：注册奖励 + 消费返利（rc.47-22）
+
+原来只有「邀请人 / 被邀请人一次性奖励」，现在拆成**两个独立的奖励程序**，可以同时开，也可以只开一个：
+
+| 程序 | 开关 | 默认 | 行为 |
+|---|---|---|---|
+| 注册奖励 | `InviteRegisterRewardEnabled` | **开** | 被邀请人注册时，给邀请人 `QuotaForInviter`、给被邀请人 `QuotaForInvitee`（原有行为，默认不变） |
+| 消费返利 | `InviteRebateEnabled` + `InviteRebatePercent` | 关 / 0 | 被邀请人每次**钱包**消费结算后，把 `消费额 × 比例` 记到邀请人的 `aff_quota` 与 `aff_history` |
+
+细节：
+
+- 两个开关都要求后台已确认合规条款，否则一律不发；
+- 返利只对**钱包**消费生效（订阅是预付额度，不重复返）；
+- 比例 0–100，整数算法 `int64(cost) * percent / 100` 向下取整，算出来是 0 就不入账；
+- 返利在结算后异步执行（`gopool`），失败只写日志，不影响本次调用；
+- 邀请人侧日志文案 `Rebate from an invited user {{quota}}`（7 个语言都有）；
+- 后台：系统设置 → 额度设置里多了「邀请注册奖励」开关、「消费返利」开关和 0–100 的比例输入；
+- 钱包页的邀请卡片会按当前生效的规则显示说明（只开注册奖励 / 只开返利 / 两个都开）。
+
+涉及文件：`common/constants.go`、`model/option.go`、`controller/option.go`、`model/user.go`
+（`grantInviteRewards`、`CreditInviteRebate`）、`service/quota.go`、
+`web/src/features/system-settings/general/quota-settings-section.tsx`、
+`web/src/features/wallet/components/affiliate-rewards-card.tsx`。
+
 ---
 ## 四、代码结构：哪些是我们的
 
@@ -1164,6 +1224,7 @@ web/public/static/welfare-chests/        （图片资源）
 | `service_status_samples` | 可用性探测样本 |
 | `reward_campaigns` | 奖励活动（含 `random_min_quota` / `random_max_quota`） |
 | `reward_grants` | 逐人发放明细，唯一键 `(campaign_id, user_id)` |
+| `invoice_orders` | 发票所选订单快照（订单号/金额分/支付方式/支付时间），被驳回的申请会释放订单 |
 
 全部通过 `model/main.go` 的 `AutoMigrate` 自动建表，**无需手工执行 SQL**。
 
@@ -1178,6 +1239,14 @@ welfare_api_setting.*
 service_status_setting.*
 geetest_setting.*
 reward_setting.*
+```
+
+另有三个直接存在 `options` 表里的键（邀请奖励，见 3.15）：
+
+```
+InviteRegisterRewardEnabled     # 邀请注册奖励开关，默认 true
+InviteRebateEnabled             # 消费返利开关，默认 false
+InviteRebatePercent             # 返利比例 0-100，默认 0
 ```
 
 `service_status_samples` 会持续增长，按 `sample_retention_days` 清理（默认 30 天）。
@@ -1549,7 +1618,8 @@ v<上游基线>-<两位序号>
 | `v1.0.0-rc.47-16` | 支付宝官方通道修复 + 扫码检测余额 | `v1.0.0-rc.57-alipay` / `rc.58-balance` |
 | `v1.0.0-rc.47-17` | 微信支付官方通道（Native 扫码 + 手机一键唤起） | `v1.0.0-rc.59-wechat` |
 | `v1.0.0-rc.47-18` | 画布：生成中切页面再回来丢图修复 | — |
-| `v1.0.0-rc.47-21` | **画布：拖拽/手势/自适应修复（图片拖不动、移动端、窗口变化） ← 最新** | — |
+| `v1.0.0-rc.47-21` | 画布：拖拽/手势/自适应修复（图片拖不动、移动端、窗口变化） | — |
+| `v1.0.0-rc.47-22` | **发票按已支付订单开票 + 邀请注册奖励/消费返利 + 渠道不可用提示可关闭 ← 最新** | — |
 
 > 2026-10-31 起所有 tag / Release 已按上表统一改名（tag 与 Release 一一对应，资产包原样保留在各自 Release 下）。
 > 中间态 tag `v1.0.0-rc.58-balance`（无 Release，内容已并入 `47-17`）已删除。
@@ -1609,11 +1679,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc47-21`（`/api/status` = `1.0.0-rc.47-21`）；上一版 `:rc47-18`、`:rc47-17`、`:rc47-03`、`:rc58`、`:rc57`、`:rc53`、`:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc47-22`（`/api/status` = `1.0.0-rc.47-22`）；上一版 `:rc47-21`、`:rc47-18`、`:rc47-17`、`:rc47-03`、`:rc58`、`:rc57`、`:rc53`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.47-21`（画布：图片拖不动 / 生成中遮挡 / 移动端抽屉与单指平移双指缩放 / 视口自适应 / 跨页写入合并）、`v1.0.0-rc.47-18`（画布：生成中切走再回来丢图修复）、`v1.0.0-rc.47-17`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起；旧名 `v1.0.0-rc.59-wechat`）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.47-22`（发票改为只能选择本账户已支付订单、金额服务端汇总、提交带订单快照；邀请新增注册奖励与消费返利两个独立开关；渠道/密钥页右上角不可用提示可关闭）、`v1.0.0-rc.47-21`（画布：图片拖不动 / 生成中遮挡 / 移动端抽屉与单指平移双指缩放 / 视口自适应 / 跨页写入合并）、`v1.0.0-rc.47-18`（画布：生成中切走再回来丢图修复）、`v1.0.0-rc.47-17`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起；旧名 `v1.0.0-rc.59-wechat`）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 钱包新增 **8 项**（`payment.test.ts` 5 + `alipay-qr-dialog.test.tsx` 2 + 分类 1）；工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |

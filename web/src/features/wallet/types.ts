@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -294,6 +294,12 @@ export interface UserWalletData {
   aff_history_quota: number
   /** Number of successful affiliate invites */
   aff_count: number
+  /** Whether the one-off sign-up reward is switched on */
+  invite_register_reward_enabled?: boolean
+  /** Whether invited users' spending pays the inviter a rebate */
+  invite_rebate_enabled?: boolean
+  /** Share of invited spending credited to the inviter, in percent */
+  invite_rebate_percent?: number
   /** User group */
   group: string
 }

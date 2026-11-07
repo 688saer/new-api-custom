@@ -26,13 +26,13 @@ const validValues = {
   tax_id: '',
   email: 'user@example.com',
   phone: '',
-  amount: '100',
+  topup_ids: [12],
   content: '技术服务费',
   remark: '',
 }
 
 describe('invoiceFormSchema', () => {
-  it('accepts a personal request with an email and an amount', () => {
+  it('accepts a personal request that picks a paid order', () => {
     expect(invoiceFormSchema.safeParse(validValues).success).toBe(true)
   })
 
@@ -56,11 +56,14 @@ describe('invoiceFormSchema', () => {
     expect(result.success).toBe(true)
   })
 
-  it('rejects an amount of zero', () => {
-    const result = invoiceFormSchema.safeParse({ ...validValues, amount: '0' })
+  it('rejects a request that picks no order', () => {
+    const result = invoiceFormSchema.safeParse({
+      ...validValues,
+      topup_ids: [],
+    })
 
     expect(result.success).toBe(false)
-    expect(result.error?.issues[0]?.path).toEqual(['amount'])
+    expect(result.error?.issues[0]?.path).toEqual(['topup_ids'])
   })
 
   it('rejects a malformed receiving email', () => {

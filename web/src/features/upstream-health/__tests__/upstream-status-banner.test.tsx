@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { UpstreamStatusAlert } from '../components/upstream-status-banner'
 import type { UpstreamHealth } from '../types'
@@ -10,18 +10,27 @@ function healthWith(
   capabilities: UpstreamHealth['capabilities']
 ): UpstreamHealth {
   const down = capabilities.some((capability) => capability.state === 'down')
+  const degraded = capabilities.some(
+    (capability) => capability.state === 'degraded'
+  )
+  let state: UpstreamHealth['state'] = 'ok'
+  if (down) {
+    state = 'down'
+  } else if (degraded) {
+    state = 'degraded'
+  }
   return {
-    state: down
-      ? 'down'
-      : capabilities.some((capability) => capability.state === 'degraded')
-        ? 'degraded'
-        : 'ok',
+    state,
     window_seconds: WINDOW_SECONDS,
     capabilities,
   }
 }
 
 describe('upstream status banner', () => {
+  afterEach(() => {
+    window.sessionStorage.clear()
+  })
+
   it('stays silent while every capability is relaying', () => {
     render(
       <UpstreamStatusAlert
@@ -92,5 +101,102 @@ describe('upstream status banner', () => {
       )
     ).toBeVisible()
     expect(screen.queryByText(/requests are failing:/)).toBeNull()
+  })
+
+  it('can be put away, so it stops covering the page corner', () => {
+    render(
+      <UpstreamStatusAlert
+        health={healthWith([
+          {
+            capability: 'chat',
+            state: 'down',
+            attempts: 4,
+            failures: 3,
+            consecutive_failures: 3,
+          },
+        ])}
+      />
+    )
+
+    expect(screen.getByTestId('upstream-status-banner')).toBeVisible()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss this notice' }))
+
+    expect(screen.queryByTestId('upstream-status-banner')).toBeNull()
+  })
+
+  it('stays dismissed while the same capabilities keep failing', () => {
+    const health = healthWith([
+      {
+        capability: 'chat',
+        state: 'down',
+        attempts: 4,
+        failures: 3,
+        consecutive_failures: 3,
+      },
+    ])
+    const first = render(<UpstreamStatusAlert health={health} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss this notice' }))
+    first.unmount()
+
+    // The next poll reports a different failure count for the same outage.
+    render(
+      <UpstreamStatusAlert
+        health={healthWith([
+          {
+            capability: 'chat',
+            state: 'down',
+            attempts: 9,
+            failures: 6,
+            consecutive_failures: 6,
+          },
+        ])}
+      />
+    )
+
+    expect(screen.queryByTestId('upstream-status-banner')).toBeNull()
+  })
+
+  it('comes back when another capability starts failing', () => {
+    const first = render(
+      <UpstreamStatusAlert
+        health={healthWith([
+          {
+            capability: 'chat',
+            state: 'down',
+            attempts: 4,
+            failures: 3,
+            consecutive_failures: 3,
+          },
+        ])}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss this notice' }))
+    first.unmount()
+
+    render(
+      <UpstreamStatusAlert
+        health={healthWith([
+          {
+            capability: 'chat',
+            state: 'down',
+            attempts: 4,
+            failures: 3,
+            consecutive_failures: 3,
+          },
+          {
+            capability: 'image',
+            state: 'down',
+            attempts: 3,
+            failures: 3,
+            consecutive_failures: 2,
+          },
+        ])}
+      />
+    )
+
+    expect(screen.getByTestId('upstream-status-banner')).toBeVisible()
   })
 })

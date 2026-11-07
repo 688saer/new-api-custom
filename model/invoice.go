@@ -104,6 +104,122 @@ type Invoice struct {
 	IssuedAt   int64 `json:"issued_at" gorm:"bigint;not null;default:0"`
 	CreatedAt  int64 `json:"created_at" gorm:"bigint;not null;default:0;index:idx_invoice_user,priority:2"`
 	UpdatedAt  int64 `json:"updated_at" gorm:"bigint;not null;default:0"`
+
+	// Orders 是提交时选中的充值订单快照，不落在这张表里，读取时单独装配
+	Orders []InvoiceOrder `json:"orders,omitempty" gorm:"-"`
+}
+
+// InvoiceOrder 一条发票申请所选中的充值订单。金额与订单号在提交时固定下来，
+// 之后的订单状态变化不会影响已经开出去的票。
+type InvoiceOrder struct {
+	Id              int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	InvoiceId       int    `json:"invoice_id" gorm:"not null;index:idx_invoice_order_invoice,priority:1"`
+	UserId          int    `json:"user_id" gorm:"not null;index:idx_invoice_order_user,priority:1"`
+	TopUpId         int    `json:"topup_id" gorm:"column:topup_id;not null;index:idx_invoice_order_topup,priority:1"`
+	TradeNo         string `json:"trade_no" gorm:"type:varchar(255);not null;default:''"`
+	AmountCents     int64  `json:"amount_cents" gorm:"bigint;not null;default:0"`
+	PaymentMethod   string `json:"payment_method" gorm:"type:varchar(50);not null;default:''"`
+	PaymentProvider string `json:"payment_provider" gorm:"type:varchar(50);not null;default:''"`
+	PaidAt          int64  `json:"paid_at" gorm:"bigint;not null;default:0"`
+	CreatedAt       int64  `json:"created_at" gorm:"bigint;not null;default:0"`
+
+	// InvoiceStatus 只在「可开票订单」查询里回填，标记该订单被哪张票占用
+	InvoiceStatus string `json:"invoice_status,omitempty" gorm:"-"`
+}
+
+func (InvoiceOrder) TableName() string {
+	return "invoice_orders"
+}
+
+// InvoiceableOrder 用户可选中的一条已支付订单
+type InvoiceableOrder struct {
+	TopUpId         int     `json:"topup_id"`
+	TradeNo         string  `json:"trade_no"`
+	AmountCents     int64   `json:"amount_cents"`
+	Money           float64 `json:"money"`
+	PaymentMethod   string  `json:"payment_method"`
+	PaymentProvider string  `json:"payment_provider"`
+	PaidAt          int64   `json:"paid_at"`
+	InvoiceId       int     `json:"invoice_id"`
+	InvoiceStatus   string  `json:"invoice_status"`
+}
+
+// InvoiceableOrders 返回用户已支付、且未被占用中的发票申请选走的充值订单。
+// 驳回的申请会释放订单，这是用户重开申请的路径。
+func InvoiceableOrders(userId int) ([]InvoiceableOrder, error) {
+	topUps := make([]TopUp, 0)
+	if err := DB.Where("user_id = ? AND status = ?", userId, common.TopUpStatusSuccess).
+		Order("id desc").Find(&topUps).Error; err != nil {
+		return nil, err
+	}
+	if len(topUps) == 0 {
+		return []InvoiceableOrder{}, nil
+	}
+
+	topUpIds := make([]int, 0, len(topUps))
+	for _, topUp := range topUps {
+		topUpIds = append(topUpIds, topUp.Id)
+	}
+	type claim struct {
+		TopUpId   int
+		InvoiceId int
+		Status    string
+	}
+	claims := make([]claim, 0)
+	if err := DB.Table("invoice_orders").
+		Select("invoice_orders.topup_id AS top_up_id, invoice_orders.invoice_id AS invoice_id, invoices.status AS status").
+		Joins("JOIN invoices ON invoices.id = invoice_orders.invoice_id").
+		Where("invoice_orders.topup_id IN ?", topUpIds).
+		Where("invoices.status IN ?", []string{InvoiceStatusPending, InvoiceStatusApproved, InvoiceStatusIssued}).
+		Scan(&claims).Error; err != nil {
+		return nil, err
+	}
+	claimed := make(map[int]claim, len(claims))
+	for _, item := range claims {
+		claimed[item.TopUpId] = item
+	}
+
+	orders := make([]InvoiceableOrder, 0, len(topUps))
+	for _, topUp := range topUps {
+		order := InvoiceableOrder{
+			TopUpId:         topUp.Id,
+			TradeNo:         topUp.TradeNo,
+			Money:           topUp.Money,
+			AmountCents:     int64(topUp.Money*100 + 0.5),
+			PaymentMethod:   topUp.PaymentMethod,
+			PaymentProvider: topUp.PaymentProvider,
+			PaidAt:          topUp.CompleteTime,
+		}
+		if item, ok := claimed[topUp.Id]; ok {
+			order.InvoiceId = item.InvoiceId
+			order.InvoiceStatus = item.Status
+		}
+		orders = append(orders, order)
+	}
+	return orders, nil
+}
+
+// loadInvoiceOrders 批量装配申请单的订单明细
+func loadInvoiceOrders(invoices []Invoice) error {
+	if len(invoices) == 0 {
+		return nil
+	}
+	ids := make([]int, 0, len(invoices))
+	for _, invoice := range invoices {
+		ids = append(ids, invoice.Id)
+	}
+	orders := make([]InvoiceOrder, 0)
+	if err := DB.Where("invoice_id IN ?", ids).Order("id asc").Find(&orders).Error; err != nil {
+		return err
+	}
+	byInvoice := make(map[int][]InvoiceOrder, len(invoices))
+	for _, order := range orders {
+		byInvoice[order.InvoiceId] = append(byInvoice[order.InvoiceId], order)
+	}
+	for i := range invoices {
+		invoices[i].Orders = byInvoice[invoices[i].Id]
+	}
+	return nil
 }
 
 func (Invoice) TableName() string {
@@ -128,7 +244,7 @@ type InvoiceListPage struct {
 	PageSize int       `json:"page_size"`
 }
 
-// CreateInvoiceParams 用户提交的申请内容
+// CreateInvoiceParams 用户提交的申请内容。金额不再由用户填写，而是所选订单之和。
 type CreateInvoiceParams struct {
 	UserId    int
 	Username  string
@@ -137,7 +253,7 @@ type CreateInvoiceParams struct {
 	TaxId     string
 	Email     string
 	Phone     string
-	Amount    float64
+	TopUpIds  []int
 	Content   string
 	Remark    string
 }
@@ -184,14 +300,20 @@ func CreateInvoice(params CreateInvoiceParams) (*Invoice, error) {
 	if !looksLikeEmail(params.Email) {
 		return nil, newInvoiceError(InvoiceCodeInvalidEmail, "Enter a valid email address to receive the invoice")
 	}
-	if params.Amount <= 0 {
-		return nil, newInvoiceError(InvoiceCodeInvalidAmount, "Enter the amount you want invoiced")
+
+	orders, amountCents, err := invoiceOrdersFor(params.UserId, params.TopUpIds)
+	if err != nil {
+		return nil, err
 	}
-	if setting.MinAmount > 0 && params.Amount < setting.MinAmount {
+	amount := float64(amountCents) / 100
+	if amount <= 0 {
+		return nil, newInvoiceError(InvoiceCodeInvalidAmount, "Select at least one paid order to invoice")
+	}
+	if setting.MinAmount > 0 && amount < setting.MinAmount {
 		return nil, newInvoiceError(InvoiceCodeInvalidAmount,
 			fmt.Sprintf("The smallest invoice amount is %.2f", setting.MinAmount))
 	}
-	if setting.MaxAmount > 0 && params.Amount > setting.MaxAmount {
+	if setting.MaxAmount > 0 && amount > setting.MaxAmount {
 		return nil, newInvoiceError(InvoiceCodeInvalidAmount,
 			fmt.Sprintf("The largest invoice amount is %.2f", setting.MaxAmount))
 	}
@@ -225,17 +347,81 @@ func CreateInvoice(params CreateInvoiceParams) (*Invoice, error) {
 		TaxId:       params.TaxId,
 		Email:       params.Email,
 		Phone:       params.Phone,
-		AmountCents: int64(params.Amount*100 + 0.5),
+		AmountCents: amountCents,
 		Content:     params.Content,
 		Remark:      params.Remark,
 		Status:      InvoiceStatusPending,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
-	if err := DB.Create(invoice).Error; err != nil {
+	if err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(invoice).Error; err != nil {
+			return err
+		}
+		for i := range orders {
+			orders[i].InvoiceId = invoice.Id
+			orders[i].CreatedAt = now
+		}
+		if len(orders) == 0 {
+			return nil
+		}
+		return tx.Create(&orders).Error
+	}); err != nil {
 		return nil, err
 	}
+	invoice.Orders = orders
 	return invoice, nil
+}
+
+// invoiceOrdersFor 把用户选中的订单换成订单快照，并校验每一条都归属于本人、
+// 已支付、且没有被别的申请单占用。金额只认这里的计算结果。
+func invoiceOrdersFor(userId int, topUpIds []int) ([]InvoiceOrder, int64, error) {
+	if len(topUpIds) == 0 {
+		return nil, 0, newInvoiceError(InvoiceCodeInvalidAmount,
+			"Select at least one paid order to invoice")
+	}
+	available, err := InvoiceableOrders(userId)
+	if err != nil {
+		return nil, 0, err
+	}
+	byId := make(map[int]InvoiceableOrder, len(available))
+	for _, order := range available {
+		byId[order.TopUpId] = order
+	}
+
+	selected := make([]InvoiceOrder, 0, len(topUpIds))
+	seen := make(map[int]struct{}, len(topUpIds))
+	var total int64
+	for _, topUpId := range topUpIds {
+		if _, done := seen[topUpId]; done {
+			continue
+		}
+		seen[topUpId] = struct{}{}
+		order, ok := byId[topUpId]
+		if !ok {
+			return nil, 0, newInvoiceError(InvoiceCodeInvalidAmount,
+				"One of the selected orders is not a paid order of this account")
+		}
+		if order.InvoiceId != 0 {
+			return nil, 0, newInvoiceError(InvoiceCodeInvalidAmount,
+				"One of the selected orders has already been invoiced")
+		}
+		if order.AmountCents <= 0 {
+			return nil, 0, newInvoiceError(InvoiceCodeInvalidAmount,
+				"One of the selected orders has no paid amount")
+		}
+		total += order.AmountCents
+		selected = append(selected, InvoiceOrder{
+			UserId:          userId,
+			TopUpId:         order.TopUpId,
+			TradeNo:         order.TradeNo,
+			AmountCents:     order.AmountCents,
+			PaymentMethod:   order.PaymentMethod,
+			PaymentProvider: order.PaymentProvider,
+			PaidAt:          order.PaidAt,
+		})
+	}
+	return selected, total, nil
 }
 
 // looksLikeEmail 只做基本形状校验，真正的可达性由管理员人工确认
@@ -269,6 +455,9 @@ func ListInvoicesForUser(userId, page, pageSize int) (*InvoiceListPage, error) {
 		Find(&items).Error; err != nil {
 		return nil, err
 	}
+	if err := loadInvoiceOrders(items); err != nil {
+		return nil, err
+	}
 	return &InvoiceListPage{Items: items, Total: total, Page: page, PageSize: pageSize}, nil
 }
 
@@ -282,7 +471,11 @@ func GetInvoiceForUser(userId, invoiceId int) (*Invoice, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &invoice, nil
+	loaded := []Invoice{invoice}
+	if err := loadInvoiceOrders(loaded); err != nil {
+		return nil, err
+	}
+	return &loaded[0], nil
 }
 
 // InvoiceFilter 后台列表筛选条件
@@ -320,6 +513,9 @@ func ListInvoices(filter InvoiceFilter) (*InvoiceListPage, error) {
 		Find(&items).Error; err != nil {
 		return nil, err
 	}
+	if err := loadInvoiceOrders(items); err != nil {
+		return nil, err
+	}
 	return &InvoiceListPage{Items: items, Total: total, Page: page, PageSize: pageSize}, nil
 }
 
@@ -333,7 +529,11 @@ func GetInvoiceById(invoiceId int) (*Invoice, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &invoice, nil
+	loaded := []Invoice{invoice}
+	if err := loadInvoiceOrders(loaded); err != nil {
+		return nil, err
+	}
+	return &loaded[0], nil
 }
 
 // ReviewInvoice 审核：通过后进入待开具，驳回则结束流程

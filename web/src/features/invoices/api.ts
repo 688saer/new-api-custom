@@ -23,6 +23,7 @@ import type {
   Invoice,
   InvoiceAdminSettingPayload,
   InvoiceApplicantForm,
+  InvoiceableOrder,
   InvoiceListResponse,
 } from './types'
 
@@ -45,6 +46,12 @@ export async function getMyInvoices(
 export async function createInvoice(form: InvoiceApplicantForm) {
   const res = await api.post('/api/user/invoices', form)
   return res.data as { success: boolean; message?: string; data?: Invoice }
+}
+
+/** 当前账户可开票的已支付订单 */
+export async function getInvoiceableOrders(): Promise<InvoiceableOrder[]> {
+  const res = await api.get('/api/user/invoices/orders')
+  return (res.data?.data?.items ?? []) as InvoiceableOrder[]
 }
 
 /** 下载已开具的发票 PDF */

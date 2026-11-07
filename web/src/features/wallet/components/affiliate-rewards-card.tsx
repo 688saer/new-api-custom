@@ -61,6 +61,10 @@ export function AffiliateRewardsCard({
   }
 
   const hasRewards = (user?.aff_quota ?? 0) > 0
+  const rebateEnabled =
+    (user?.invite_rebate_enabled ?? false) &&
+    (user?.invite_rebate_percent ?? 0) > 0
+  const registerRewardEnabled = user?.invite_register_reward_enabled ?? false
 
   return (
     <Card data-card-hover='false' className='bg-muted/20 py-0'>
@@ -128,6 +132,20 @@ export function AffiliateRewardsCard({
             {t(
               'Referral reward transfer is disabled until the administrator confirms compliance terms.'
             )}
+          </p>
+        ) : null}
+        {registerRewardEnabled || rebateEnabled ? (
+          <p className='text-muted-foreground text-xs lg:col-span-3'>
+            {registerRewardEnabled
+              ? t('You receive a one-off bonus when an invited user registers.')
+              : ''}
+            {registerRewardEnabled && rebateEnabled ? ' ' : ''}
+            {rebateEnabled
+              ? t(
+                  'You also receive {{percent}}% of what the users you invited spend.',
+                  { percent: user?.invite_rebate_percent ?? 0 }
+                )
+              : ''}
           </p>
         ) : null}
       </CardContent>

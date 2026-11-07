@@ -388,6 +388,7 @@ func migrateDB() error {
 		&TicketAgent{},
 		&TicketAgentSession{},
 		&Invoice{},
+		&InvoiceOrder{},
 		&PurchaseAgreementSignature{},
 	)
 	if err != nil {

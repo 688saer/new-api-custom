@@ -35,11 +35,9 @@ export const invoiceFormSchema = z
       .email('Enter a valid email address')
       .max(128, 'The email address is too long'),
     phone: z.string().trim().max(32, 'The phone number is too long'),
-    amount: z
-      .string()
-      .trim()
-      .min(1, 'Enter the amount you want invoiced')
-      .refine((value) => Number(value) > 0, 'Enter an amount greater than 0'),
+    topup_ids: z
+      .array(z.number().int().positive())
+      .min(1, 'Select at least one paid order'),
     content: z.string().trim().max(64, 'The invoice item is too long'),
     remark: z.string().trim().max(500, 'The remark is too long'),
   })
@@ -59,7 +57,7 @@ export const defaultInvoiceFormValues: InvoiceFormValues = {
   tax_id: '',
   email: '',
   phone: '',
-  amount: '',
+  topup_ids: [],
   content: '技术服务费',
   remark: '',
 }

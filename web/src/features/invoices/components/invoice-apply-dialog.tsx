@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
@@ -24,20 +25,24 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Dialog } from '@/components/dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { formatNumber, formatTimestamp } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 import { cn } from '@/lib/utils'
 
-import { createInvoice } from '../api'
+import { createInvoice, getInvoiceableOrders } from '../api'
 import {
   defaultInvoiceFormValues,
   invoiceFormSchema,
@@ -65,7 +70,17 @@ export function InvoiceApplyDialog(props: InvoiceApplyDialogProps) {
     }
   }, [props.open, form])
 
+  const ordersQuery = useQuery({
+    queryKey: ['invoices', 'invoiceable-orders'],
+    queryFn: getInvoiceableOrders,
+    enabled: props.open,
+  })
+  const orders = ordersQuery.data ?? []
   const titleType = form.watch('title_type')
+  const selectedIds = form.watch('topup_ids')
+  const selectedTotalCents = orders
+    .filter((order) => selectedIds.includes(order.topup_id))
+    .reduce((sum, order) => sum + order.amount_cents, 0)
 
   const handleSubmit = form.handleSubmit(async (values) => {
     try {
@@ -75,7 +90,7 @@ export function InvoiceApplyDialog(props: InvoiceApplyDialogProps) {
         tax_id: values.tax_id,
         email: values.email,
         phone: values.phone,
-        amount: Number(values.amount),
+        topup_ids: values.topup_ids,
         content: values.content,
         remark: values.remark,
       })
@@ -229,34 +244,121 @@ export function InvoiceApplyDialog(props: InvoiceApplyDialogProps) {
             />
           </div>
 
-          <div className='grid gap-4 sm:grid-cols-2'>
-            <FormField
-              control={form.control}
-              name='amount'
-              render={({ field }) => (
+          <FormField
+            control={form.control}
+            name='topup_ids'
+            render={({ field }) => {
+              let picker = (
+                <p className='text-muted-foreground p-2 text-xs'>
+                  {t('No paid orders available for invoicing')}
+                </p>
+              )
+              if (ordersQuery.isLoading) {
+                picker = (
+                  <div className='text-muted-foreground flex items-center gap-2 p-2 text-xs'>
+                    <Loader2 className='h-3.5 w-3.5 animate-spin' />
+                    {t('Loading')}
+                  </div>
+                )
+              } else if (orders.length > 0) {
+                picker = (
+                  <>
+                    {orders.map((order) => {
+                      const claimed = order.invoice_id > 0
+                      return (
+                        <label
+                          key={order.topup_id}
+                          className={cn(
+                            'flex items-start gap-2 rounded-md p-1.5 text-xs',
+                            claimed
+                              ? 'opacity-60'
+                              : 'hover:bg-muted/60 cursor-pointer'
+                          )}
+                        >
+                          <Checkbox
+                            className='mt-0.5'
+                            checked={field.value.includes(order.topup_id)}
+                            disabled={claimed}
+                            onCheckedChange={(checked) => {
+                              const next =
+                                checked === true
+                                  ? [...field.value, order.topup_id]
+                                  : field.value.filter(
+                                      (id) => id !== order.topup_id
+                                    )
+                              field.onChange(next)
+                            }}
+                          />
+                          <span className='min-w-0 flex-1 space-y-0.5'>
+                            <span className='block font-medium'>
+                              ¥{formatNumber(order.amount_cents / 100)}
+                              <span className='text-muted-foreground ml-2 font-normal'>
+                                {order.trade_no}
+                              </span>
+                            </span>
+                            <span className='text-muted-foreground block'>
+                              {formatTimestamp(order.paid_at)}
+                              {order.payment_method
+                                ? ` · ${order.payment_method}`
+                                : ''}
+                            </span>
+                          </span>
+                          {claimed ? (
+                            <Badge variant='outline' className='text-[10px]'>
+                              {t('Already invoiced')}
+                            </Badge>
+                          ) : null}
+                        </label>
+                      )
+                    })}
+                  </>
+                )
+              }
+              return (
                 <FormItem>
-                  <FormLabel>{t('Invoice amount')}</FormLabel>
-                  <FormControl>
-                    <Input {...field} inputMode='decimal' placeholder='0.00' />
-                  </FormControl>
+                  <FormLabel>{t('Select paid orders')}</FormLabel>
+                  <FormDescription>
+                    {t(
+                      'Only paid orders from this account can be invoiced. The amount is the sum of the orders you pick.'
+                    )}
+                  </FormDescription>
+                  <div className='max-h-56 space-y-1 overflow-y-auto rounded-lg border p-1.5'>
+                    {picker}
+                  </div>
+                  {selectedIds.length > 0 ? (
+                    <p className='text-xs font-medium'>
+                      {t('{{count}} order(s) selected, total ¥{{total}}', {
+                        count: selectedIds.length,
+                        total: formatNumber(selectedTotalCents / 100),
+                      })}
+                    </p>
+                  ) : null}
+                  {props.setting && props.setting.min_amount > 0 ? (
+                    <p className='text-muted-foreground text-xs'>
+                      {t('The smallest invoice amount is {{amount}}', {
+                        amount: formatNumber(props.setting.min_amount),
+                      })}
+                    </p>
+                  ) : null}
                   <FormMessage />
                 </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='content'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('Invoice item')}</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+              )
+            }}
+          />
+
+          <FormField
+            control={form.control}
+            name='content'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Invoice item')}</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <FormField
             control={form.control}

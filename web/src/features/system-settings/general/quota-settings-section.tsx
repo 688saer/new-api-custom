@@ -55,6 +55,9 @@ const quotaSchema = z.object({
   QuotaForNewUser: z.coerce.number().min(0),
   QuotaForInviter: z.coerce.number().min(0),
   QuotaForInvitee: z.coerce.number().min(0),
+  InviteRegisterRewardEnabled: z.boolean(),
+  InviteRebateEnabled: z.boolean(),
+  InviteRebatePercent: z.coerce.number().min(0).max(100),
   TopUpLink: z.string(),
   quota_setting: z.object({
     enable_free_model_pre_consume: z.boolean(),
@@ -114,6 +117,9 @@ export function QuotaSettingsSection({
         }
       },
     })
+
+  const registerRewardEnabled = form.watch('InviteRegisterRewardEnabled')
+  const rebateEnabled = form.watch('InviteRebateEnabled')
 
   return (
     <SettingsSection title={t('Quota Settings')}>
@@ -238,6 +244,7 @@ export function QuotaSettingsSection({
                       name={field.name}
                       onBlur={field.onBlur}
                       ref={field.ref}
+                      disabled={!registerRewardEnabled}
                     />
                   </FormControl>
                   <FormDescription>
@@ -267,12 +274,96 @@ export function QuotaSettingsSection({
                       name={field.name}
                       onBlur={field.onBlur}
                       ref={field.ref}
+                      disabled={!registerRewardEnabled}
                     />
                   </FormControl>
                   <FormDescription>
                     {t('Quota given to invited users ({{formattedQuota}})', {
                       formattedQuota: formatQuotaInputValue(field.value),
                     })}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <SettingsFormGridItem span='full'>
+              <FormField
+                control={form.control}
+                name='InviteRegisterRewardEnabled'
+                render={({ field }) => (
+                  <SettingsSwitchItem>
+                    <SettingsSwitchContent>
+                      <FormLabel>
+                        {t('Sign-up reward for invitations')}
+                      </FormLabel>
+                      <FormDescription>
+                        {t(
+                          'Pay the one-off inviter and invitee rewards when an invited user registers. Turn this off to keep the amounts without paying them.'
+                        )}
+                      </FormDescription>
+                    </SettingsSwitchContent>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={updateOption.isPending}
+                      />
+                    </FormControl>
+                  </SettingsSwitchItem>
+                )}
+              />
+            </SettingsFormGridItem>
+
+            <SettingsFormGridItem span='full'>
+              <FormField
+                control={form.control}
+                name='InviteRebateEnabled'
+                render={({ field }) => (
+                  <SettingsSwitchItem>
+                    <SettingsSwitchContent>
+                      <FormLabel>{t('Spending rebate')}</FormLabel>
+                      <FormDescription>
+                        {t(
+                          'Credit the inviter a share of what the users they invited spend, for as long as those users keep using the site.'
+                        )}
+                      </FormDescription>
+                    </SettingsSwitchContent>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={updateOption.isPending}
+                      />
+                    </FormControl>
+                  </SettingsSwitchItem>
+                )}
+              />
+            </SettingsFormGridItem>
+
+            <FormField
+              control={form.control}
+              name='InviteRebatePercent'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Rebate percentage')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      min={0}
+                      max={100}
+                      value={field.value ?? ''}
+                      onChange={handleNumberChange(field.onChange)}
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      disabled={!rebateEnabled}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Percent of the invited users spending that the inviter receives, from 0 to 100.'
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

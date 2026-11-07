@@ -45,6 +45,34 @@ export interface Invoice {
   issued_at: number
   created_at: number
   updated_at: number
+  orders?: InvoiceOrder[]
+}
+
+/** 一张申请单所选中的充值订单（提交时的快照） */
+export interface InvoiceOrder {
+  id: number
+  invoice_id: number
+  user_id: number
+  topup_id: number
+  trade_no: string
+  amount_cents: number
+  payment_method: string
+  payment_provider: string
+  paid_at: number
+  created_at: number
+}
+
+/** 当前账户里可开票的已支付订单 */
+export interface InvoiceableOrder {
+  topup_id: number
+  trade_no: string
+  amount_cents: number
+  money: number
+  payment_method: string
+  payment_provider: string
+  paid_at: number
+  invoice_id: number
+  invoice_status: string
 }
 
 export interface InvoiceSettingView {
@@ -74,7 +102,7 @@ export interface InvoiceApplicantForm {
   tax_id: string
   email: string
   phone: string
-  amount: number
+  topup_ids: number[]
   content: string
   remark: string
 }

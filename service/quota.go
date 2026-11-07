@@ -480,6 +480,20 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 		}
 	}
 
+	// An inviter earns a share of what the invited user spends from their
+	// wallet. Subscription consumption is prepaid, so only wallet charges count.
+	if quota > 0 && relayInfo != nil &&
+		relayInfo.BillingSource != BillingSourceSubscription &&
+		common.InviteRebateEnabled && common.InviteRebatePercent > 0 {
+		invitee := relayInfo.UserId
+		spent := quota
+		gopool.Go(func() {
+			if _, err := model.CreditInviteRebate(invitee, spent); err != nil {
+				common.SysError(common.LogText("failed to credit the invitation rebate for user %d: %s", invitee, err.Error()))
+			}
+		})
+	}
+
 	return result, nil
 }
 
