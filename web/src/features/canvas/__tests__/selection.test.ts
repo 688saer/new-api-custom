@@ -22,6 +22,7 @@ import type { NodeSize } from '../lib/connectors'
 import {
   contentBounds,
   fitViewport,
+  isContentVisible,
   nodesInRect,
   rectFromPoints,
   rectsIntersect,
@@ -176,6 +177,41 @@ describe('canvas framing', () => {
       width: 720,
       height: 450,
     })
+  })
+})
+
+describe('camera framing after a resize', () => {
+  const bounds = { x: 0, y: 0, width: 320, height: 350 }
+
+  it('keeps a camera that still shows part of the content', () => {
+    expect(
+      isContentVisible(
+        bounds,
+        { x: 0, y: 0, zoom: 1 },
+        { width: 800, height: 600 }
+      )
+    ).toBe(true)
+  })
+
+  it('reports an empty view after the board was resized to a narrower window', () => {
+    // Framed on a wide screen, the content sits far to the right of a phone.
+    expect(
+      isContentVisible(
+        bounds,
+        { x: -1200, y: 0, zoom: 1 },
+        { width: 390, height: 700 }
+      )
+    ).toBe(false)
+  })
+
+  it('has nothing to frame when the board holds no sized node', () => {
+    expect(
+      isContentVisible(
+        null,
+        { x: 0, y: 0, zoom: 1 },
+        { width: 800, height: 600 }
+      )
+    ).toBe(false)
   })
 })
 

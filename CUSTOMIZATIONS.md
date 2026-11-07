@@ -1,4 +1,4 @@
-﻿# new-api 定制版 — 运维与升级手册
+# new-api 定制版 — 运维与升级手册
 
 > 本文档描述本仓库相对官方 new-api 的**全部改动**、**升级流程**和**部署方式**。
 >
@@ -267,6 +267,29 @@ if option.Key == "service_status_setting.targets" || option.Key == "service_stat
 - 锚点依赖节点真实高度（图片宽高比不同，高度不同），由 `canvas-node-frame.tsx` 用 `ResizeObserver` 测出 `offsetWidth/offsetHeight` 上报给画布。**测量值不持久化**，每次渲染重建。
 - 父节点被删除后，子节点的 `parentId` 变成悬空引用，连线自动消失，不报错。
 - 选中连线任一端时，该连线会加深显示。
+
+#### 拖拽、手势与自适应（rc.47-21）
+
+这一版修的是「图片拖不动 / 手机上没法用 / 窗口变了画面空着」三类问题，根因各不相同：
+
+| 现象 | 根因 | 修法 |
+|---|---|---|
+| 生成的图片在画布上拖不动 | 桌面端：图片下方说明栏整行 `onPointerDown` 吞掉了按下事件，而说明栏占着每张图底部一条；触屏：节点与画布都没有 `touch-action: none`，浏览器把手势当成滚动并发 `pointercancel`，直接掐断拖拽 | 说明栏恢复拖拽语义，只有右侧按钮组拦下按下；`canvas-node-frame.tsx` 加 `touch-none`，按下时 `preventDefault()`（顺带阻止原生拖图和选字） |
+| 生成过程中画布整个不能用 | 进度遮罩是不透明的全屏层，最长要盖一分钟 | 改成顶部居中的小胶囊，`pointer-events-none`，生成中照样可以整理已有图片 |
+| 手机上画布没空间、也没法移动 | 左侧面板固定 `w-80`（320px）吃掉整屏；画布只支持鼠标滚轮缩放和空格平移 | 面板在 `<md` 变成 `Sheet` 抽屉（88vw、默认收起），生成后自动收起；画布支持**单指平移 + 双指捏合缩放**（以两指中点为锚，和滚轮共用同一套视图换算） |
+| 换窗口尺寸 / 首次打开后画面是空的 | 视口是持久化的，按宽屏算出的坐标到窄屏就落在可见区外，只有手动点「适应内容」才回得来 | `lib/selection.ts` 新增 `isContentVisible()`；尺寸变化、以及节点首次量出尺寸时，**整块内容都不可见**才自动 `fitViewport()`，用户自己平移出去不会被拽回 |
+| 返回画布页后，新生成的图把刚加的便签冲掉 | 生成请求在原页面卸载后才完成，`addNodes` 用的是卸载瞬间冻结的节点数组，整表写回会覆盖返回页新增的节点 | `use-canvas-board.ts`：检测到实例已卸载时先 `loadBoard()` 读回再合并（以存储为准，只追加本地独有的节点） |
+
+手势实现要点：指针事件监听挂在画布容器上，比 React 合成事件更早触发，所以先用
+`closest('[data-canvas-node], [data-canvas-overlay], button, a, input, textarea')` 排除属于节点和浮层的
+按下，否则会出现「拖图片时画布跟着一起平移」。
+
+回归测试（`__tests__/`，71 项全过）：`board-interaction.test.tsx` 覆盖说明栏拖拽、单指平移、
+双指缩放（放大 2 倍且中点不动）；`selection.test.ts` 覆盖 `isContentVisible` 的可见/不可见/无尺寸；
+`board-save.test.tsx` 覆盖「返回页的便签不被远端写入覆盖」。
+
+**移动端注意**：`touch-action: none` 只加在画布容器与节点上，抽屉和表单不在其内；
+缩放控件在触屏下加大到 32px，并让出 `env(safe-area-inset-bottom)`。
 
 #### 踩过的坑：i18n key 冲突
 
@@ -1525,7 +1548,8 @@ v<上游基线>-<两位序号>
 | `v1.0.0-rc.47-15` | 支付宝官方支付通道 | `v1.0.0-rc.53-alipay` |
 | `v1.0.0-rc.47-16` | 支付宝官方通道修复 + 扫码检测余额 | `v1.0.0-rc.57-alipay` / `rc.58-balance` |
 | `v1.0.0-rc.47-17` | 微信支付官方通道（Native 扫码 + 手机一键唤起） | `v1.0.0-rc.59-wechat` |
-| `v1.0.0-rc.47-18` | **画布：生成中切页面再回来丢图修复 ← 最新** | — |
+| `v1.0.0-rc.47-18` | 画布：生成中切页面再回来丢图修复 | — |
+| `v1.0.0-rc.47-21` | **画布：拖拽/手势/自适应修复（图片拖不动、移动端、窗口变化） ← 最新** | — |
 
 > 2026-10-31 起所有 tag / Release 已按上表统一改名（tag 与 Release 一一对应，资产包原样保留在各自 Release 下）。
 > 中间态 tag `v1.0.0-rc.58-balance`（无 Release，内容已并入 `47-17`）已删除。
@@ -1585,11 +1609,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc47-18`（`/api/status` = `1.0.0-rc.47-18`）；上一版 `:rc47-17`、`:rc47-03`、`:rc58`、`:rc57`、`:rc53`、`:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc47-21`（`/api/status` = `1.0.0-rc.47-21`）；上一版 `:rc47-18`、`:rc47-17`、`:rc47-03`、`:rc58`、`:rc57`、`:rc53`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.47-18`（画布：生成中切走再回来丢图修复）、`v1.0.0-rc.47-17`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起；旧名 `v1.0.0-rc.59-wechat`）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.47-21`（画布：图片拖不动 / 生成中遮挡 / 移动端抽屉与单指平移双指缩放 / 视口自适应 / 跨页写入合并）、`v1.0.0-rc.47-18`（画布：生成中切走再回来丢图修复）、`v1.0.0-rc.47-17`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起；旧名 `v1.0.0-rc.59-wechat`）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 钱包新增 **8 项**（`payment.test.ts` 5 + `alipay-qr-dialog.test.tsx` 2 + 分类 1）；工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；侧边栏/首页测试随入口数量同步更新 |

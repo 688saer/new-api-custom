@@ -17,10 +17,34 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CanvasBoard } from '../components/canvas-board'
 import type { CanvasImageNode, CanvasTextNode } from '../types'
+
+/**
+ * jsdom has no PointerEvent, so `pointerType` would be dropped and the touch
+ * paths below could never be reached. A minimal subclass keeps the two fields
+ * the board reads.
+ */
+class TestPointerEvent extends MouseEvent {
+  readonly pointerId: number
+  readonly pointerType: string
+
+  constructor(type: string, init: PointerEventInit = {}) {
+    super(type, init)
+    this.pointerId = init.pointerId ?? 0
+    this.pointerType = init.pointerType ?? 'mouse'
+  }
+}
+
+beforeEach(() => {
+  vi.stubGlobal('PointerEvent', TestPointerEvent)
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 function imageNode(id: string, x: number, y: number): CanvasImageNode {
   return {
@@ -150,6 +174,122 @@ describe('canvas board dragging', () => {
     expect(onMoveNodes).toHaveBeenCalledWith([{ id: 'e', x: 40, y: 30 }])
 
     fireEvent.pointerUp(window)
+  })
+
+  it('drags a picture by its caption row', () => {
+    const { onMoveNodes } = showBoard([])
+
+    // The caption covers the bottom strip of every picture. Swallowing the
+    // press there left the row looking draggable but frozen, which is what the
+    // operators reported as "the picture will not move".
+    fireEvent.pointerDown(screen.getByText('prompt a'), {
+      button: 0,
+      clientX: 20,
+      clientY: 20,
+    })
+    fireEvent.pointerMove(window, { clientX: 80, clientY: 60 })
+
+    expect(onMoveNodes).toHaveBeenCalledWith([{ id: 'a', x: 60, y: 40 }])
+
+    fireEvent.pointerUp(window)
+  })
+})
+
+describe('canvas board touch gestures', () => {
+  function surface() {
+    return screen.getByRole('application')
+  }
+
+  it('pans with one finger instead of starting a selection band', () => {
+    const onViewportChange = vi.fn()
+    const onSelectionChange = vi.fn()
+    render(
+      <CanvasBoard
+        nodes={NODES}
+        viewport={{ x: 0, y: 0, zoom: 1 }}
+        selectedIds={[]}
+        onViewportChange={onViewportChange}
+        onSelectionChange={onSelectionChange}
+        onMoveNodes={vi.fn()}
+        onRemoveNodes={vi.fn()}
+        onChangeText={vi.fn()}
+        onDuplicateNode={vi.fn()}
+        onRegenerate={vi.fn()}
+        onUseAsReference={vi.fn()}
+        onUseAsPrompt={vi.fn()}
+      />
+    )
+
+    fireEvent.pointerDown(surface(), {
+      pointerType: 'touch',
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    })
+    fireEvent.pointerMove(surface(), {
+      pointerType: 'touch',
+      pointerId: 1,
+      clientX: 140,
+      clientY: 120,
+    })
+
+    expect(onViewportChange).toHaveBeenLastCalledWith({
+      zoom: 1,
+      x: 40,
+      y: 20,
+    })
+    // A phone has no second way to move the camera, so a one-finger drag must
+    // pan rather than sweep a band across the pictures.
+    expect(onSelectionChange).not.toHaveBeenCalled()
+
+    fireEvent.pointerUp(surface(), { pointerType: 'touch', pointerId: 1 })
+  })
+
+  it('zooms around the midpoint of a two-finger pinch', () => {
+    const onViewportChange = vi.fn()
+    render(
+      <CanvasBoard
+        nodes={NODES}
+        viewport={{ x: 0, y: 0, zoom: 1 }}
+        selectedIds={[]}
+        onViewportChange={onViewportChange}
+        onSelectionChange={vi.fn()}
+        onMoveNodes={vi.fn()}
+        onRemoveNodes={vi.fn()}
+        onChangeText={vi.fn()}
+        onDuplicateNode={vi.fn()}
+        onRegenerate={vi.fn()}
+        onUseAsReference={vi.fn()}
+        onUseAsPrompt={vi.fn()}
+      />
+    )
+
+    fireEvent.pointerDown(surface(), {
+      pointerType: 'touch',
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    })
+    fireEvent.pointerDown(surface(), {
+      pointerType: 'touch',
+      pointerId: 2,
+      clientX: 200,
+      clientY: 100,
+    })
+    // Fingers drift apart to twice their distance: the board doubles in scale
+    // and keeps the midpoint of the pinch under the fingers.
+    fireEvent.pointerMove(surface(), {
+      pointerType: 'touch',
+      pointerId: 2,
+      clientX: 300,
+      clientY: 100,
+    })
+
+    expect(onViewportChange).toHaveBeenLastCalledWith({
+      zoom: 2,
+      x: -100,
+      y: -100,
+    })
   })
 })
 

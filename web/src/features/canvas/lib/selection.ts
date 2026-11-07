@@ -276,6 +276,32 @@ export function fitViewport(
   }
 }
 
+/**
+ * True when any part of the content is inside the visible area. Used after the
+ * board is resized: a camera that framed a wide window leaves a phone looking
+ * at empty space, and that is the one case where the board reframes itself.
+ */
+export function isContentVisible(
+  bounds: BoardRect | null,
+  viewport: CanvasViewport,
+  view: { width: number; height: number }
+): boolean {
+  if (!bounds || view.width <= 0 || view.height <= 0) return false
+  if (viewport.zoom <= 0) return false
+  const screen = {
+    x: bounds.x * viewport.zoom + viewport.x,
+    y: bounds.y * viewport.zoom + viewport.y,
+    width: bounds.width * viewport.zoom,
+    height: bounds.height * viewport.zoom,
+  }
+  return rectsIntersect(screen, {
+    x: 0,
+    y: 0,
+    width: view.width,
+    height: view.height,
+  })
+}
+
 /** Union of the rectangles of the given nodes, used to drag a group as one. */
 export function unionBounds(
   nodes: CanvasNode[],

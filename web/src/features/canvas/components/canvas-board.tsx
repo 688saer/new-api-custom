@@ -37,6 +37,7 @@ import {
   contentBounds,
   fitViewport,
   GRID_SIZE,
+  isContentVisible,
   MAX_ZOOM,
   MIN_ZOOM,
   nodesInRect,
@@ -205,13 +206,164 @@ export function CanvasBoard(props: CanvasBoardProps) {
     const element = containerRef.current
     if (!element) return
     const observer = new ResizeObserver(() => {
-      latest.current.onResize?.({
+      const size = {
         width: element.clientWidth,
         height: element.clientHeight,
-      })
+      }
+      latest.current.onResize?.(size)
+      // A camera that framed a wide window leaves a phone — or a board whose
+      // panel just opened — looking at empty space. Reframe only when nothing
+      // is on screen, so a deliberate pan into open space is left alone.
+      const bounds = contentBounds(latest.current.nodes, sizesRef.current)
+      if (bounds && !isContentVisible(bounds, latest.current.viewport, size)) {
+        const fitted = fitViewport(bounds, size)
+        if (fitted) latest.current.onViewportChange(fitted)
+      }
     })
     observer.observe(element)
     return () => observer.disconnect()
+  }, [])
+
+  // Pictures that have just been measured are the ones that arrived from a
+  // restore or a finished request. If a camera left over from another screen
+  // size would keep them out of sight, frame them instead of showing an empty
+  // board; positions never change here, so a drag cannot trigger this.
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+    const view = { width: element.clientWidth, height: element.clientHeight }
+    const bounds = contentBounds(latest.current.nodes, sizesRef.current)
+    if (!bounds || isContentVisible(bounds, latest.current.viewport, view)) {
+      return
+    }
+    const fitted = fitViewport(bounds, view)
+    if (fitted) latest.current.onViewportChange(fitted)
+  }, [sizes])
+
+  /**
+   * Touch gestures, so the board can be used without a mouse: one finger pans
+   * the surface, two fingers pinch to zoom around their midpoint. Pointer events
+   * are used instead of touch events, which also covers a stylus.
+   *
+   * Nodes handle their own presses and stop propagation, so this only ever sees
+   * presses on empty space.
+   */
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+
+    const pointers = new Map<number, { x: number; y: number }>()
+    let gesture: {
+      viewport: CanvasViewport
+      startX: number
+      startY: number
+      pinch: { distance: number; centerX: number; centerY: number } | null
+    } | null = null
+
+    const toLocal = (event: PointerEvent) => {
+      const rect = element.getBoundingClientRect()
+      return { x: event.clientX - rect.left, y: event.clientY - rect.top }
+    }
+    const spread = () => {
+      const [first, second] = [...pointers.values()]
+      return Math.max(Math.hypot(first.x - second.x, first.y - second.y), 1)
+    }
+    const middle = () => {
+      const [first, second] = [...pointers.values()]
+      return { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 }
+    }
+
+    const handleDown = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return
+      // These listeners sit on the surface, so they see a press before React
+      // does — including presses that belong to a node or to a floating
+      // control. Those handle their own gesture, and panning here as well would
+      // move the board under a picture that is being dragged.
+      const target = event.target as Element | null
+      if (!target) return
+      if (
+        target.closest(
+          '[data-canvas-node], [data-canvas-overlay], button, a, input, textarea'
+        )
+      ) {
+        return
+      }
+      const point = toLocal(event)
+      pointers.set(event.pointerId, point)
+      if (pointers.size === 1) {
+        gesture = {
+          viewport: latest.current.viewport,
+          startX: point.x,
+          startY: point.y,
+          pinch: null,
+        }
+        return
+      }
+      if (pointers.size === 2 && gesture) {
+        gesture.viewport = latest.current.viewport
+        const center = middle()
+        gesture.pinch = {
+          distance: spread(),
+          centerX: center.x,
+          centerY: center.y,
+        }
+      }
+    }
+
+    const handleMove = (event: PointerEvent) => {
+      if (!pointers.has(event.pointerId) || !gesture) return
+      const point = toLocal(event)
+      pointers.set(event.pointerId, point)
+      event.preventDefault()
+
+      if (gesture.pinch && pointers.size >= 2) {
+        const zoom = clampZoom(
+          gesture.viewport.zoom * (spread() / gesture.pinch.distance)
+        )
+        const ratio = zoom / gesture.viewport.zoom
+        const center = middle()
+        latest.current.onViewportChange({
+          zoom,
+          x: center.x - (gesture.pinch.centerX - gesture.viewport.x) * ratio,
+          y: center.y - (gesture.pinch.centerY - gesture.viewport.y) * ratio,
+        })
+        return
+      }
+
+      latest.current.onViewportChange({
+        zoom: gesture.viewport.zoom,
+        x: gesture.viewport.x + (point.x - gesture.startX),
+        y: gesture.viewport.y + (point.y - gesture.startY),
+      })
+    }
+
+    const handleUp = (event: PointerEvent) => {
+      if (!pointers.delete(event.pointerId) || !gesture) return
+      if (pointers.size === 0) {
+        gesture = null
+        return
+      }
+      // One finger lifted: keep panning from wherever the remaining one sits,
+      // so lifting a pinch does not jump the board.
+      const [point] = [...pointers.values()]
+      gesture = {
+        viewport: latest.current.viewport,
+        startX: point.x,
+        startY: point.y,
+        pinch: null,
+      }
+    }
+
+    element.addEventListener('pointerdown', handleDown)
+    element.addEventListener('pointermove', handleMove, { passive: false })
+    element.addEventListener('pointerup', handleUp)
+    element.addEventListener('pointercancel', handleUp)
+    return () => {
+      element.removeEventListener('pointerdown', handleDown)
+      element.removeEventListener('pointermove', handleMove)
+      element.removeEventListener('pointerup', handleUp)
+      element.removeEventListener('pointercancel', handleUp)
+    }
   }, [])
 
   /** Screen point to board coordinates, for both the band and drag deltas. */
@@ -299,6 +451,9 @@ export function CanvasBoard(props: CanvasBoardProps) {
   const handleSurfacePointerDown = (
     event: ReactPointerEvent<HTMLDivElement>
   ) => {
+    // A finger is handled by the touch gesture listeners: panning one finger,
+    // pinching two. A band select there would fight every attempt to move.
+    if (event.pointerType === 'touch') return
     if (event.button === 1 || spaceRef.current) {
       event.preventDefault()
       handlePanStart(event)
@@ -421,7 +576,7 @@ export function CanvasBoard(props: CanvasBoardProps) {
     <div
       ref={containerRef}
       className={cn(
-        'bg-muted/20 relative overflow-hidden',
+        'bg-muted/20 relative touch-none overflow-hidden overscroll-none select-none',
         panning || spaceHeld ? 'cursor-grabbing' : 'cursor-default',
         props.className
       )}
@@ -486,6 +641,7 @@ export function CanvasBoard(props: CanvasBoardProps) {
 
       {selectedCount > 1 && (
         <div
+          data-canvas-overlay=''
           className='bg-background/95 absolute top-3 left-3 flex items-center gap-1 rounded-lg border py-1 pr-1 pl-2.5 shadow-sm'
           onPointerDown={(event) => event.stopPropagation()}
         >
@@ -516,20 +672,25 @@ export function CanvasBoard(props: CanvasBoardProps) {
       )}
 
       {props.busy && (
-        <div className='bg-background/70 absolute inset-0 flex flex-col items-center justify-center gap-3 backdrop-blur-[1px]'>
-          <Loader2
-            className='text-primary size-7 animate-spin'
-            aria-hidden='true'
-          />
-          <p className='text-sm font-medium'>{t('Generating...')}</p>
-          <p className='text-muted-foreground text-xs'>
-            {t('A large image can take up to a minute.')}
-          </p>
+        // A pill rather than a scrim: drawing takes a minute and the pictures
+        // already on the board must stay usable while it runs.
+        <div className='pointer-events-none absolute inset-x-0 top-3 flex justify-center px-3'>
+          <div className='bg-background/95 flex items-center gap-2 rounded-full border py-1.5 pr-3 pl-2.5 shadow-sm'>
+            <Loader2
+              className='text-primary size-4 animate-spin'
+              aria-hidden='true'
+            />
+            <p className='text-xs font-medium'>{t('Generating...')}</p>
+            <p className='text-muted-foreground hidden text-xs sm:block'>
+              {t('A large image can take up to a minute.')}
+            </p>
+          </div>
         </div>
       )}
 
       {props.actions && (
         <div
+          data-canvas-overlay=''
           className='absolute top-3 right-3 flex items-center gap-2'
           onPointerDown={(event) => event.stopPropagation()}
         >
@@ -538,13 +699,14 @@ export function CanvasBoard(props: CanvasBoardProps) {
       )}
 
       <div
-        className='bg-background/90 absolute right-3 bottom-3 flex items-center gap-1 rounded-lg border p-1 shadow-sm'
+        data-canvas-overlay=''
+        className='bg-background/90 absolute right-3 bottom-3 flex touch-manipulation items-center gap-1 rounded-lg border p-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] shadow-sm'
         onPointerDown={(event) => event.stopPropagation()}
       >
         <Button
           variant='ghost'
           size='icon'
-          className='size-7'
+          className='size-8 sm:size-7'
           onClick={() => setGrid((previous) => !previous)}
           aria-pressed={grid}
           aria-label={t('Show grid')}
@@ -554,7 +716,7 @@ export function CanvasBoard(props: CanvasBoardProps) {
         <Button
           variant='ghost'
           size='icon'
-          className='size-7'
+          className='size-8 sm:size-7'
           onClick={() => zoomAround(1 / 1.2)}
           aria-label={t('Zoom out')}
         >
@@ -566,7 +728,7 @@ export function CanvasBoard(props: CanvasBoardProps) {
         <Button
           variant='ghost'
           size='icon'
-          className='size-7'
+          className='size-8 sm:size-7'
           onClick={() => zoomAround(1.2)}
           aria-label={t('Zoom in')}
         >
@@ -575,7 +737,7 @@ export function CanvasBoard(props: CanvasBoardProps) {
         <Button
           variant='ghost'
           size='icon'
-          className='size-7'
+          className='size-8 sm:size-7'
           onClick={fitContent}
           aria-label={t('Fit to content')}
         >

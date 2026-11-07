@@ -86,38 +86,41 @@ export function CanvasTextNode(props: CanvasTextNodeProps) {
           {props.node.text || t('Write a note')}
         </button>
       )}
-      <div
-        className='flex items-center justify-end gap-1 border-t px-2 py-1.5'
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        <Button
-          variant='ghost'
-          size='icon'
-          className='size-6'
-          onClick={() => props.onUseAsPrompt(props.node.text)}
-          disabled={props.node.text.trim().length === 0}
-          aria-label={t('Use as prompt')}
+      {/* The footer is a grab area; the three buttons on it keep their press. */}
+      <div className='flex items-center justify-end gap-1 border-t px-2 py-1.5'>
+        <div
+          className='flex items-center gap-1'
+          onPointerDown={(event) => event.stopPropagation()}
         >
-          <Send className='size-3.5' />
-        </Button>
-        <Button
-          variant='ghost'
-          size='icon'
-          className='size-6'
-          onClick={() => props.onDuplicate(props.node.id)}
-          aria-label={t('Duplicate node')}
-        >
-          <CopyPlus className='size-3.5' />
-        </Button>
-        <Button
-          variant='ghost'
-          size='icon'
-          className='text-destructive hover:text-destructive size-6'
-          onClick={() => props.onRemove(props.node.id)}
-          aria-label={t('Delete note')}
-        >
-          <Trash2 className='size-3.5' />
-        </Button>
+          <Button
+            variant='ghost'
+            size='icon'
+            className='size-6'
+            onClick={() => props.onUseAsPrompt(props.node.text)}
+            disabled={props.node.text.trim().length === 0}
+            aria-label={t('Use as prompt')}
+          >
+            <Send className='size-3.5' />
+          </Button>
+          <Button
+            variant='ghost'
+            size='icon'
+            className='size-6'
+            onClick={() => props.onDuplicate(props.node.id)}
+            aria-label={t('Duplicate node')}
+          >
+            <CopyPlus className='size-3.5' />
+          </Button>
+          <Button
+            variant='ghost'
+            size='icon'
+            className='text-destructive hover:text-destructive size-6'
+            onClick={() => props.onRemove(props.node.id)}
+            aria-label={t('Delete note')}
+          >
+            <Trash2 className='size-3.5' />
+          </Button>
+        </div>
       </div>
     </CanvasNodeFrame>
   )

@@ -22,6 +22,13 @@ import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { handleServerError } from '@/lib/handle-server-error'
 
 import { editImage, generateImages, revealApiKey } from './api'
@@ -80,6 +87,10 @@ export function CanvasWorkspace() {
   const [reference, setReference] = useState<CanvasReference | null>(null)
   const [recentPrompts, setRecentPrompts] = useState<string[]>([])
   const [panelOpen, setPanelOpen] = useState(true)
+  // A phone cannot spare 320px for a sidebar, so the prompt panel becomes a
+  // drawer there and starts closed: the board gets the whole screen.
+  const isMobile = useIsMobile()
+  const [panelSheetOpen, setPanelSheetOpen] = useState(false)
   // Kept in a ref on purpose: the key authorizes billing, so it must not
   // outlive the page in any form of storage.
   const revealedKeys = useRef(new Map<number, string>())
@@ -318,12 +329,39 @@ export function CanvasWorkspace() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [board, selectedIds])
 
+  const handleGenerate = () => {
+    void runRequest(draft, reference, reference?.id ?? null)
+    // On a phone the drawer covers the board, which is exactly what the operator
+    // wants to look at once the request is on its way.
+    if (isMobile) setPanelSheetOpen(false)
+  }
+
+  const panelBody = (
+    <>
+      <CanvasStorageAlerts
+        failure={board.saveFailure}
+        storage={board.storage}
+        hasNodes={board.nodes.length > 0}
+      />
+      <CanvasPromptPanel
+        className='min-h-0 flex-1'
+        draft={draft}
+        onDraftChange={handleDraftChange}
+        generating={generating}
+        reference={reference}
+        recentPrompts={recentPrompts}
+        onClearReference={() => setReference(null)}
+        onGenerate={handleGenerate}
+      />
+    </>
+  )
+
   return (
     <SectionPageLayout bleed>
       <SectionPageLayout.Content>
         <div className='flex h-full min-h-0'>
           {panelOpen && (
-            <aside className='bg-background flex w-80 shrink-0 flex-col gap-3 border-r p-3'>
+            <aside className='bg-background hidden w-80 shrink-0 flex-col gap-3 border-r p-3 md:flex'>
               <div className='flex items-center justify-between gap-2'>
                 <h1 className='truncate text-sm font-semibold'>
                   {t('Infinite canvas')}
@@ -338,25 +376,20 @@ export function CanvasWorkspace() {
                   <PanelLeftClose className='size-4' />
                 </Button>
               </div>
-              <CanvasStorageAlerts
-                failure={board.saveFailure}
-                storage={board.storage}
-                hasNodes={board.nodes.length > 0}
-              />
-              <CanvasPromptPanel
-                className='min-h-0 flex-1'
-                draft={draft}
-                onDraftChange={handleDraftChange}
-                generating={generating}
-                reference={reference}
-                recentPrompts={recentPrompts}
-                onClearReference={() => setReference(null)}
-                onGenerate={() =>
-                  void runRequest(draft, reference, reference?.id ?? null)
-                }
-              />
+              {panelBody}
             </aside>
           )}
+
+          <Sheet open={panelSheetOpen} onOpenChange={setPanelSheetOpen}>
+            <SheetContent side='left' className='w-[88vw] max-w-sm gap-3 p-3'>
+              <SheetHeader className='gap-0'>
+                <SheetTitle className='text-sm'>
+                  {t('Infinite canvas')}
+                </SheetTitle>
+              </SheetHeader>
+              {panelBody}
+            </SheetContent>
+          </Sheet>
 
           <CanvasBoard
             className='min-h-0 flex-1'
@@ -386,11 +419,14 @@ export function CanvasWorkspace() {
             onResize={handleResize}
             actions={
               <>
-                {!panelOpen && (
+                {(isMobile ? !panelSheetOpen : !panelOpen) && (
                   <Button
                     variant='outline'
                     size='sm'
-                    onClick={() => setPanelOpen(true)}
+                    onClick={() => {
+                      if (isMobile) setPanelSheetOpen(true)
+                      else setPanelOpen(true)
+                    }}
                     aria-label={t('Expand panel')}
                   >
                     <PanelLeftOpen />

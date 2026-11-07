@@ -85,65 +85,71 @@ export function CanvasImageNode(props: CanvasImageNodeProps) {
         className='pointer-events-none block w-full select-none'
         draggable={false}
       />
-      <div
-        className='flex items-center gap-1 border-t px-2 py-1.5'
-        onPointerDown={(event) => event.stopPropagation()}
-      >
+      {/* The caption is part of the grab area: only the controls on it keep the
+          press, so a picture can be picked up anywhere except its buttons. */}
+      <div className='flex items-center gap-1 border-t px-2 py-1.5'>
         <p
           className='text-muted-foreground min-w-0 flex-1 truncate text-xs'
           title={props.node.prompt}
         >
           {props.node.prompt}
         </p>
-        <CopyButton
-          value={props.node.prompt}
-          size='icon'
-          className='size-6'
-          iconClassName='size-3.5'
-          tooltip={t('Copy prompt')}
-        />
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant='ghost'
-                size='icon'
-                className='size-6'
-                aria-label={t('Image actions')}
-              />
-            }
-          >
-            <MoreHorizontal className='size-3.5' />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align='end' className='w-48'>
-            <DropdownMenuItem onClick={() => props.onRegenerate(props.node)}>
-              <RefreshCw />
-              {t('Regenerate')}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => props.onUseAsReference(props.node)}
+        <div
+          className='flex shrink-0 items-center gap-1'
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <CopyButton
+            value={props.node.prompt}
+            size='icon'
+            className='size-6'
+            iconClassName='size-3.5'
+            tooltip={t('Copy prompt')}
+          />
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  className='size-6'
+                  aria-label={t('Image actions')}
+                />
+              }
             >
-              <ImagePlus />
-              {t('Use as reference')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => props.onDuplicate(props.node.id)}>
-              <CopyPlus />
-              {t('Duplicate node')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleDownload}>
-              <Download />
-              {t('Download image')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant='destructive'
-              onClick={() => props.onRemove(props.node.id)}
-            >
-              <Trash2 />
-              {t('Delete image')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <MoreHorizontal className='size-3.5' />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end' className='w-48'>
+              <DropdownMenuItem onClick={() => props.onRegenerate(props.node)}>
+                <RefreshCw />
+                {t('Regenerate')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => props.onUseAsReference(props.node)}
+              >
+                <ImagePlus />
+                {t('Use as reference')}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => props.onDuplicate(props.node.id)}
+              >
+                <CopyPlus />
+                {t('Duplicate node')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleDownload}>
+                <Download />
+                {t('Download image')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant='destructive'
+                onClick={() => props.onRemove(props.node.id)}
+              >
+                <Trash2 />
+                {t('Delete image')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </CanvasNodeFrame>
   )

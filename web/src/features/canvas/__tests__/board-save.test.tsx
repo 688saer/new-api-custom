@@ -303,6 +303,39 @@ describe('canvas autosave', () => {
     expect(kept.result.current.nodes.map((node) => node.id)).toContain('mine')
   })
 
+  it('keeps a note added on the returned page when a picture finishes away', async () => {
+    // The page that started the drawing is unmounted; the operator has already
+    // gone back and parked a note there. Writing the frozen layout alone would
+    // erase that note, so the write has to merge with the store.
+    const away = renderHook(() => useCanvasBoard())
+    await waitFor(() => expect(away.result.current.ready).toBe(true))
+    away.unmount()
+
+    const returned = renderHook(() => useCanvasBoard())
+    await waitFor(() => expect(returned.result.current.ready).toBe(true))
+    act(() =>
+      returned.result.current.addNodes([
+        {
+          kind: 'text',
+          id: 'note',
+          text: 'keep me',
+          x: 10,
+          y: 10,
+          createdAt: 2,
+        },
+      ])
+    )
+    await waitFor(() => expect(stored.map((node) => node.id)).toContain('note'))
+
+    await act(async () => {
+      away.result.current.addNodes([imageNode('finished')])
+    })
+
+    await waitFor(() =>
+      expect(stored.map((node) => node.id).sort()).toEqual(['finished', 'note'])
+    )
+  })
+
   it('does not reread the board after its own write', async () => {
     const { result } = renderHook(() => useCanvasBoard())
     await waitFor(() => expect(result.current.ready).toBe(true))

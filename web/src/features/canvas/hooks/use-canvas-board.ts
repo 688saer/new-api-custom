@@ -76,8 +76,18 @@ export function useCanvasBoard() {
   const viewportRef = useRef(viewport)
   const readyRef = useRef(false)
   const dirtyRef = useRef({ nodes: false, viewport: false })
+  // A picture can finish after this board is gone; the write then has to know
+  // that the layout in memory is frozen and no longer the whole truth.
+  const aliveRef = useRef(true)
   nodesRef.current = nodes
   viewportRef.current = viewport
+
+  useEffect(() => {
+    aliveRef.current = true
+    return () => {
+      aliveRef.current = false
+    }
+  }, [])
 
   const refreshStorage = useCallback(() => {
     void ensurePersistentStorage().then(setStorage, () => undefined)
@@ -217,11 +227,28 @@ export function useCanvasBoard() {
    */
   const addNodes = useCallback(
     (incoming: CanvasNode[]) => {
-      const next = [...nodesRef.current, ...incoming]
-      journalNodes(next)
-      setNodes(next)
+      const local = [...nodesRef.current, ...incoming]
+      journalNodes(local)
+      setNodes(local)
 
-      void saveNodes(next).then(
+      const write = async () => {
+        if (aliveRef.current) {
+          await saveNodes(local)
+          return
+        }
+        // This board is unmounted, so `local` is the layout as it was when the
+        // page closed. Another page may have added or moved things since; its
+        // stored layout wins, and only the pictures that are new here get
+        // appended, because writing `local` alone would drop that work.
+        const stored = await loadBoard().catch(() => null)
+        const known = new Set(stored?.nodes.map((node) => node.id))
+        await saveNodes([
+          ...(stored?.nodes ?? []),
+          ...local.filter((node) => !known.has(node.id)),
+        ])
+      }
+
+      void write().then(
         () => {
           dirtyRef.current.nodes = false
           setSaveFailure(null)

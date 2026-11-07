@@ -69,6 +69,10 @@ export function CanvasNodeFrame(props: CanvasNodeFrameProps) {
     // A node sits inside the pannable surface, so its own presses must not pan
     // or start a selection band.
     event.stopPropagation()
+    // Without this the browser starts its own gesture — scrolling on a phone,
+    // selecting text or dragging the picture on a desktop — and cancels the
+    // pointer stream mid-drag, which is what left pictures stuck in place.
+    event.preventDefault()
     props.onDragStart(props.id, event)
   }
 
@@ -78,8 +82,8 @@ export function CanvasNodeFrame(props: CanvasNodeFrameProps) {
       data-canvas-node={props.id}
       data-selected={props.selected ? 'true' : 'false'}
       className={cn(
-        'bg-card group/node absolute overflow-hidden rounded-xl border shadow-sm transition-shadow',
-        'hover:shadow-md',
+        'bg-card group/node absolute touch-none overflow-hidden rounded-xl border shadow-sm transition-shadow select-none',
+        'cursor-grab hover:shadow-md active:cursor-grabbing',
         props.selected
           ? 'border-primary ring-primary/60 shadow-md ring-2'
           : 'border-border'
