@@ -33,7 +33,11 @@ import { api } from '@/lib/api'
 import { SettingsPageProvider } from '../../components/settings-page-context'
 import { QuotaSettingsSection } from '../quota-settings-section'
 
-function Fixture() {
+function Fixture({
+  withdrawalEnabled = false,
+}: {
+  withdrawalEnabled?: boolean
+}) {
   const [container, setContainer] = useState<HTMLDivElement | null>(null)
   return (
     <>
@@ -47,7 +51,7 @@ function Fixture() {
             InviteRegisterRewardEnabled: true,
             InviteRebateEnabled: false,
             InviteRebatePercent: 0,
-            AffWithdrawAlipayEnabled: false,
+            AffWithdrawAlipayEnabled: withdrawalEnabled,
             AffWithdrawFeePercent: 0,
             AffWithdrawMinQuota: 0,
             TopUpLink: '',
@@ -63,12 +67,14 @@ function Fixture() {
   )
 }
 
-async function renderSettings() {
+async function renderSettings(withdrawalEnabled = false) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   const router = createRouter({
-    routeTree: createRootRoute({ component: Fixture }),
+    routeTree: createRootRoute({
+      component: () => <Fixture withdrawalEnabled={withdrawalEnabled} />,
+    }),
     history: createMemoryHistory({ initialEntries: ['/'] }),
   })
   render(
@@ -151,3 +157,21 @@ test.each(['', '-1'])(
     expect(api.put).not.toHaveBeenCalled()
   }
 )
+
+test('saves the minimum withdrawal amount in yuan as quota units', async () => {
+  const user = userEvent.setup()
+  await renderSettings(true)
+  const input = screen.getByRole('spinbutton', {
+    name: 'Minimum withdrawal amount',
+  })
+  await user.clear(input)
+  await user.type(input, '5')
+  await user.tab()
+  await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+  await waitFor(() =>
+    expect(api.put).toHaveBeenCalledWith('/api/option/', {
+      key: 'AffWithdrawMinQuota',
+      value: 2500000,
+    })
+  )
+})

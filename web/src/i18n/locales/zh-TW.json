@@ -8269,6 +8269,8 @@
     "Alipay withdrawal rejected and rewards returned {{quota}}": "支付寶提現已駁回，獎勵已退回 {{quota}}",
     "The withdrawal fee percentage must be between 0 and 100": "提現費率必須在 0 到 100 之間",
     "The minimum withdrawal quota cannot be negative": "最低提現額度不能為負數",
-    "Referral rewards become available for withdrawal after you earn them.": "獲得邀請獎勵後即可提現或轉入餘額。"
+    "Referral rewards become available for withdrawal after you earn them.": "獲得邀請獎勵後即可提現或轉入餘額。",
+    "Minimum withdrawal amount": "最低提現金額",
+    "The smallest amount that may be withdrawn, in {{currency}}. 0 disables the minimum.": "允許提現的最小金額，按站點幣種（{{currency}}）填寫。0 表示不限制。"
   }
 }

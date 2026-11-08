@@ -8269,6 +8269,8 @@
     "Alipay withdrawal rejected and rewards returned {{quota}}": "Alipay withdrawal rejected and rewards returned {{quota}}",
     "The withdrawal fee percentage must be between 0 and 100": "The withdrawal fee percentage must be between 0 and 100",
     "The minimum withdrawal quota cannot be negative": "The minimum withdrawal quota cannot be negative",
-    "Referral rewards become available for withdrawal after you earn them.": "Referral rewards become available for withdrawal after you earn them."
+    "Referral rewards become available for withdrawal after you earn them.": "Referral rewards become available for withdrawal after you earn them.",
+    "Minimum withdrawal amount": "Minimum withdrawal amount",
+    "The smallest amount that may be withdrawn, in {{currency}}. 0 disables the minimum.": "The smallest amount that may be withdrawn, in {{currency}}. 0 disables the minimum."
   }
 }

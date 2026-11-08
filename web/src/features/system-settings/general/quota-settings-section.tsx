@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
 import i18next from 'i18next'
-import type { ChangeEvent } from 'react'
+import { useMemo, type ChangeEvent } from 'react'
 import type { Resolver } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import * as z from 'zod'
@@ -35,7 +35,12 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { formatQuota } from '@/lib/format'
+import { getCurrencyLabel } from '@/lib/currency'
+import {
+  formatQuota,
+  parseQuotaFromDollars,
+  quotaUnitsToDollars,
+} from '@/lib/format'
 
 import { FormDirtyIndicator } from '../components/form-dirty-indicator'
 import { FormNavigationGuard } from '../components/form-navigation-guard'
@@ -103,6 +108,17 @@ export function QuotaSettingsSection({
       onChange(Number.isNaN(value) ? '' : value)
     }
 
+  // 最低提现额度在表单里按站点币种（元）填写，提交时再换算回额度。
+  const initialValues = useMemo(
+    () => ({
+      ...defaultValues,
+      AffWithdrawMinQuota: Number(
+        quotaUnitsToDollars(defaultValues.AffWithdrawMinQuota).toFixed(2)
+      ),
+    }),
+    [defaultValues]
+  )
+
   const { form, handleSubmit, isDirty, isSubmitting } =
     useSettingsForm<QuotaFormValues>({
       resolver: zodResolver(quotaSchema) as Resolver<
@@ -110,13 +126,14 @@ export function QuotaSettingsSection({
         unknown,
         QuotaFormValues
       >,
-      defaultValues,
+      defaultValues: initialValues,
       onSubmit: async (_data, changedFields) => {
         for (const [key, value] of Object.entries(changedFields)) {
-          await updateOption.mutateAsync({
-            key,
-            value: value as string | number | boolean,
-          })
+          const optionValue =
+            key === 'AffWithdrawMinQuota'
+              ? parseQuotaFromDollars(Number(value) || 0)
+              : (value as string | number | boolean)
+          await updateOption.mutateAsync({ key, value: optionValue })
         }
       },
     })
@@ -434,10 +451,12 @@ export function QuotaSettingsSection({
               name='AffWithdrawMinQuota'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('Minimum withdrawal quota')}</FormLabel>
+                  <FormLabel>{t('Minimum withdrawal amount')}</FormLabel>
                   <FormControl>
                     <Input
                       type='number'
+                      min={0}
+                      step={0.01}
                       value={field.value ?? ''}
                       onChange={handleNumberChange(field.onChange)}
                       name={field.name}
@@ -448,10 +467,8 @@ export function QuotaSettingsSection({
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'The smallest referral quota that may be withdrawn ({{formattedQuota}}). 0 disables the minimum.',
-                      {
-                        formattedQuota: formatQuotaInputValue(field.value),
-                      }
+                      'The smallest amount that may be withdrawn, in {{currency}}. 0 disables the minimum.',
+                      { currency: getCurrencyLabel() }
                     )}
                   </FormDescription>
                   <FormMessage />
