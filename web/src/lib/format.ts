@@ -79,6 +79,15 @@ export function formatQuota(quota: number): string {
 }
 
 /**
+ * Format quota as money with a fixed number of fraction digits (default 2),
+ * keeping trailing zeros, e.g. `¥1.00`. Token displays fall back to the
+ * regular quota format because fractions are meaningless for token counts.
+ */
+export function formatQuotaFixed(quota: number, digits = 2): string {
+  return formatQuotaWithCurrency(quota, { fixedFractionDigits: digits })
+}
+
+/**
  * Parse quota from the current display input back to quota units.
  */
 export function parseQuotaFromDollars(amount: number): number {

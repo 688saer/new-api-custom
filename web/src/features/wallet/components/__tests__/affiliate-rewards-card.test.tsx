@@ -52,12 +52,14 @@ function renderCard(overrides: Partial<UserWalletData> = {}) {
 }
 
 describe('AffiliateRewardsCard', () => {
-  test('always shows the invite count and total income', () => {
-    renderCard({ aff_count: 3, aff_history_quota: 1500000 })
+  test('always shows the invite count and total income in yuan with two decimals', () => {
+    renderCard({ aff_count: 3, aff_history_quota: 1500000, aff_quota: 500000 })
 
     expect(screen.getByText('Invites')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByText('Total Earned')).toBeInTheDocument()
+    expect(screen.getByText('$3.00')).toBeInTheDocument()
+    expect(screen.getByText('$1.00')).toBeInTheDocument()
   })
 
   test('keeps the transfer and withdrawal entries visible without rewards', () => {

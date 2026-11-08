@@ -24,7 +24,7 @@ import { toast } from 'sonner'
 import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { formatQuota } from '@/lib/format'
+import { formatQuotaFixed } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 
 import { formatCNY } from '../../wallet/lib/aff-withdrawal'
@@ -93,7 +93,7 @@ export function AffWithdrawalReviewDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={approve ? t('Mark as Paid') : t('Reject request')}
-      description={`${withdrawal.username} · ${formatQuota(withdrawal.quota)}`}
+      description={`${withdrawal.username} · ${formatQuotaFixed(withdrawal.quota)}`}
       contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'
       footerClassName='grid grid-cols-2 gap-2 sm:flex'
       contentHeight='auto'

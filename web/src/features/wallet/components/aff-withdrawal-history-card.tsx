@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { EmptyState } from '@/components/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import { formatQuota, formatTimestamp } from '@/lib/format'
+import { formatQuotaFixed, formatTimestamp } from '@/lib/format'
 
 import { formatCNY } from '../lib/aff-withdrawal'
 import type { AffWithdrawal, AffWithdrawalStatus } from '../types'
@@ -86,7 +86,7 @@ export function AffWithdrawalHistoryCard({
                     #{item.id}
                   </span>
                   <span className='truncate font-mono text-xs'>
-                    {formatQuota(item.quota)}
+                    {formatQuotaFixed(item.quota)}
                   </span>
                   <Badge className={STATUS_TONE[item.status]}>
                     {statusLabel(item.status)}

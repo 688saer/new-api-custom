@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  formatQuota,
+  formatQuotaFixed,
   parseQuotaFromDollars,
   quotaUnitsToDollars,
 } from '@/lib/format'
@@ -63,8 +63,11 @@ export function AlipayWithdrawDialog({
       : DEFAULT_CURRENCY_CONFIG.quotaPerUnit
   const usdExchangeRate = currencyConfig.usdExchangeRate ?? 1
   const minimumQuota = minQuota > 0 ? minQuota : Math.ceil(quotaPerUnit)
-  const minimumAmount = quotaUnitsToDollars(minimumQuota)
-  const maximumAmount = quotaUnitsToDollars(availableQuota)
+  const minimumAmount = Math.max(
+    Number(quotaUnitsToDollars(minimumQuota).toFixed(2)),
+    0.01
+  )
+  const maximumAmount = Number(quotaUnitsToDollars(availableQuota).toFixed(2))
   const [amount, setAmount] = useState(minimumAmount)
   const [account, setAccount] = useState('')
   const [name, setName] = useState('')
@@ -139,7 +142,7 @@ export function AlipayWithdrawDialog({
             {t('Available Rewards')}
           </Label>
           <div className='text-2xl font-semibold'>
-            {formatQuota(availableQuota)}
+            {formatQuotaFixed(availableQuota)}
           </div>
         </div>
 
@@ -157,11 +160,11 @@ export function AlipayWithdrawDialog({
             onChange={(e) => setAmount(Number(e.target.value))}
             min={minimumAmount}
             max={maximumAmount}
-            step={minimumAmount}
+            step={0.01}
             className='font-mono text-lg'
           />
           <p className='text-muted-foreground text-xs'>
-            {t('Minimum:')} {formatQuota(minimumQuota)}
+            {t('Minimum:')} {formatQuotaFixed(minimumQuota)}
           </p>
         </div>
 

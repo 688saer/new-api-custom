@@ -35,7 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { formatQuota, formatTimestamp } from '@/lib/format'
+import { formatQuotaFixed, formatTimestamp } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { formatCNY } from '../wallet/lib/aff-withdrawal'
@@ -193,7 +193,7 @@ export function AffWithdrawalAdmin() {
                         </div>
                       </TableCell>
                       <TableCell className='text-right tabular-nums'>
-                        {formatQuota(item.quota)}
+                        {formatQuotaFixed(item.quota)}
                         <span className='text-muted-foreground text-xs'>
                           {item.fee_percent > 0
                             ? ` (${item.fee_percent}%)`
