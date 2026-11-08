@@ -8271,6 +8271,17 @@
     "The minimum withdrawal quota cannot be negative": "最低提現額度不能為負數",
     "Referral rewards become available for withdrawal after you earn them.": "獲得邀請獎勵後即可提現或轉入餘額。",
     "Minimum withdrawal amount": "最低提現金額",
-    "The smallest amount that may be withdrawn, in {{currency}}. 0 disables the minimum.": "允許提現的最小金額，按站點幣種（{{currency}}）填寫。0 表示不限制。"
+    "The smallest amount that may be withdrawn, in {{currency}}. 0 disables the minimum.": "允許提現的最小金額，按站點幣種（{{currency}}）填寫。0 表示不限制。",
+    "Referral Balance": "返利餘額",
+    "Adjust Referral Balance": "調整返利餘額",
+    "Referral rewards live in a separate wallet that is not the main balance. Add, subtract or override it here.": "邀請返利存放在獨立錢包中，與主餘額分開。可在此增加、減少或直接覆蓋。",
+    "Referral Balance ({{currency}})": "返利餘額（{{currency}}）",
+    "Adjust": "調整",
+    "Referral balance adjusted successfully": "返利餘額調整成功",
+    "Failed to adjust referral balance": "調整返利餘額失敗",
+    "Current referral balance": "當前返利餘額",
+    "Referral balance cannot be negative": "返利餘額不能為負數",
+    "Referral rewards are held in a separate wallet and never mix with the main balance.": "邀請返利放在獨立錢包中，不會與主餘額混用。",
+    "Referral balance change amount cannot be zero": "返利餘額變更金額不能為 0"
   }
 }

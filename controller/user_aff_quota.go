@@ -1,0 +1,88 @@
+package controller
+
+import (
+	"errors"
+	"net/http"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+
+// manageUserAffQuota handles admin add/subtract/override on the independent
+// referral wallet (aff_quota). It mirrors manageUserQuota but never touches the
+// main quota balance.
+func manageUserAffQuota(c *gin.Context, req ManageRequest) {
+	action := "generic"
+	params := model.AuditFields{
+		"target_user_id":  req.Id,
+		"mode":            req.Mode,
+		"requested_quota": req.Value,
+	}
+	switch req.Mode {
+	case "add":
+		action = "user.aff_quota_add"
+	case "subtract":
+		action = "user.aff_quota_subtract"
+	case "override":
+		action = "user.aff_quota_override"
+	default:
+		params["action"] = "add_aff_quota"
+		params["method"] = c.Request.Method
+		params["route"] = c.FullPath()
+	}
+	success := false
+	defer func() {
+		content := auditContentEN(action, params)
+		if !success {
+			content = "Failed user referral balance adjustment"
+		}
+		model.RecordOperationAuditLog(c.GetInt("id"), c.GetInt("role"), content, c.ClientIP(), action, params,
+			auditOperatorInfo(c), &model.AuditRequestInfo{
+				Method: c.Request.Method, Route: c.FullPath(), Status: c.Writer.Status(), Success: success,
+			}, c)
+		markAuditLogged(c)
+	}()
+
+	adjustment, err := model.AdjustUserAffQuota(req.Id, c.GetInt("role"), req.Mode, req.Value)
+	if err != nil {
+		switch {
+		case errors.Is(err, model.ErrInvalidUserAffQuotaAdjustment):
+			params["failure_reason"] = "invalid_parameters"
+			if (req.Mode == "add" || req.Mode == "subtract") && req.Value <= 0 {
+				common.ApiErrorT(c, "Referral balance change amount cannot be zero")
+			} else {
+				common.ApiErrorT(c, "Invalid parameters")
+			}
+		case errors.Is(err, model.ErrUserAffQuotaPermission):
+			params["failure_reason"] = "permission_denied"
+			common.ApiErrorT(c, "No permission to update users of same or higher permission level")
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			params["failure_reason"] = "target_not_found"
+			common.ApiErrorT(c, "User does not exist")
+		case errors.Is(err, model.ErrUserAffQuotaNegative):
+			params["failure_reason"] = "negative_balance"
+			common.ApiErrorT(c, "Referral balance cannot be negative")
+		case errors.Is(err, model.ErrWalletQuotaLimitExceeded):
+			params["failure_reason"] = "quota_limit_exceeded"
+			common.ApiError(c, err)
+		default:
+			params["failure_reason"] = "database_error"
+			common.ApiError(c, err)
+		}
+		return
+	}
+
+	params["target_username"] = adjustment.Username
+	params["from"] = adjustment.Before
+	params["to"] = adjustment.After
+	if req.Mode != "override" {
+		params["quota"] = req.Value
+	}
+	success = true
+	operation := model.AuditOperation{Action: action, Params: params}
+	model.RecordLogWithAdminInfo(adjustment.UserID, model.LogTypeTopup,
+		auditContentEN(action, params), auditOperatorInfo(c), &operation, c)
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": ""})
+}

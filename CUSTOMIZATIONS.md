@@ -1101,6 +1101,11 @@ POST /api/user/wechat/pay {"amount":1}
    钱包余额转移（原有 `/aff_transfer`）继续免手续费。
 6. **金额显示（rc.47-25）**：钱包余额、总用量、邀请待确认/总收入、提现额度统一按站点币种显示
    **两位小数**（如 `¥0.00`、`¥1.00`），提现金额输入步长 0.01。
+7. **独立返利钱包 + 后台管理（rc.47-27）**：邀请返利始终存放在独立余额 `aff_quota`（前端显示为
+   「返利余额」），与主余额 `quota` 完全分离；后台「用户 → 编辑」抽屉新增「返利余额」字段与
+   「调整」按钮，可对任意用户**增加 / 减少 / 覆盖**返利余额（按元输入、自动换算额度，不能为负，
+   不会改动主余额和总收入），每次调整写入审计日志（`user.aff_quota_add` /
+   `user.aff_quota_subtract` / `user.aff_quota_override`）。
 
 后台新增「邀请奖励提现」控制台 `/aff-withdrawals-console`（角色 ≥ ADMIN）：状态筛选、关键词搜索、
 查看账号/费率/预计到账，待审核单可「标记已打款」或「驳回」。
@@ -1108,10 +1113,12 @@ POST /api/user/wechat/pay {"amount":1}
 涉及文件：`common/constants.go`、`model/option.go`、`controller/option.go`、
 `model/aff_withdrawal.go`、`model/main.go`、`controller/aff_withdrawal.go`、`router/api-router.go`、
 `controller/user.go`、`model/aff_withdrawal_test.go`、`model/migration_dialector_test.go`、
+`model/user_aff_quota_adjustment.go`、`controller/user_aff_quota.go`、
 `web/src/features/wallet/{types.ts,api.ts,index.tsx,lib/aff-withdrawal.ts,hooks/use-aff-withdrawal.ts,
 components/affiliate-rewards-card.tsx,components/aff-withdrawal-history-card.tsx,
 components/dialogs/alipay-withdraw-dialog.tsx}`、
 `web/src/features/aff-withdrawal-admin/**`、`web/src/routes/_authenticated/aff-withdrawals-console/index.tsx`、
+`web/src/features/users/{types.ts,api.ts,components/user-aff-quota-dialog.tsx,components/users-mutate-drawer.tsx}`、
 `web/src/hooks/use-sidebar-{data,config}.ts`、系统设置额度设置页。
 
 ---
@@ -1663,7 +1670,8 @@ v<上游基线>-<两位序号>
 | `v1.0.0-rc.47-23` | 邀请奖励提现：返利百分比展示 + 支付宝提现（费率/最低额度/后台审核打款） | — |
 | `v1.0.0-rc.47-24` | 修复：邀请人数/总收入不累计、提现与转余额入口缺失 | — |
 | `v1.0.0-rc.47-25` | 金额统一显示两位小数（钱包余额/总用量/邀请待确认/总收入/提现） | — |
-| `v1.0.0-rc.47-26` | **最低提现额度改为按元填写（保存时换算成额度）← 最新** | — |
+| `v1.0.0-rc.47-26` | 最低提现额度改为按元填写（保存时换算成额度） | — |
+| `v1.0.0-rc.47-27` | **返利独立钱包 + 后台增减返利余额 ← 最新** | — |
 
 > 2026-10-31 起所有 tag / Release 已按上表统一改名（tag 与 Release 一一对应，资产包原样保留在各自 Release 下）。
 > 中间态 tag `v1.0.0-rc.58-balance`（无 Release，内容已并入 `47-17`）已删除。
@@ -1723,11 +1731,11 @@ cat part.* > image.tar.gz   # 本机合并后校验 MD5
 
 | 项目 | 状态 |
 |---|---|
-| 生产镜像 | `new-api-lottery:rc47-26`（`/api/status` = `1.0.0-rc.47-26`）；上一版 `:rc47-25`、`:rc47-24`、`:rc47-23`、`:rc47-22`、`:rc47-21`、`:rc47-18`、`:rc47-17`、`:rc47-03`、`:rc58`、`:rc57`、`:rc53`、`:invoice1`、`:perf1` 可回滚 |
+| 生产镜像 | `new-api-lottery:rc47-27`（`/api/status` = `1.0.0-rc.47-27`）；上一版 `:rc47-26`、`:rc47-25`、`:rc47-24`、`:rc47-23`、`:rc47-22`、`:rc47-21`、`:rc47-18`、`:rc47-17`、`:rc47-03`、`:rc58`、`:rc57`、`:rc53`、`:invoice1`、`:perf1` 可回滚 |
 | 官方基线 | `v1.0.0-rc.47`（`e835b1b`），代码树哈希 `f2fa906` |
 | 首页 | **已改版并上线**：ovo1 版式 + 旋转星球 + 10 个自有入口（见 3.10） |
 | 工单系统 | **已上线**：用户侧 `/tickets` + 独立后台 `/tickets-admin`（见 3.11）；`tickets6` 修复工单图片与归档同步 |
-| 已发布版本 | `v1.0.0-rc.47-26`（最低提现额度改为按站点币种（元）填写，保存时自动换算成额度）、`v1.0.0-rc.47-25`（金额统一显示两位小数：钱包余额/总用量/邀请待确认/总收入/提现额度，提现输入步长 0.01）、`v1.0.0-rc.47-24`（修复邀请人数/总收入不累计与提现、转余额入口缺失：邀请计数不再依赖奖励金额与开关，提现/转余额入口常显（无奖励时禁用））、`v1.0.0-rc.47-23`（邀请奖励提现：返利百分比展示 + 支付宝提现，支持提现费率、最低额度、后台审核打款/驳回退额度）、`v1.0.0-rc.47-22`（发票改为只能选择本账户已支付订单、金额服务端汇总、提交带订单快照；邀请新增注册奖励与消费返利两个独立开关；渠道/密钥页右上角不可用提示可关闭）、`v1.0.0-rc.47-21`（画布：图片拖不动 / 生成中遮挡 / 移动端抽屉与单指平移双指缩放 / 视口自适应 / 跨页写入合并）、`v1.0.0-rc.47-18`（画布：生成中切走再回来丢图修复）、`v1.0.0-rc.47-17`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起；旧名 `v1.0.0-rc.59-wechat`）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
+| 已发布版本 | `v1.0.0-rc.47-27`（返利改为独立钱包展示（返利余额），后台用户编辑页可增加/减少/覆盖返利余额，带审计日志且不影响主余额）、`v1.0.0-rc.47-26`（最低提现额度改为按站点币种（元）填写，保存时自动换算成额度）、`v1.0.0-rc.47-25`（金额统一显示两位小数：钱包余额/总用量/邀请待确认/总收入/提现额度，提现输入步长 0.01）、`v1.0.0-rc.47-24`（修复邀请人数/总收入不累计与提现、转余额入口缺失：邀请计数不再依赖奖励金额与开关，提现/转余额入口常显（无奖励时禁用））、`v1.0.0-rc.47-23`（邀请奖励提现：返利百分比展示 + 支付宝提现，支持提现费率、最低额度、后台审核打款/驳回退额度）、`v1.0.0-rc.47-22`（发票改为只能选择本账户已支付订单、金额服务端汇总、提交带订单快照；邀请新增注册奖励与消费返利两个独立开关；渠道/密钥页右上角不可用提示可关闭）、`v1.0.0-rc.47-21`（画布：图片拖不动 / 生成中遮挡 / 移动端抽屉与单指平移双指缩放 / 视口自适应 / 跨页写入合并）、`v1.0.0-rc.47-18`（画布：生成中切走再回来丢图修复）、`v1.0.0-rc.47-17`（微信支付官方通道 Native 扫码：本地签名、回调验签解密、手机一键唤起；旧名 `v1.0.0-rc.59-wechat`）、`v1.0.0-rc.58-balance`（检测余额：主动查单 + 自动轮询 + 回跳补刷）、`v1.0.0-rc.57-alipay`（支付宝官方通道修复：渠道下发 / 路由授权 / 预下单签名 / 中文 subject）、`v1.0.0-rc.53-alipay`（支付宝官方支付通道，见 3.13）、`v1.0.0-rc.52-health`（上游健康探测 + 控制台公告）、`v1.0.0-rc.51-fastcall`（聊天首字 63–99s → 1.77s、SSE 不缓冲）、`v1.0.0-rc.50-relay`（生图响应体 2.4MB → 约 400B）、`v1.0.0-rc.49-invoice`（发票系统 + 购买协议；Release 内含 Docker 镜像 `new-api-lottery-rc49-invoice.tar.gz` 98MB、源码包、SHA256、四平台二进制）、`v1.0.0-rc.48-tickets`、`v1.0.0-rc.48-tickets-fix` |
 | 回滚镜像 | `new-api-lottery:invoice1`、`:perf1`、`:tickets6`、`:canvas4`（更早的历史镜像已清理腾出磁盘） |
 | 磁盘占用 | 需定期 `docker image prune` 回收 |
 | 前端测试 | 钱包新增 **8 项**（`payment.test.ts` 5 + `alipay-qr-dialog.test.tsx` 2 + 分类 1）；工单新增 **17 项**（`status.test.ts` 6 + `permissions.test.ts` 4 + `attachments.test.tsx` 4 + `archive.test.tsx` 3）；提现新增 **6 项**（`aff-withdrawal.test.ts` 4 + `alipay-withdraw-dialog.test.tsx` 2）；侧边栏/首页测试随入口数量同步更新 |

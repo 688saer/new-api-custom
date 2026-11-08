@@ -72,7 +72,11 @@ import {
   type AdminPermissionMatrix,
 } from '@/lib/admin-permissions'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
-import { formatQuota, parseQuotaFromDollars } from '@/lib/format'
+import {
+  formatQuota,
+  formatQuotaFixed,
+  parseQuotaFromDollars,
+} from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 import { accountPasswordSchema } from '@/lib/password-policy'
 import { ROLE } from '@/lib/roles'
@@ -96,6 +100,7 @@ import {
   transformUserToFormDefaults,
 } from '../lib'
 import type { User } from '../types'
+import { UserAffQuotaDialog } from './user-aff-quota-dialog'
 import { UserQuotaDialog } from './user-quota-dialog'
 import { useUsers } from './users-provider'
 
@@ -116,6 +121,7 @@ export function UsersMutateDrawer({
   const currentUser = useAuthStore((s) => s.auth.user)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [quotaDialogOpen, setQuotaDialogOpen] = useState(false)
+  const [affQuotaDialogOpen, setAffQuotaDialogOpen] = useState(false)
   // Matrix as loaded from the server; an unchanged matrix is not resubmitted so
   // routine edits of an administrator do not require step-up verification.
   const loadedPermissions = useRef<AdminPermissionMatrix | undefined>(undefined)
@@ -477,6 +483,34 @@ export function UsersMutateDrawer({
                     )}
                   />
 
+                  <div className='space-y-2'>
+                    <label className='text-sm leading-none font-medium'>
+                      {t('Referral Balance ({{currency}})', {
+                        currency: currencyLabel,
+                      })}
+                    </label>
+                    <div className='flex gap-2'>
+                      <Input
+                        value={formatQuotaFixed(currentRow?.aff_quota ?? 0)}
+                        readOnly
+                        className='flex-1'
+                      />
+                      <Button
+                        type='button'
+                        variant='outline'
+                        onClick={() => setAffQuotaDialogOpen(true)}
+                      >
+                        <Pencil className='mr-1 h-4 w-4' />
+                        {t('Adjust')}
+                      </Button>
+                    </div>
+                    <p className='text-muted-foreground text-xs'>
+                      {t(
+                        'Referral rewards are held in a separate wallet and never mix with the main balance.'
+                      )}
+                    </p>
+                  </div>
+
                   <FormField
                     control={form.control}
                     name='remark'
@@ -599,6 +633,18 @@ export function UsersMutateDrawer({
           onOpenChange={setQuotaDialogOpen}
           userId={currentRow.id}
           currentQuota={parseQuotaFromDollars(currentQuotaRaw || 0)}
+          onSuccess={refreshUserData}
+        />
+      )}
+
+      {/* Adjust Referral Balance Dialog */}
+      {currentRow && (
+        <UserAffQuotaDialog
+          open={affQuotaDialogOpen}
+          onOpenChange={setAffQuotaDialogOpen}
+          userId={currentRow.id}
+          username={currentRow.username}
+          currentAffQuota={currentRow.aff_quota ?? 0}
           onSuccess={refreshUserData}
         />
       )}

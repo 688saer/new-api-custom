@@ -8271,6 +8271,17 @@
     "The minimum withdrawal quota cannot be negative": "The minimum withdrawal quota cannot be negative",
     "Referral rewards become available for withdrawal after you earn them.": "Referral rewards become available for withdrawal after you earn them.",
     "Minimum withdrawal amount": "Minimum withdrawal amount",
-    "The smallest amount that may be withdrawn, in {{currency}}. 0 disables the minimum.": "The smallest amount that may be withdrawn, in {{currency}}. 0 disables the minimum."
+    "The smallest amount that may be withdrawn, in {{currency}}. 0 disables the minimum.": "The smallest amount that may be withdrawn, in {{currency}}. 0 disables the minimum.",
+    "Referral Balance": "Referral Balance",
+    "Adjust Referral Balance": "Adjust Referral Balance",
+    "Referral rewards live in a separate wallet that is not the main balance. Add, subtract or override it here.": "Referral rewards live in a separate wallet that is not the main balance. Add, subtract or override it here.",
+    "Referral Balance ({{currency}})": "Referral Balance ({{currency}})",
+    "Adjust": "Adjust",
+    "Referral balance adjusted successfully": "Referral balance adjusted successfully",
+    "Failed to adjust referral balance": "Failed to adjust referral balance",
+    "Current referral balance": "Current referral balance",
+    "Referral balance cannot be negative": "Referral balance cannot be negative",
+    "Referral rewards are held in a separate wallet and never mix with the main balance.": "Referral rewards are held in a separate wallet and never mix with the main balance.",
+    "Referral balance change amount cannot be zero": "Referral balance change amount cannot be zero"
   }
 }

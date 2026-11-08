@@ -145,6 +145,13 @@ export interface ManageUserQuotaPayload {
   value: number
 }
 
+export interface ManageUserAffQuotaPayload {
+  id: number
+  action: 'add_aff_quota'
+  mode: QuotaAdjustMode
+  value: number
+}
+
 // ============================================================================
 // Dialog Types
 // ============================================================================

@@ -31,6 +31,7 @@ import type {
   UserFormData,
   ManageUserAction,
   ManageUserQuotaPayload,
+  ManageUserAffQuotaPayload,
   ApiResponse,
 } from './types'
 
@@ -167,6 +168,17 @@ export async function manageUser(
  */
 export async function adjustUserQuota(
   payload: ManageUserQuotaPayload
+): Promise<ApiResponse<Partial<User>>> {
+  const res = await api.post('/api/user/manage', payload)
+  return res.data
+}
+
+/**
+ * Adjust a user's independent referral balance (add/subtract/override).
+ * Referral rewards live in `aff_quota`, not in the main quota balance.
+ */
+export async function adjustUserAffQuota(
+  payload: ManageUserAffQuotaPayload
 ): Promise<ApiResponse<Partial<User>>> {
   const res = await api.post('/api/user/manage', payload)
   return res.data

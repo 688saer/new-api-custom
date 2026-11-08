@@ -99,7 +99,7 @@ export function AffiliateRewardsCard({
 
         <div className='grid grid-cols-3 gap-1.5 text-center'>
           {[
-            [t('Pending'), formatQuotaFixed(user?.aff_quota ?? 0)],
+            [t('Referral Balance'), formatQuotaFixed(user?.aff_quota ?? 0)],
             [t('Total Earned'), formatQuotaFixed(user?.aff_history_quota ?? 0)],
             [t('Invites'), String(user?.aff_count ?? 0)],
           ].map(([label, value]) => (
