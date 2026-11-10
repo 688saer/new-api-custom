@@ -168,6 +168,13 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.GET("/lottery/ranking", controller.GetLotteryRanking)
 				selfRoute.GET("/lottery/public-wins", controller.GetLotteryPublicWins)
 
+				// Lucky wheel routes
+				selfRoute.GET("/wheel/status", controller.GetWheelStatus)
+				selfRoute.POST("/wheel/spin", middleware.CriticalRateLimit(), controller.SpinWheel)
+				selfRoute.GET("/wheel/records", controller.GetMyWheelWins)
+				selfRoute.PUT("/wheel/records/:id/address", controller.SubmitMyWheelWinAddress)
+				selfRoute.GET("/wheel/public-wins", controller.GetWheelPublicWins)
+
 				// Welfare chest routes
 				selfRoute.GET("/welfare-chests/status", controller.GetWelfareChestsStatus)
 				selfRoute.POST("/welfare-chests/open", middleware.CriticalRateLimit(), controller.OpenWelfareChest)
@@ -400,6 +407,25 @@ func SetApiRouter(router *gin.Engine) {
 			redemptionRoute.PUT("/", controller.UpdateRedemption)
 			redemptionRoute.DELETE("/invalid", controller.DeleteInvalidRedemption)
 			redemptionRoute.DELETE("/:id", controller.DeleteRedemption)
+		}
+		wheelAdminRoute := apiRouter.Group("/wheel")
+		wheelAdminRoute.Use(middleware.AdminAuth())
+		{
+			wheelAdminRoute.GET("/overview", controller.AdminGetWheelOverview)
+			wheelAdminRoute.GET("/setting", controller.AdminGetWheelSetting)
+			wheelAdminRoute.PUT("/setting", controller.AdminUpdateWheelSetting)
+			wheelAdminRoute.GET("/prizes", controller.AdminListWheelPrizes)
+			wheelAdminRoute.POST("/prizes", controller.AdminCreateWheelPrize)
+			wheelAdminRoute.PUT("/prizes/:id", controller.AdminUpdateWheelPrize)
+			wheelAdminRoute.DELETE("/prizes/:id", controller.AdminDeleteWheelPrize)
+			wheelAdminRoute.POST("/prizes/:id/stock", controller.AdminAdjustWheelPrizeStock)
+			wheelAdminRoute.GET("/prizes/:id/codes", controller.AdminListWheelPrizeCodes)
+			wheelAdminRoute.POST("/prizes/:id/codes", controller.AdminAddWheelPrizeCodes)
+			wheelAdminRoute.DELETE("/prizes/:id/codes/:codeId", controller.AdminDeleteWheelPrizeCode)
+			wheelAdminRoute.GET("/records", controller.AdminListWheelWins)
+			wheelAdminRoute.POST("/records/:id/ship", controller.AdminShipWheelWin)
+			wheelAdminRoute.POST("/records/:id/deliver", controller.AdminDeliverWheelWin)
+			wheelAdminRoute.POST("/records/:id/cancel", controller.AdminCancelWheelWin)
 		}
 		serviceStatusAdminRoute := apiRouter.Group("/service-status/admin")
 		serviceStatusAdminRoute.Use(middleware.AdminAuth())

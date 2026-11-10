@@ -22,6 +22,8 @@ import {
   Box,
   ClipboardList,
   CreditCard,
+  Dices,
+  Disc3,
   FileText,
   FlaskConical,
   Gift,
@@ -130,6 +132,11 @@ export function useSidebarData(): SidebarData {
             icon: PartyPopper,
           },
           {
+            title: t('Lucky Wheel'),
+            url: '/lucky-wheel',
+            icon: Disc3,
+          },
+          {
             title: t('Welfare Chests'),
             url: '/welfare-chests',
             icon: Gift,
@@ -199,6 +206,12 @@ export function useSidebarData(): SidebarData {
             title: t('Reward management'),
             url: '/rewards/admin',
             icon: HandCoins,
+            requiredRole: ROLE.ADMIN,
+          },
+          {
+            title: t('Lucky wheel console'),
+            url: '/wheel-console',
+            icon: Dices,
             requiredRole: ROLE.ADMIN,
           },
           {

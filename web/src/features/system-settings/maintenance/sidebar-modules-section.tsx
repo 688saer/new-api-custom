@@ -132,6 +132,12 @@ export function SidebarModulesSection({
         title: t('Lucky Draw'),
         description: t('Daily free draws and quota prizes.'),
       },
+      wheel: {
+        title: t('Lucky Wheel'),
+        description: t(
+          'Prize wheel with physical, card key, credit and plan prizes.'
+        ),
+      },
       welfare: {
         title: t('Welfare Chests'),
         description: t('Weekly consumption reward chests.'),
@@ -189,6 +195,10 @@ export function SidebarModulesSection({
       subscription: {
         title: t('Subscription Management'),
         description: t('Manage subscription plans and pricing.'),
+      },
+      wheelConsole: {
+        title: t('Lucky wheel console'),
+        description: t('Configure wheel prizes, stock and win records.'),
       },
     },
   }

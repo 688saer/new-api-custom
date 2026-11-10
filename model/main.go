@@ -391,6 +391,9 @@ func migrateDB() error {
 		&InvoiceOrder{},
 		&PurchaseAgreementSignature{},
 		&AffWithdrawal{},
+		&WheelPrize{},
+		&WheelPrizeCode{},
+		&WheelWin{},
 	)
 	if err != nil {
 		return err

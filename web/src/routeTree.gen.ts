@@ -49,6 +49,7 @@ import { Route as AuthenticatedInvoiceConsoleIndexRouteImport } from './routes/_
 import { Route as AuthenticatedInvoicesIndexRouteImport } from './routes/_authenticated/invoices/index'
 import { Route as AuthenticatedKeysIndexRouteImport } from './routes/_authenticated/keys/index'
 import { Route as AuthenticatedLotteryIndexRouteImport } from './routes/_authenticated/lottery/index'
+import { Route as AuthenticatedLuckyWheelIndexRouteImport } from './routes/_authenticated/lucky-wheel/index'
 import { Route as AuthenticatedModelsIndexRouteImport } from './routes/_authenticated/models/index'
 import { Route as AuthenticatedModelsSectionRouteImport } from './routes/_authenticated/models/$section'
 import { Route as AuthenticatedPlaygroundIndexRouteImport } from './routes/_authenticated/playground/index'
@@ -68,6 +69,7 @@ import { Route as AuthenticatedUsageLogsAuditRouteImport } from './routes/_authe
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedWalletIndexRouteImport } from './routes/_authenticated/wallet/index'
 import { Route as AuthenticatedWelfareChestsIndexRouteImport } from './routes/_authenticated/welfare-chests/index'
+import { Route as AuthenticatedWheelConsoleIndexRouteImport } from './routes/_authenticated/wheel-console/index'
 import { Route as PricingModelIdIndexRouteImport } from './routes/pricing/$modelId/index'
 import { Route as AuthenticatedSystemSettingsAuthIndexRouteImport } from './routes/_authenticated/system-settings/auth/index'
 import { Route as AuthenticatedSystemSettingsAuthSectionRouteImport } from './routes/_authenticated/system-settings/auth/$section'
@@ -295,6 +297,12 @@ const AuthenticatedLotteryIndexRoute =
     path: '/lottery/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedLuckyWheelIndexRoute =
+  AuthenticatedLuckyWheelIndexRouteImport.update({
+    id: '/lucky-wheel/',
+    path: '/lucky-wheel/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedModelsIndexRoute =
   AuthenticatedModelsIndexRouteImport.update({
     id: '/models/',
@@ -406,6 +414,12 @@ const AuthenticatedWelfareChestsIndexRoute =
   AuthenticatedWelfareChestsIndexRouteImport.update({
     id: '/welfare-chests/',
     path: '/welfare-chests/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedWheelConsoleIndexRoute =
+  AuthenticatedWheelConsoleIndexRouteImport.update({
+    id: '/wheel-console/',
+    path: '/wheel-console/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const PricingModelIdIndexRoute = PricingModelIdIndexRouteImport.update({
@@ -553,6 +567,7 @@ export interface FileRoutesByFullPath {
   '/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/keys/': typeof AuthenticatedKeysIndexRoute
   '/lottery/': typeof AuthenticatedLotteryIndexRoute
+  '/lucky-wheel/': typeof AuthenticatedLuckyWheelIndexRoute
   '/models/': typeof AuthenticatedModelsIndexRoute
   '/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/profile/': typeof AuthenticatedProfileIndexRoute
@@ -568,6 +583,7 @@ export interface FileRoutesByFullPath {
   '/users/': typeof AuthenticatedUsersIndexRoute
   '/wallet/': typeof AuthenticatedWalletIndexRoute
   '/welfare-chests/': typeof AuthenticatedWelfareChestsIndexRoute
+  '/wheel-console/': typeof AuthenticatedWheelConsoleIndexRoute
   '/pricing/$modelId/': typeof PricingModelIdIndexRoute
   '/system-settings/auth/$section': typeof AuthenticatedSystemSettingsAuthSectionRoute
   '/system-settings/billing/$section': typeof AuthenticatedSystemSettingsBillingSectionRoute
@@ -628,6 +644,7 @@ export interface FileRoutesByTo {
   '/invoices': typeof AuthenticatedInvoicesIndexRoute
   '/keys': typeof AuthenticatedKeysIndexRoute
   '/lottery': typeof AuthenticatedLotteryIndexRoute
+  '/lucky-wheel': typeof AuthenticatedLuckyWheelIndexRoute
   '/models': typeof AuthenticatedModelsIndexRoute
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
   '/profile': typeof AuthenticatedProfileIndexRoute
@@ -643,6 +660,7 @@ export interface FileRoutesByTo {
   '/users': typeof AuthenticatedUsersIndexRoute
   '/wallet': typeof AuthenticatedWalletIndexRoute
   '/welfare-chests': typeof AuthenticatedWelfareChestsIndexRoute
+  '/wheel-console': typeof AuthenticatedWheelConsoleIndexRoute
   '/pricing/$modelId': typeof PricingModelIdIndexRoute
   '/system-settings/auth/$section': typeof AuthenticatedSystemSettingsAuthSectionRoute
   '/system-settings/billing/$section': typeof AuthenticatedSystemSettingsBillingSectionRoute
@@ -707,6 +725,7 @@ export interface FileRoutesById {
   '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
   '/_authenticated/keys/': typeof AuthenticatedKeysIndexRoute
   '/_authenticated/lottery/': typeof AuthenticatedLotteryIndexRoute
+  '/_authenticated/lucky-wheel/': typeof AuthenticatedLuckyWheelIndexRoute
   '/_authenticated/models/': typeof AuthenticatedModelsIndexRoute
   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/_authenticated/profile/': typeof AuthenticatedProfileIndexRoute
@@ -722,6 +741,7 @@ export interface FileRoutesById {
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
   '/_authenticated/wallet/': typeof AuthenticatedWalletIndexRoute
   '/_authenticated/welfare-chests/': typeof AuthenticatedWelfareChestsIndexRoute
+  '/_authenticated/wheel-console/': typeof AuthenticatedWheelConsoleIndexRoute
   '/pricing/$modelId/': typeof PricingModelIdIndexRoute
   '/_authenticated/system-settings/auth/$section': typeof AuthenticatedSystemSettingsAuthSectionRoute
   '/_authenticated/system-settings/billing/$section': typeof AuthenticatedSystemSettingsBillingSectionRoute
@@ -785,6 +805,7 @@ export interface FileRouteTypes {
     | '/invoices/'
     | '/keys/'
     | '/lottery/'
+    | '/lucky-wheel/'
     | '/models/'
     | '/playground/'
     | '/profile/'
@@ -800,6 +821,7 @@ export interface FileRouteTypes {
     | '/users/'
     | '/wallet/'
     | '/welfare-chests/'
+    | '/wheel-console/'
     | '/pricing/$modelId/'
     | '/system-settings/auth/$section'
     | '/system-settings/billing/$section'
@@ -860,6 +882,7 @@ export interface FileRouteTypes {
     | '/invoices'
     | '/keys'
     | '/lottery'
+    | '/lucky-wheel'
     | '/models'
     | '/playground'
     | '/profile'
@@ -875,6 +898,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/wallet'
     | '/welfare-chests'
+    | '/wheel-console'
     | '/pricing/$modelId'
     | '/system-settings/auth/$section'
     | '/system-settings/billing/$section'
@@ -938,6 +962,7 @@ export interface FileRouteTypes {
     | '/_authenticated/invoices/'
     | '/_authenticated/keys/'
     | '/_authenticated/lottery/'
+    | '/_authenticated/lucky-wheel/'
     | '/_authenticated/models/'
     | '/_authenticated/playground/'
     | '/_authenticated/profile/'
@@ -953,6 +978,7 @@ export interface FileRouteTypes {
     | '/_authenticated/users/'
     | '/_authenticated/wallet/'
     | '/_authenticated/welfare-chests/'
+    | '/_authenticated/wheel-console/'
     | '/pricing/$modelId/'
     | '/_authenticated/system-settings/auth/$section'
     | '/_authenticated/system-settings/billing/$section'
@@ -1276,6 +1302,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLotteryIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/lucky-wheel/': {
+      id: '/_authenticated/lucky-wheel/'
+      path: '/lucky-wheel'
+      fullPath: '/lucky-wheel/'
+      preLoaderRoute: typeof AuthenticatedLuckyWheelIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/models/': {
       id: '/_authenticated/models/'
       path: '/models'
@@ -1407,6 +1440,13 @@ declare module '@tanstack/react-router' {
       path: '/welfare-chests'
       fullPath: '/welfare-chests/'
       preLoaderRoute: typeof AuthenticatedWelfareChestsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/wheel-console/': {
+      id: '/_authenticated/wheel-console/'
+      path: '/wheel-console'
+      fullPath: '/wheel-console/'
+      preLoaderRoute: typeof AuthenticatedWheelConsoleIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/pricing/$modelId/': {
@@ -1639,6 +1679,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInvoicesIndexRoute: typeof AuthenticatedInvoicesIndexRoute
   AuthenticatedKeysIndexRoute: typeof AuthenticatedKeysIndexRoute
   AuthenticatedLotteryIndexRoute: typeof AuthenticatedLotteryIndexRoute
+  AuthenticatedLuckyWheelIndexRoute: typeof AuthenticatedLuckyWheelIndexRoute
   AuthenticatedModelsIndexRoute: typeof AuthenticatedModelsIndexRoute
   AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
   AuthenticatedProfileIndexRoute: typeof AuthenticatedProfileIndexRoute
@@ -1653,6 +1694,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
   AuthenticatedWalletIndexRoute: typeof AuthenticatedWalletIndexRoute
   AuthenticatedWelfareChestsIndexRoute: typeof AuthenticatedWelfareChestsIndexRoute
+  AuthenticatedWheelConsoleIndexRoute: typeof AuthenticatedWheelConsoleIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -1676,6 +1718,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInvoicesIndexRoute: AuthenticatedInvoicesIndexRoute,
   AuthenticatedKeysIndexRoute: AuthenticatedKeysIndexRoute,
   AuthenticatedLotteryIndexRoute: AuthenticatedLotteryIndexRoute,
+  AuthenticatedLuckyWheelIndexRoute: AuthenticatedLuckyWheelIndexRoute,
   AuthenticatedModelsIndexRoute: AuthenticatedModelsIndexRoute,
   AuthenticatedPlaygroundIndexRoute: AuthenticatedPlaygroundIndexRoute,
   AuthenticatedProfileIndexRoute: AuthenticatedProfileIndexRoute,
@@ -1691,6 +1734,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
   AuthenticatedWalletIndexRoute: AuthenticatedWalletIndexRoute,
   AuthenticatedWelfareChestsIndexRoute: AuthenticatedWelfareChestsIndexRoute,
+  AuthenticatedWheelConsoleIndexRoute: AuthenticatedWheelConsoleIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

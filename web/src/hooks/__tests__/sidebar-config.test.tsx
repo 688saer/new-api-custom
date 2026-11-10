@@ -86,6 +86,7 @@ describe('security sidebar visibility', () => {
     ).toEqual([
       'Announcements',
       'Lucky Draw',
+      'Lucky Wheel',
       'Welfare Chests',
       'My rewards',
       'My Tickets',

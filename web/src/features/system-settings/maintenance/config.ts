@@ -81,6 +81,7 @@ export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
   personal: {
     enabled: true,
     lottery: true,
+    wheel: true,
     welfare: true,
     rewards: true,
     topup: true,
@@ -93,6 +94,7 @@ export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
     models: true,
     redemption: true,
     rewards: true,
+    wheelConsole: true,
     user: true,
     setting: true,
     subscription: true,
