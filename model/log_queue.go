@@ -1,11 +1,13 @@
 package model
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
 
 	"github.com/bytedance/gopkg/util/gopool"
+	"github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -41,13 +43,30 @@ var (
 	logInsertMu sync.Mutex
 )
 
+// logQueueSafe reports whether the flusher may write this connection's rows in
+// the background. An in-memory SQLite database belongs to the connection that
+// opened it: a deferred write takes a fresh connection from the pool, finds an
+// empty schema, and fails. Rows for such a target are written in the caller's
+// step instead, which keeps them on the connection that created the tables.
+func logQueueSafe(db *gorm.DB) bool {
+	dialector, ok := db.Dialector.(*sqlite.Dialector)
+	if !ok {
+		return true
+	}
+	dsn := strings.TrimSpace(dialector.DSN)
+	if strings.HasPrefix(dsn, ":memory:") {
+		return false
+	}
+	return !strings.Contains(dsn, "mode=memory")
+}
+
 // enqueueLog hands a row to the flusher. A full queue means the writer is
 // behind, and then the caller writes its own row: a slow log must never cost a
 // row.
 func enqueueLog(log *Log) error {
 	ensureLogRequestId(log)
 	db := LOG_DB
-	if db == nil {
+	if db == nil || !logQueueSafe(db) {
 		return createLog(log)
 	}
 	logFlushOnce.Do(startLogFlusher)

@@ -309,6 +309,127 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"POST /api/deployments/:id/extend":                  accessTokenScopeRule("deployment:write"),
 	"DELETE /api/deployments/:id":                       accessTokenScopeRule("deployment:write"),
 
+	// router/api-router.go: activity prizes, support tickets, invoices, referral
+	// withdrawals, and service status. These groups are registered by hand rather
+	// than through handlePermissionRoute, so they declare their own rules here.
+	//
+	// A draw, spin, chest, or claim spends or credits a balance, so it needs the
+	// wallet write scope. The wheel console manages prizes and their codes, which
+	// are redemption-like, so the whole /api/wheel namespace shares that scope.
+	"GET /api/user/lottery/status":            accessTokenScopeRule("usage:read"),
+	"GET /api/user/lottery/ranking":           accessTokenScopeRule("usage:read"),
+	"GET /api/user/lottery/public-wins":       accessTokenScopeRule("usage:read"),
+	"POST /api/user/lottery/draw":             accessTokenScopeRule("wallet:write"),
+	"GET /api/user/wheel/status":              accessTokenScopeRule("usage:read"),
+	"GET /api/user/wheel/records":             accessTokenScopeRule("usage:read"),
+	"GET /api/user/wheel/public-wins":         accessTokenScopeRule("usage:read"),
+	"POST /api/user/wheel/spin":               accessTokenScopeRule("wallet:write"),
+	"PUT /api/user/wheel/records/:id/address": accessTokenScopeRule("profile:write"),
+	"GET /api/user/welfare-chests/status":     accessTokenScopeRule("usage:read"),
+	"GET /api/user/welfare-chests/ranking":    accessTokenScopeRule("usage:read"),
+	"POST /api/user/welfare-chests/open":      accessTokenScopeRule("wallet:write"),
+	"GET /api/user/rewards/pending":           accessTokenScopeRule("usage:read"),
+	"GET /api/user/rewards/history":           accessTokenScopeRule("usage:read"),
+	"POST /api/user/rewards/:id/claim":        accessTokenScopeRule("wallet:write"),
+
+	"GET /api/wheel/overview":                     accessTokenScopeRule("redemption:read"),
+	"GET /api/wheel/setting":                      accessTokenScopeRule("redemption:read"),
+	"PUT /api/wheel/setting":                      accessTokenScopeRule("redemption:write"),
+	"GET /api/wheel/prizes":                       accessTokenScopeRule("redemption:read"),
+	"POST /api/wheel/prizes":                      accessTokenScopeRule("redemption:write"),
+	"PUT /api/wheel/prizes/:id":                   accessTokenScopeRule("redemption:write"),
+	"DELETE /api/wheel/prizes/:id":                accessTokenScopeRule("redemption:write"),
+	"POST /api/wheel/prizes/:id/stock":            accessTokenScopeRule("redemption:write"),
+	"GET /api/wheel/prizes/:id/codes":             accessTokenScopeRule("redemption:read"),
+	"POST /api/wheel/prizes/:id/codes":            accessTokenScopeRule("redemption:write"),
+	"DELETE /api/wheel/prizes/:id/codes/:codeId":  accessTokenScopeRule("redemption:write"),
+	"GET /api/wheel/records":                      accessTokenScopeRule("redemption:read"),
+	"POST /api/wheel/records/:id/ship":            accessTokenScopeRule("redemption:write"),
+	"POST /api/wheel/records/:id/deliver":         accessTokenScopeRule("redemption:write"),
+	"POST /api/wheel/records/:id/cancel":          accessTokenScopeRule("redemption:write"),
+	"GET /api/user/rewards/users":                 accessTokenScopeRule("user:read"),
+	"POST /api/user/rewards/campaigns/preview":    accessTokenScopeRule("redemption:read"),
+	"GET /api/user/rewards/campaigns":             accessTokenScopeRule("redemption:read"),
+	"POST /api/user/rewards/campaigns":            accessTokenScopeRule("redemption:write"),
+	"GET /api/user/rewards/campaigns/:id/grants":  accessTokenScopeRule("redemption:read"),
+	"POST /api/user/rewards/campaigns/:id/revoke": accessTokenScopeRule("redemption:write"),
+
+	// Support conversations are personal account content.
+	"GET /api/user/tickets":                      accessTokenScopeRule("profile:read"),
+	"POST /api/user/tickets":                     accessTokenScopeRule("profile:write"),
+	"GET /api/user/tickets/:id":                  accessTokenScopeRule("profile:read"),
+	"POST /api/user/tickets/:id/messages":        accessTokenScopeRule("profile:write"),
+	"PUT /api/user/tickets/:id/resolve":          accessTokenScopeRule("profile:write"),
+	"PUT /api/user/tickets/:id/archive":          accessTokenScopeRule("profile:write"),
+	"POST /api/user/ticket-uploads":              accessTokenScopeRule("profile:write"),
+	"GET /api/user/ticket-uploads/:attachmentId": accessTokenScopeRule("profile:read"),
+
+	// The ticket console keeps its own agent accounts, sessions, and permissions,
+	// so nothing there is expressed as a site token scope.
+	"POST /api/ticket-console/auth/login":               accessTokenAnyRule,
+	"POST /api/ticket-console/auth/bootstrap":           accessTokenAnyRule,
+	"POST /api/ticket-console/auth/logout":              accessTokenAnyRule,
+	"GET /api/ticket-console/auth/self":                 accessTokenAnyRule,
+	"PUT /api/ticket-console/auth/password":             accessTokenAnyRule,
+	"GET /api/ticket-console/counts":                    accessTokenAnyRule,
+	"GET /api/ticket-console/tickets":                   accessTokenAnyRule,
+	"POST /api/ticket-console/tickets":                  accessTokenAnyRule,
+	"GET /api/ticket-console/tickets/:id":               accessTokenAnyRule,
+	"POST /api/ticket-console/tickets/:id/messages":     accessTokenAnyRule,
+	"PUT /api/ticket-console/tickets/:id/assign":        accessTokenAnyRule,
+	"PUT /api/ticket-console/tickets/:id/status":        accessTokenAnyRule,
+	"PUT /api/ticket-console/tickets/:id/archive":       accessTokenAnyRule,
+	"GET /api/ticket-console/attachments/:attachmentId": accessTokenAnyRule,
+	"POST /api/ticket-console/uploads":                  accessTokenAnyRule,
+	"GET /api/ticket-console/users":                     accessTokenAnyRule,
+	"GET /api/ticket-console/settings":                  accessTokenAnyRule,
+	"PUT /api/ticket-console/settings":                  accessTokenAnyRule,
+	"GET /api/ticket-console/agents":                    accessTokenAnyRule,
+	"POST /api/ticket-console/agents":                   accessTokenAnyRule,
+	"PUT /api/ticket-console/agents/:id":                accessTokenAnyRule,
+	"DELETE /api/ticket-console/agents/:id":             accessTokenAnyRule,
+	"PUT /api/ticket-console/agents/:id/password":       accessTokenAnyRule,
+
+	// Invoices are billing documents: the user side reads and requests them, the
+	// admin console reviews and issues them.
+	"GET /api/user/invoices":          accessTokenScopeRule("wallet:read"),
+	"GET /api/user/invoices/orders":   accessTokenScopeRule("wallet:read"),
+	"GET /api/user/invoices/:id/file": accessTokenScopeRule("wallet:read"),
+	"POST /api/user/invoices":         accessTokenScopeRule("wallet:write"),
+	"GET /api/invoice/":               accessTokenScopeRule("billing:read"),
+	"GET /api/invoice/setting":        accessTokenScopeRule("billing:read"),
+	"PUT /api/invoice/setting":        accessTokenScopeRule("billing:write"),
+	"GET /api/invoice/signatures":     accessTokenScopeRule("billing:read"),
+	"GET /api/invoice/:id":            accessTokenScopeRule("billing:read"),
+	"GET /api/invoice/:id/file":       accessTokenScopeRule("billing:read"),
+	"PUT /api/invoice/:id/review":     accessTokenScopeRule("billing:write"),
+	"POST /api/invoice/:id/issue":     accessTokenScopeRule("billing:write"),
+
+	// A referral withdrawal moves money out of the balance.
+	"GET /api/user/aff/withdrawals":  accessTokenScopeRule("wallet:read"),
+	"POST /api/user/aff/withdrawals": accessTokenScopeRule("wallet:write"),
+	"GET /api/aff_withdrawals/":      accessTokenScopeRule("billing:read"),
+	"PUT /api/aff_withdrawals/:id":   accessTokenScopeRule("billing:write"),
+
+	"GET /api/user/purchase-agreement":          accessTokenScopeRule("profile:read"),
+	"POST /api/user/purchase-agreement/sign":    accessTokenScopeRule("profile:write"),
+	"POST /api/user/purchase-agreement/confirm": accessTokenScopeRule("profile:write"),
+
+	// Probe targets and their settings are system settings.
+	"GET /api/service-status/admin/settings":   accessTokenScopeRule("option:read"),
+	"PUT /api/service-status/admin/settings":   accessTokenScopeRule("option:write"),
+	"POST /api/service-status/admin/probe":     accessTokenScopeRule("option:write"),
+	"POST /api/service-status/admin/probe/:id": accessTokenScopeRule("option:write"),
+	"DELETE /api/service-status/admin/samples": accessTokenScopeRule("option:write"),
+
+	// Public dashboards and payment callbacks carry no session of their own.
+	"GET /api/service-status":      accessTokenAnyRule,
+	"GET /api/upstream-status":     accessTokenAnyRule,
+	"GET /api/welfare-apis":        accessTokenAnyRule,
+	"GET /api/user/alipay/return":  accessTokenAnyRule,
+	"POST /api/user/alipay/notify": accessTokenAnyRule,
+	"POST /api/user/wechat/notify": accessTokenAnyRule,
+
 	// router/relay-router.go
 	"POST /pg/chat/completions": accessTokenSessionRule,
 }
