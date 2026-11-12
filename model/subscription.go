@@ -555,6 +555,42 @@ func CountUserSubscriptionsByPlan(userId int, planId int) (int64, error) {
 	return count, nil
 }
 
+// SubscriptionPlanInUseError reports that a plan still serves subscriptions, so
+// the plan row cannot be removed without stranding them.
+type SubscriptionPlanInUseError struct {
+	Subscriptions int64
+}
+
+func (e *SubscriptionPlanInUseError) Error() string {
+	return fmt.Sprintf("plan is still serving %d subscriptions", e.Subscriptions)
+}
+
+// DeleteSubscriptionPlan removes a plan that no live subscription depends on.
+// A subscription whose card already ended keeps its own snapshot and is never
+// billed again, so only active cards by plan policy block the deletion.
+func DeleteSubscriptionPlan(planId int) error {
+	if planId <= 0 {
+		return errors.New("invalid plan id")
+	}
+	now := GetDBTimestamp()
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var plan SubscriptionPlan
+		if err := lockForUpdate(tx).Where("id = ?", planId).First(&plan).Error; err != nil {
+			return err
+		}
+		var live int64
+		if err := tx.Model(&UserSubscription{}).
+			Where("plan_id = ? AND status = ? AND end_time > ?", planId, "active", now).
+			Count(&live).Error; err != nil {
+			return err
+		}
+		if live > 0 {
+			return &SubscriptionPlanInUseError{Subscriptions: live}
+		}
+		return tx.Delete(&SubscriptionPlan{}, planId).Error
+	})
+}
+
 func getUserGroupByIdTx(tx *gorm.DB, userId int) (string, error) {
 	if userId <= 0 {
 		return "", errors.New("invalid userId")

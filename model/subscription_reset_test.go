@@ -8,6 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func seedSubscriptionResetPlan(t *testing.T, plan *SubscriptionPlan) {
@@ -304,4 +305,40 @@ func TestSubscriptionRenewModeDecidesWhetherTheAllowanceRefillsNow(t *testing.T)
 	assert.EqualValues(t, endTime, extended.StartTime)
 	assert.EqualValues(t, endTime+daySeconds, extended.EndTime)
 	assert.EqualValues(t, plan.TokenLimit, extended.TokenLimitTotal)
+}
+
+func TestDeleteSubscriptionPlanRefusesWhileACardIsActive(t *testing.T) {
+	truncateTables(t)
+
+	now := GetDBTimestamp()
+	unusedPlan := &SubscriptionPlan{Id: 9301, Title: "Unused", PriceAmount: 2, DurationUnit: SubscriptionDurationDay, DurationValue: 1, QuotaResetPeriod: SubscriptionResetDaily}
+	servedPlan := &SubscriptionPlan{Id: 9302, Title: "Served", PriceAmount: 2, DurationUnit: SubscriptionDurationDay, DurationValue: 1, QuotaResetPeriod: SubscriptionResetDaily}
+	endedPlan := &SubscriptionPlan{Id: 9303, Title: "Ended", PriceAmount: 2, DurationUnit: SubscriptionDurationDay, DurationValue: 1, QuotaResetPeriod: SubscriptionResetDaily}
+	seedSubscriptionResetPlan(t, unusedPlan)
+	seedSubscriptionResetPlan(t, servedPlan)
+	seedSubscriptionResetPlan(t, endedPlan)
+	seedSubscriptionResetSub(t, &UserSubscription{Id: 9311, UserId: 111, PlanId: servedPlan.Id, AmountTotal: 100, StartTime: now - 3600, EndTime: now + 3600, Status: "active"})
+	seedSubscriptionResetSub(t, &UserSubscription{Id: 9312, UserId: 111, PlanId: endedPlan.Id, AmountTotal: 100, StartTime: now - 7200, EndTime: now - 60, Status: "active"})
+
+	var inUse *SubscriptionPlanInUseError
+	err := DeleteSubscriptionPlan(servedPlan.Id)
+	require.Error(t, err)
+	require.ErrorAs(t, err, &inUse)
+	assert.EqualValues(t, 1, inUse.Subscriptions)
+
+	planCount := func(planId int) int64 {
+		var count int64
+		require.NoError(t, DB.Model(&SubscriptionPlan{}).Where("id = ?", planId).Count(&count).Error)
+		return count
+	}
+	assert.EqualValues(t, 1, planCount(servedPlan.Id), "a plan serving an active card must survive the delete")
+
+	require.NoError(t, DeleteSubscriptionPlan(unusedPlan.Id))
+	assert.Zero(t, planCount(unusedPlan.Id))
+
+	// A card that already ended is never billed again, so its plan is removable.
+	require.NoError(t, DeleteSubscriptionPlan(endedPlan.Id))
+	assert.Zero(t, planCount(endedPlan.Id))
+
+	require.ErrorIs(t, DeleteSubscriptionPlan(endedPlan.Id), gorm.ErrRecordNotFound)
 }

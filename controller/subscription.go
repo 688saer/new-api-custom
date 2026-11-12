@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 
@@ -372,6 +373,38 @@ func AdminUpdateSubscriptionPlanStatus(c *gin.Context) {
 		return
 	}
 	if err := model.DB.Model(&model.SubscriptionPlan{}).Where("id = ?", id).Update("enabled", *req.Enabled).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.InvalidateSubscriptionPlanCache(id)
+	common.ApiSuccess(c, nil)
+}
+
+// AdminDeleteSubscriptionPlan removes a plan from the console. A plan that still
+// serves an active subscription is kept, because that card is billed through it.
+func AdminDeleteSubscriptionPlan(c *gin.Context) {
+	if !requirePaymentCompliance(c) {
+		return
+	}
+
+	id, _ := strconv.Atoi(c.Param("id"))
+	if id <= 0 {
+		common.ApiErrorT(c, "Invalid ID")
+		return
+	}
+	if err := model.DeleteSubscriptionPlan(id); err != nil {
+		var inUse *model.SubscriptionPlanInUseError
+		if errors.As(err, &inUse) {
+			common.ApiError(c, common.NewMessage(
+				"This plan still has {{subscriptions}} active subscriptions. Delete those subscriptions first, or disable the plan instead.",
+				map[string]any{"subscriptions": inUse.Subscriptions},
+			))
+			return
+		}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.ApiErrorT(c, "Plan does not exist")
+			return
+		}
 		common.ApiError(c, err)
 		return
 	}
