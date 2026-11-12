@@ -51,12 +51,20 @@ import {
   updateBillingPreference,
 } from '@/features/subscriptions/api'
 import { SubscriptionPurchaseDialog } from '@/features/subscriptions/components/dialogs/subscription-purchase-dialog'
-import { formatDuration, formatResetPeriod } from '@/features/subscriptions/lib'
+import {
+  formatDuration,
+  formatResetPeriod,
+  formatTokenAllowance,
+  getRemainingTokens,
+  getTokenUsagePercent,
+  isTokenAllowanceExhausted,
+} from '@/features/subscriptions/lib'
 import type {
   PlanRecord,
   UserSubscriptionRecord,
 } from '@/features/subscriptions/types'
-import { formatQuota } from '@/lib/format'
+import { toIntlLocale } from '@/i18n/languages'
+import { formatCompactNumber, formatQuota } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
@@ -100,7 +108,8 @@ export function SubscriptionPlansCard({
   userQuota,
   onPurchaseSuccess,
 }: SubscriptionPlansCardProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
 
   const [plans, setPlans] = useState<PlanRecord[]>([])
   const [activeSubscriptions, setActiveSubscriptions] = useState<
@@ -221,6 +230,23 @@ export function SubscriptionPlansCard({
     }
     return map
   }, [plans])
+
+  // The buyer only gets the extend/refresh choice when they already hold an
+  // active card of the plan they are about to buy.
+  const selectedPlanActiveSubscription = useMemo(() => {
+    const planId = selectedPlan?.plan?.id
+    if (!planId) return null
+    const now = Date.now() / 1000
+    const record = allSubscriptions.find((sub) => {
+      const subscription = sub?.subscription
+      return (
+        subscription?.plan_id === planId &&
+        subscription?.status === 'active' &&
+        (subscription?.end_time || 0) > now
+      )
+    })
+    return record?.subscription || null
+  }, [allSubscriptions, selectedPlan])
 
   const getRemainingDays = (sub: UserSubscriptionRecord) => {
     const endTime = sub?.subscription?.end_time || 0
@@ -414,6 +440,23 @@ export function SubscriptionPlansCard({
                   const isActive =
                     subscription?.status === 'active' && !isExpired
                   const nextResetTime = subscription?.next_reset_time ?? 0
+                  const tokenLimitTotal = Number(
+                    subscription?.token_limit_total || 0
+                  )
+                  const tokenUsed = Number(subscription?.token_used || 0)
+                  const tokenUsagePercent = getTokenUsagePercent(
+                    tokenUsed,
+                    tokenLimitTotal
+                  )
+                  const tokensRemaining = getRemainingTokens(
+                    tokenUsed,
+                    tokenLimitTotal
+                  )
+                  const tokenExhausted = isTokenAllowanceExhausted(
+                    tokenUsed,
+                    tokenLimitTotal
+                  )
+                  const subscriptionModels = subscription?.allowed_models || []
                   let statusBadge = (
                     <StatusBadge
                       label={t('Expired')}
@@ -508,6 +551,67 @@ export function SubscriptionPlansCard({
                       {totalAmount > 0 && isActive && (
                         <Progress value={usagePercent} className='mt-2 h-1.5' />
                       )}
+                      {tokenLimitTotal > 0 && (
+                        <div className='mt-1 space-y-1'>
+                          <div className='text-muted-foreground'>
+                            {t('Tokens this period')}:{' '}
+                            <span
+                              className={cn(
+                                tokenExhausted && 'text-destructive font-medium'
+                              )}
+                            >
+                              {formatCompactNumber(tokenUsed, locale)} /{' '}
+                              {formatCompactNumber(tokenLimitTotal, locale)}
+                            </span>
+                            <span className='ml-2'>
+                              {t('Remaining')}{' '}
+                              {formatCompactNumber(tokensRemaining, locale)}
+                            </span>
+                            <span className='ml-2'>
+                              {t('Used')} {tokenUsagePercent}%
+                            </span>
+                          </div>
+                          <Progress
+                            value={tokenUsagePercent}
+                            className={cn(
+                              'h-1.5',
+                              tokenExhausted && 'bg-destructive/20'
+                            )}
+                          />
+                          {tokenExhausted && (
+                            <div className='text-destructive'>
+                              {t(
+                                "This period's token allowance is used up. Calls stop until the allowance resets or you renew."
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {subscriptionModels.length > 0 && (
+                        <div className='text-muted-foreground mt-1 flex flex-wrap items-center gap-1'>
+                          {t('Allowed Models')}:
+                          {subscriptionModels.slice(0, 4).map((model) => (
+                            <span
+                              key={model}
+                              className='bg-background max-w-[120px] truncate rounded border px-1.5 py-0.5'
+                            >
+                              {model}
+                            </span>
+                          ))}
+                          {subscriptionModels.length > 4 && (
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={<span className='cursor-help' />}
+                              >
+                                +{subscriptionModels.length - 4}
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {subscriptionModels.slice(4).join(', ')}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -535,6 +639,12 @@ export function SubscriptionPlansCard({
               const count = planPurchaseCountMap.get(plan.id) || 0
               const reached = limit > 0 && count >= limit
 
+              const planTokenAllowance = formatTokenAllowance(
+                Number(plan.token_limit || 0),
+                t,
+                locale
+              )
+              const planModels = plan.allowed_models || []
               const benefits = [
                 `${t('Validity Period')}: ${formatDuration(plan, t)}`,
                 formatResetPeriod(plan, t) !== t('No Reset')
@@ -543,6 +653,14 @@ export function SubscriptionPlansCard({
                 totalAmount > 0
                   ? `${t('Total Quota')}: ${formatQuota(totalAmount)}`
                   : `${t('Total Quota')}: ${t('Unlimited')}`,
+                planTokenAllowance
+                  ? `${t('Token Allowance')}: ${planTokenAllowance}`
+                  : null,
+                planModels.length > 0
+                  ? `${t('Allowed Models')}: ${planModels.slice(0, 3).join(', ')}${
+                      planModels.length > 3 ? ` +${planModels.length - 3}` : ''
+                    }`
+                  : null,
                 limit > 0 ? `${t('Purchase Limit')}: ${limit}` : null,
                 plan.upgrade_group
                   ? `${t('Upgrade Group')}: ${plan.upgrade_group}`
@@ -660,6 +778,7 @@ export function SubscriptionPlansCard({
             ? planPurchaseCountMap.get(selectedPlan.plan.id)
             : undefined
         }
+        activeSubscription={selectedPlanActiveSubscription}
       />
     </>
   )

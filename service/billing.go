@@ -7,6 +7,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
@@ -87,6 +88,14 @@ func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuo
 
 		if err := relayInfo.Billing.Settle(actualQuota); err != nil {
 			return err
+		}
+
+		// 订阅套餐的 token 额度：请求结束后按实际用量记账（输入 + 输出 tokens）
+		if relayInfo.BillingSource == BillingSourceSubscription && relayInfo.SubscriptionId > 0 && relayInfo.SubscriptionUsageTokens > 0 {
+			if err := model.AddUserSubscriptionTokens(relayInfo.SubscriptionId, relayInfo.SubscriptionUsageTokens); err != nil {
+				logger.LogError(ctx, common.LogText("failed to charge subscription tokens (subscription=%d, tokens=%d): %s",
+					relayInfo.SubscriptionId, relayInfo.SubscriptionUsageTokens, err.Error()))
+			}
 		}
 
 		// 发送额度通知（订阅计费使用订阅剩余额度）

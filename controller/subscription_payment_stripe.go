@@ -18,6 +18,9 @@ import (
 
 type SubscriptionStripePayRequest struct {
 	PlanId int `json:"plan_id"`
+	// RenewMode records the checkout choice made when the buyer already holds
+	// this plan: extend its validity, or spend a day of it to refill now.
+	RenewMode string `json:"renew_mode"`
 }
 
 func SubscriptionRequestStripePay(c *gin.Context) {
@@ -93,6 +96,7 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 		TradeNo:         referenceId,
 		PaymentMethod:   model.PaymentMethodStripe,
 		PaymentProvider: model.PaymentProviderStripe,
+		RenewMode:       model.NormalizeSubscriptionRenewMode(req.RenewMode),
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}

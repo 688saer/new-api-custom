@@ -48,7 +48,8 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
-import { formatQuota } from '@/lib/format'
+import { toIntlLocale } from '@/i18n/languages'
+import { formatCompactNumber, formatQuota } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 import { getServerMessage } from '@/lib/server-error-message'
 
@@ -106,7 +107,8 @@ function SubscriptionStatusBadge(props: {
 }
 
 export function UserSubscriptionsDialog(props: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [plans, setPlans] = useState<PlanRecord[]>([])
@@ -342,6 +344,17 @@ export function UserSubscriptionsDialog(props: Props) {
                     return total > 0
                       ? `${formatQuota(used)}/${formatQuota(total)}`
                       : t('Unlimited')
+                  },
+                },
+                {
+                  id: 'tokens',
+                  header: t('Tokens this period'),
+                  cell: (record) => {
+                    const sub = record.subscription
+                    const limit = Number(sub.token_limit_total || 0)
+                    if (limit <= 0) return t('Unlimited')
+                    const used = Number(sub.token_used || 0)
+                    return `${formatCompactNumber(used, locale)}/${formatCompactNumber(limit, locale)}`
                   },
                 },
                 {

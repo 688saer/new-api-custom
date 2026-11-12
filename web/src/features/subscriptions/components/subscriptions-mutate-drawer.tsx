@@ -31,6 +31,7 @@ import {
   sideDrawerHeaderClassName,
   sideDrawerSwitchItemClassName,
 } from '@/components/drawer-layout'
+import type { Option } from '@/components/multi-select'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
 import {
@@ -62,6 +63,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
+import { getModels } from '@/features/models/api'
 import { getPaymentErrorTranslation } from '@/features/wallet/lib/payment'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import { handleServerError } from '@/lib/handle-server-error'
@@ -82,6 +84,7 @@ import {
   type PlanFormValues,
 } from '../lib'
 import type { PlanRecord } from '../types'
+import { PlanTokenPolicyFields } from './plan-token-policy-fields'
 import { useSubscriptions } from './subscriptions-provider'
 
 interface Props {
@@ -103,6 +106,8 @@ export function SubscriptionsMutateDrawer({
   const currencyLabel = getCurrencyLabel()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [groupOptions, setGroupOptions] = useState<string[]>([])
+  const [modelOptions, setModelOptions] = useState<Option[]>([])
+  const [modelOptionsLoading, setModelOptionsLoading] = useState(false)
   const [creatingPancakeProduct, setCreatingPancakeProduct] = useState(false)
   const [pancakeProducts, setPancakeProducts] = useState<
     { id: string; name: string; status: string }[]
@@ -147,11 +152,32 @@ export function SubscriptionsMutateDrawer({
           }
         })
         .catch(() => setPancakeProducts([]))
+      // Suggestions for the model whitelist; free-text entry still works when
+      // the catalog is empty or the model is not registered yet.
+      setModelOptionsLoading(true)
+      getModels({ p: 1, page_size: 1000 })
+        .then((res) => {
+          const names = new Set(
+            (res.data?.items || []).map((item) => item.model_name)
+          )
+          setModelOptions(
+            [...names]
+              .sort((a, b) => a.localeCompare(b))
+              .map((name) => ({ value: name, label: name }))
+          )
+          setModelOptionsLoading(false)
+        })
+        .catch(() => {
+          setModelOptions([])
+          setModelOptionsLoading(false)
+        })
     }
   }, [open, currentRow, form])
 
   const durationUnit = form.watch('duration_unit')
   const resetPeriod = form.watch('quota_reset_period')
+  const tokenLimit = form.watch('token_limit')
+  const allowWalletOverflow = form.watch('allow_wallet_overflow')
   // Gate "+ Create on Pancake" on the same checks the mint handler runs.
   const watchedTitle = form.watch('title')
   const watchedPrice = form.watch('price_amount')
@@ -734,6 +760,15 @@ export function SubscriptionsMutateDrawer({
                 />
               </div>
             </SideDrawerSection>
+
+            {/* Token Allowance & Model Access */}
+            <PlanTokenPolicyFields
+              control={form.control}
+              modelOptions={modelOptions}
+              modelOptionsLoading={modelOptionsLoading}
+              tokenLimit={Number(tokenLimit || 0)}
+              allowWalletOverflow={allowWalletOverflow !== false}
+            />
 
             {/* Payment Config */}
             <SideDrawerSection>

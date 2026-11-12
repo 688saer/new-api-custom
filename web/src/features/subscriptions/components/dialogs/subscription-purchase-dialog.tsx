@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Crown, CalendarClock, Package } from 'lucide-react'
+import { Crown, CalendarClock, Package, Cpu } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -26,10 +26,12 @@ import { GroupBadge } from '@/components/group-badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
+import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { ensurePurchaseAgreement } from '@/features/purchase-agreement'
 import { useSystemConfig } from '@/hooks/use-system-config'
-import { formatQuota } from '@/lib/format'
+import { toIntlLocale } from '@/i18n/languages'
+import { formatCompactNumber, formatQuota } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 import { DEFAULT_CURRENCY_CONFIG } from '@/stores/system-config-store'
 
@@ -40,8 +42,19 @@ import {
   paySubscriptionWaffoPancake,
   paySubscriptionBalance,
 } from '../../api'
-import { formatDuration, formatResetPeriod } from '../../lib'
-import type { PlanRecord } from '../../types'
+import {
+  formatDuration,
+  formatResetPeriod,
+  formatTokenAllowance,
+  getTokenUsagePercent,
+  isTokenAllowanceExhausted,
+} from '../../lib'
+import type {
+  PlanRecord,
+  SubscriptionRenewMode,
+  UserSubscription,
+} from '../../types'
+import { SubscriptionRenewModeChoice } from './subscription-renew-mode-choice'
 
 interface PaymentMethod {
   type: string
@@ -60,20 +73,27 @@ interface Props {
   purchaseLimit?: number
   purchaseCount?: number
   userQuota?: number
+  /** The buyer's active card for this plan, when they already hold one. */
+  activeSubscription?: UserSubscription | null
   onPurchaseSuccess?: () => void | Promise<void>
 }
 
 export function SubscriptionPurchaseDialog(props: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { currency } = useSystemConfig()
   const [paying, setPaying] = useState(false)
   const [selectedEpayMethod, setSelectedEpayMethod] = useState('')
+  const [renewMode, setRenewMode] = useState<SubscriptionRenewMode>('extend')
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
 
   useEffect(() => {
     if (props.open && props.epayMethods && props.epayMethods.length > 0) {
       setSelectedEpayMethod(props.epayMethods[0].type)
     } else if (!props.open) {
       setSelectedEpayMethod('')
+    }
+    if (!props.open) {
+      setRenewMode('extend')
     }
   }, [props.open, props.epayMethods])
 
@@ -104,13 +124,50 @@ export function SubscriptionPurchaseDialog(props: Props) {
     (props.purchaseLimit || 0) > 0 &&
     (props.purchaseCount || 0) >= (props.purchaseLimit || 0)
 
+  // Renewal only applies when the buyer already holds an active card of this
+  // plan; otherwise the purchase simply starts a new one.
+  const heldCard = props.activeSubscription
+  const heldCardSecondsLeft = Math.max(
+    0,
+    (heldCard?.end_time || 0) - Date.now() / 1000
+  )
+  const holdsActiveCard =
+    !!heldCard && heldCard.status === 'active' && heldCardSecondsLeft > 0
+  const remainingDays = holdsActiveCard
+    ? Math.ceil(heldCardSecondsLeft / 86400)
+    : 0
+  const heldTokenLimit = Number(heldCard?.token_limit_total || 0)
+  const heldTokenUsed = Number(heldCard?.token_used || 0)
+  const allowanceExhausted = isTokenAllowanceExhausted(
+    heldTokenUsed,
+    heldTokenLimit
+  )
+  const allowanceUsedPercent = getTokenUsagePercent(
+    heldTokenUsed,
+    heldTokenLimit
+  )
+  const planTokenAllowance = formatTokenAllowance(
+    Number(plan.token_limit || 0),
+    t,
+    locale
+  )
+  const planModels = plan.allowed_models || []
+  // Without an active card of this plan the purchase simply starts a new one,
+  // so the queueing mode ("extend") is the only sensible choice.
+  const renewModePayload: SubscriptionRenewMode = holdsActiveCard
+    ? renewMode
+    : 'extend'
+
   const handlePayStripe = async () => {
     if (!(await ensurePurchaseAgreement('subscription'))) {
       return
     }
     setPaying(true)
     try {
-      const res = await paySubscriptionStripe({ plan_id: plan.id })
+      const res = await paySubscriptionStripe({
+        plan_id: plan.id,
+        renew_mode: renewModePayload,
+      })
       if (res.message === 'success' && res.data?.pay_link) {
         window.open(res.data.pay_link, '_blank')
         toast.success(t('Payment page opened'))
@@ -131,7 +188,10 @@ export function SubscriptionPurchaseDialog(props: Props) {
     }
     setPaying(true)
     try {
-      const res = await paySubscriptionCreem({ plan_id: plan.id })
+      const res = await paySubscriptionCreem({
+        plan_id: plan.id,
+        renew_mode: renewModePayload,
+      })
       if (res.message === 'success' && res.data?.checkout_url) {
         window.open(res.data.checkout_url, '_blank')
         toast.success(t('Payment page opened'))
@@ -154,7 +214,10 @@ export function SubscriptionPurchaseDialog(props: Props) {
     }
     setPaying(true)
     try {
-      const res = await paySubscriptionWaffoPancake({ plan_id: plan.id })
+      const res = await paySubscriptionWaffoPancake({
+        plan_id: plan.id,
+        renew_mode: renewModePayload,
+      })
       if (res.message === 'success' && res.data?.checkout_url) {
         toast.success(t('Redirecting to payment page...'))
         window.location.href = res.data.checkout_url
@@ -185,6 +248,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
       const res = await paySubscriptionEpay({
         plan_id: plan.id,
         payment_method: selectedEpayMethod,
+        renew_mode: renewModePayload,
       })
       if (res.message === 'success' && res.url) {
         const form = document.createElement('form')
@@ -225,7 +289,10 @@ export function SubscriptionPurchaseDialog(props: Props) {
     }
     setPaying(true)
     try {
-      const res = await paySubscriptionBalance({ plan_id: plan.id })
+      const res = await paySubscriptionBalance({
+        plan_id: plan.id,
+        renew_mode: renewModePayload,
+      })
       if (res.success) {
         toast.success(t('Subscription purchased successfully'))
         void props.onPurchaseSuccess?.()
@@ -299,6 +366,42 @@ export function SubscriptionPurchaseDialog(props: Props) {
               <GroupBadge group={plan.upgrade_group} />
             </div>
           )}
+          {planTokenAllowance && (
+            <div className='flex items-center justify-between gap-2'>
+              <span className='text-muted-foreground text-sm'>
+                {t('Token Allowance')}
+              </span>
+              <span className='flex min-w-0 items-center gap-1 text-sm'>
+                <Cpu className='h-3.5 w-3.5 shrink-0' />
+                <span className='truncate'>{planTokenAllowance}</span>
+                <span className='text-muted-foreground shrink-0 text-xs'>
+                  / {formatResetPeriod(plan, t)}
+                </span>
+              </span>
+            </div>
+          )}
+          {planModels.length > 0 && (
+            <div className='flex items-start justify-between gap-2'>
+              <span className='text-muted-foreground shrink-0 text-sm'>
+                {t('Allowed Models')}
+              </span>
+              <div className='flex min-w-0 flex-wrap justify-end gap-1'>
+                {planModels.slice(0, 3).map((model) => (
+                  <span
+                    key={model}
+                    className='bg-background max-w-[110px] truncate rounded border px-1.5 py-0.5 text-xs'
+                  >
+                    {model}
+                  </span>
+                ))}
+                {planModels.length > 3 && (
+                  <span className='text-muted-foreground text-xs'>
+                    +{planModels.length - 3}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
           <Separator />
           <div className='flex items-center justify-between'>
             <span className='text-sm font-medium'>{t('Amount Due')}</span>
@@ -313,6 +416,38 @@ export function SubscriptionPurchaseDialog(props: Props) {
               {props.purchaseLimit})
             </AlertDescription>
           </Alert>
+        )}
+
+        {holdsActiveCard && (
+          <div className='space-y-2 rounded-md border p-3'>
+            <div className='flex items-center justify-between gap-2 text-xs'>
+              <span className='text-muted-foreground'>{t('Current card')}</span>
+              <span>
+                {t('{{count}} days remaining', { count: remainingDays })}
+              </span>
+            </div>
+            {heldTokenLimit > 0 && (
+              <>
+                <div className='text-muted-foreground flex items-center justify-between gap-2 text-xs'>
+                  <span>{t('Tokens this period')}</span>
+                  <span>
+                    {formatCompactNumber(heldTokenUsed, locale)} /{' '}
+                    {formatCompactNumber(heldTokenLimit, locale)}
+                  </span>
+                </div>
+                <Progress value={allowanceUsedPercent} className='h-1.5' />
+              </>
+            )}
+          </div>
+        )}
+
+        {holdsActiveCard && (
+          <SubscriptionRenewModeChoice
+            value={renewMode}
+            onChange={setRenewMode}
+            canRefresh={heldCardSecondsLeft >= 86400}
+            allowanceExhausted={allowanceExhausted}
+          />
         )}
 
         <div className='flex flex-col gap-2 rounded-md border p-3'>

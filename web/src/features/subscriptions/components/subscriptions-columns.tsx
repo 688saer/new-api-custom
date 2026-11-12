@@ -24,14 +24,16 @@ import { BadgeCell } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
+import { toIntlLocale } from '@/i18n/languages'
 import { formatQuota } from '@/lib/format'
 
-import { formatDuration, formatResetPeriod } from '../lib'
+import { formatDuration, formatResetPeriod, formatTokenAllowance } from '../lib'
 import type { PlanRecord } from '../types'
 import { DataTableRowActions } from './data-table-row-actions'
 
 export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
 
   return useMemo(
     (): ColumnDef<PlanRecord>[] => [
@@ -175,6 +177,33 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         size: 150,
       },
       {
+        id: 'token_policy',
+        header: t('Token Allowance'),
+        meta: { mobileHidden: true },
+        cell: ({ row }) => {
+          const plan = row.original.plan
+          const allowance = formatTokenAllowance(
+            Number(plan.token_limit || 0),
+            t,
+            locale
+          )
+          const models = plan.allowed_models || []
+          return (
+            <div className='flex flex-col gap-0.5'>
+              <span className='text-muted-foreground'>
+                {allowance || t('Unlimited')}
+              </span>
+              <span className='text-muted-foreground/70 text-xs'>
+                {models.length > 0
+                  ? t('{{count}} models', { count: models.length })
+                  : t('Any model')}
+              </span>
+            </div>
+          )
+        },
+        size: 150,
+      },
+      {
         id: 'upgrade_group',
         header: t('Upgrade Group'),
         meta: { mobileHidden: true },
@@ -200,6 +229,6 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
         meta: { pinned: 'right' as const },
       },
     ],
-    [t]
+    [t, locale]
   )
 }

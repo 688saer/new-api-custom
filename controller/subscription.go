@@ -24,6 +24,10 @@ type BillingPreferenceRequest struct {
 
 type SubscriptionBalancePayRequest struct {
 	PlanId int `json:"plan_id"`
+	// RenewMode picks what a purchase does when the user already holds this
+	// plan: "extend" (default) grows the validity, "refresh" spends one day to
+	// refill the allowance immediately.
+	RenewMode string `json:"renew_mode"`
 }
 
 // ---- User APIs ----
@@ -108,7 +112,7 @@ func SubscriptionRequestBalancePay(c *gin.Context) {
 		return
 	}
 
-	if err := model.PurchaseSubscriptionWithBalance(userId, req.PlanId); err != nil {
+	if err := model.PurchaseSubscriptionWithBalance(userId, req.PlanId, req.RenewMode); err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -203,7 +207,17 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorT(c, "Custom reset cycle must be greater than 0 seconds")
 		return
 	}
-	err := model.DB.Create(&req.Plan).Error
+	if req.Plan.TokenLimit < 0 {
+		common.ApiErrorT(c, "Token limit cannot be negative")
+		return
+	}
+	allowedModels, err := model.ValidateSubscriptionModels(req.Plan.AllowedModels)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	req.Plan.AllowedModels = allowedModels
+	err = model.DB.Create(&req.Plan).Error
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -277,8 +291,24 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorT(c, "Custom reset cycle must be greater than 0 seconds")
 		return
 	}
+	if req.Plan.TokenLimit < 0 {
+		common.ApiErrorT(c, "Token limit cannot be negative")
+		return
+	}
+	allowedModels, err := model.ValidateSubscriptionModels(req.Plan.AllowedModels)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	req.Plan.AllowedModels = allowedModels
+	// Updates with a map skips GORM field serializers, so marshal the whitelist here.
+	allowedModelsJSON, err := common.Marshal(allowedModels)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 
-	err := model.DB.Transaction(func(tx *gorm.DB) error {
+	err = model.DB.Transaction(func(tx *gorm.DB) error {
 		// update plan (allow zero values updates with map)
 		updateMap := map[string]any{
 			"title":                      req.Plan.Title,
@@ -299,6 +329,8 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 			"downgrade_group":            req.Plan.DowngradeGroup,
 			"quota_reset_period":         req.Plan.QuotaResetPeriod,
 			"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
+			"token_limit":                req.Plan.TokenLimit,
+			"allowed_models":             allowedModelsJSON,
 			"updated_at":                 common.GetTimestamp(),
 		}
 		if req.Plan.AllowBalancePay != nil {
@@ -350,6 +382,9 @@ func AdminUpdateSubscriptionPlanStatus(c *gin.Context) {
 type AdminBindSubscriptionRequest struct {
 	UserId int `json:"user_id"`
 	PlanId int `json:"plan_id"`
+	// RenewMode chooses how a repeat purchase behaves for a user who already
+	// holds this plan: "extend" (default) or "refresh".
+	RenewMode string `json:"renew_mode"`
 }
 
 func AdminBindSubscription(c *gin.Context) {
@@ -362,7 +397,7 @@ func AdminBindSubscription(c *gin.Context) {
 		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
-	msg, err := model.AdminBindSubscription(req.UserId, req.PlanId, "")
+	msg, err := model.AdminBindSubscription(req.UserId, req.PlanId, req.RenewMode, "")
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -400,6 +435,9 @@ func AdminListUserSubscriptions(c *gin.Context) {
 
 type AdminCreateUserSubscriptionRequest struct {
 	PlanId int `json:"plan_id"`
+	// RenewMode chooses how a repeat purchase behaves for a user who already
+	// holds this plan: "extend" (default) or "refresh".
+	RenewMode string `json:"renew_mode"`
 }
 
 type AdminResetSubscriptionRequest struct {
@@ -443,7 +481,7 @@ func AdminCreateUserSubscription(c *gin.Context) {
 		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
-	msg, err := model.AdminBindSubscription(userId, req.PlanId, "")
+	msg, err := model.AdminBindSubscription(userId, req.PlanId, req.RenewMode, "")
 	if err != nil {
 		common.ApiError(c, err)
 		return

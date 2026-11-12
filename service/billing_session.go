@@ -246,6 +246,28 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
 				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
 		}
+		// Plan-policy rejections name what the user must change, so they carry
+		// their own message and never fall back to the wallet balance.
+		var modelNotAllowed *model.SubscriptionModelNotAllowedError
+		if errors.As(err, &modelNotAllowed) {
+			return types.NewErrorWithStatusCode(
+				errors.New(i18n.T(c, i18n.MsgQuotaSubscriptionModelNotAllowed, map[string]any{
+					"Model":   modelNotAllowed.Model,
+					"Allowed": strings.Join(modelNotAllowed.Allowed, ", "),
+				})),
+				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
+				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+		}
+		var tokensExhausted *model.SubscriptionTokenQuotaExhaustedError
+		if errors.As(err, &tokensExhausted) {
+			return types.NewErrorWithStatusCode(
+				errors.New(i18n.T(c, i18n.MsgQuotaSubscriptionTokensExhausted, map[string]any{
+					"Used":  tokensExhausted.Used,
+					"Limit": tokensExhausted.Limit,
+				})),
+				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
+				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+		}
 		errMsg := err.Error()
 		if strings.Contains(errMsg, "no active subscription") || strings.Contains(errMsg, "subscription quota insufficient") {
 			return types.NewErrorWithStatusCode(errors.New(i18n.T(c, i18n.MsgQuotaSubscriptionInsufficient, map[string]any{"Error": errMsg})), types.ErrorCodeInsufficientUserQuota, http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
@@ -473,6 +495,11 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 		}
 		session, apiErr := trySubscription()
 		if apiErr != nil {
+			// 套餐策略拒绝（模型不在白名单、token 额度用尽）必须让用户自己处理，
+			// 不能悄悄改扣钱包余额。
+			if errors.Is(apiErr, model.ErrSubscriptionModelNotAllowed) || errors.Is(apiErr, model.ErrSubscriptionTokenQuotaExhausted) {
+				return nil, apiErr
+			}
 			if apiErr.GetErrorCode() == types.ErrorCodeInsufficientUserQuota {
 				// 仅当用户的活跃订阅允许钱包回退时才回退到钱包，否则返回订阅额度不足错误
 				allowOverflow, overflowErr := model.UserActiveSubscriptionsAllowWalletOverflow(relayInfo.UserId)

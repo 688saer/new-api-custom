@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,6 +38,88 @@ var (
 	ErrSubscriptionOrderNotFound      = errors.New("subscription order not found")
 	ErrSubscriptionOrderStatusInvalid = errors.New("subscription order status invalid")
 )
+
+// Renewal choices offered when a user buys a plan they already hold.
+const (
+	// SubscriptionRenewModeExtend queues the purchase after the current card,
+	// so the total validity grows and the allowance refills on schedule.
+	SubscriptionRenewModeExtend = "extend"
+	// SubscriptionRenewModeRefresh spends one day of the purchase immediately
+	// so the allowance refills now, at the cost of one day of validity.
+	SubscriptionRenewModeRefresh = "refresh"
+)
+
+// Plan-policy errors. They must not fall back to the wallet balance: the user
+// has to renew, wait, or call an allowed model instead.
+var (
+	ErrSubscriptionModelNotAllowed     = errors.New("subscription model not allowed")
+	ErrSubscriptionTokenQuotaExhausted = errors.New("subscription token quota exhausted")
+)
+
+// SubscriptionModelNotAllowedError carries the model a plan rejected together
+// with the whitelist it does allow, so the caller can name both.
+type SubscriptionModelNotAllowedError struct {
+	Model   string
+	Allowed []string
+}
+
+func (e *SubscriptionModelNotAllowedError) Error() string {
+	return fmt.Sprintf("%v: model=%s allowed=%s", ErrSubscriptionModelNotAllowed, e.Model, strings.Join(e.Allowed, ","))
+}
+
+func (e *SubscriptionModelNotAllowedError) Unwrap() error {
+	return ErrSubscriptionModelNotAllowed
+}
+
+// SubscriptionTokenQuotaExhaustedError reports the exhausted allowance so the
+// caller can print used and limit.
+type SubscriptionTokenQuotaExhaustedError struct {
+	Used  int64
+	Limit int64
+}
+
+func (e *SubscriptionTokenQuotaExhaustedError) Error() string {
+	return fmt.Sprintf("%v: used=%d limit=%d", ErrSubscriptionTokenQuotaExhausted, e.Used, e.Limit)
+}
+
+func (e *SubscriptionTokenQuotaExhaustedError) Unwrap() error {
+	return ErrSubscriptionTokenQuotaExhausted
+}
+
+// NormalizeSubscriptionRenewMode maps unknown input to the default renewal.
+func NormalizeSubscriptionRenewMode(mode string) string {
+	if strings.TrimSpace(mode) == SubscriptionRenewModeRefresh {
+		return SubscriptionRenewModeRefresh
+	}
+	return SubscriptionRenewModeExtend
+}
+
+// NormalizeSubscriptionModels trims, de-duplicates, and drops empty entries so
+// a stored whitelist is canonical. A nil result means "no restriction".
+func NormalizeSubscriptionModels(models []string) []string {
+	cleaned := make([]string, 0, len(models))
+	for _, name := range models {
+		name = strings.TrimSpace(name)
+		if name == "" || slices.Contains(cleaned, name) {
+			continue
+		}
+		cleaned = append(cleaned, name)
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+	return cleaned
+}
+
+// ValidateSubscriptionModels bounds administrator input for a model whitelist.
+func ValidateSubscriptionModels(models []string) ([]string, error) {
+	for _, name := range models {
+		if len(strings.TrimSpace(name)) > 255 {
+			return nil, fmt.Errorf("model name is too long: %s", name)
+		}
+	}
+	return NormalizeSubscriptionModels(models), nil
+}
 
 const (
 	subscriptionPlanCacheNamespace     = "new-api:subscription_plan:v1"
@@ -185,6 +268,17 @@ type SubscriptionPlan struct {
 	QuotaResetPeriod        string `json:"quota_reset_period" gorm:"type:varchar(16);default:'never'"`
 	QuotaResetCustomSeconds int64  `json:"quota_reset_custom_seconds" gorm:"type:bigint;default:0"`
 
+	// TokenLimit caps the tokens (prompt + completion) one subscription may
+	// spend per quota reset period (0 = unlimited). The reset period decides
+	// when the counter refills: never = a single total for the whole card,
+	// daily = a fresh allowance every day.
+	TokenLimit int64 `json:"token_limit" gorm:"type:bigint;not null;default:0"`
+
+	// AllowedModels lists the models this plan may call. An empty list means
+	// the plan does not restrict models. It is stored as JSON in a text column
+	// so SQLite, MySQL, and PostgreSQL behave identically.
+	AllowedModels []string `json:"allowed_models" gorm:"serializer:json;type:text"`
+
 	CreatedAt int64 `json:"created_at" gorm:"bigint"`
 	UpdatedAt int64 `json:"updated_at" gorm:"bigint"`
 }
@@ -223,6 +317,11 @@ type SubscriptionOrder struct {
 	Status          string `json:"status"`
 	CreateTime      int64  `json:"create_time"`
 	CompleteTime    int64  `json:"complete_time"`
+
+	// RenewMode records the renewal choice made at checkout: extend (default)
+	// queues the purchase after the current card, refresh spends one day of it
+	// to refill the allowance immediately.
+	RenewMode string `json:"renew_mode" gorm:"type:varchar(16);default:'extend'"`
 
 	ProviderPayload string `json:"provider_payload" gorm:"type:text"`
 }
@@ -276,6 +375,17 @@ type UserSubscription struct {
 	// Whether wallet fallback is allowed after this subscription's quota is exhausted (snapshot from plan)
 	AllowWalletOverflow bool `json:"allow_wallet_overflow"`
 
+	// TokenLimitTotal is the token allowance per reset period captured when this
+	// subscription was created (0 = unlimited).
+	TokenLimitTotal int64 `json:"token_limit_total" gorm:"type:bigint;not null;default:0"`
+
+	// TokenUsed counts prompt + completion tokens spent in the current reset period.
+	TokenUsed int64 `json:"token_used" gorm:"type:bigint;not null;default:0"`
+
+	// AllowedModels is the plan's model whitelist captured at purchase
+	// (empty = any model), stored as JSON in a text column.
+	AllowedModels []string `json:"allowed_models" gorm:"serializer:json;type:text"`
+
 	CreatedAt int64 `json:"created_at" gorm:"bigint"`
 	UpdatedAt int64 `json:"updated_at" gorm:"bigint"`
 }
@@ -285,6 +395,28 @@ func (s *UserSubscription) BeforeCreate(tx *gorm.DB) error {
 	s.CreatedAt = now
 	s.UpdatedAt = now
 	return nil
+}
+
+// AllowsModel reports whether this subscription may call modelName. A
+// subscription without a whitelist allows every model.
+func (s *UserSubscription) AllowsModel(modelName string) bool {
+	if len(s.AllowedModels) == 0 {
+		return true
+	}
+	return slices.Contains(s.AllowedModels, strings.TrimSpace(modelName))
+}
+
+// RemainingTokens returns the tokens left in the current reset period and
+// whether a token limit applies at all.
+func (s *UserSubscription) RemainingTokens() (int64, bool) {
+	if s.TokenLimitTotal <= 0 {
+		return 0, false
+	}
+	remaining := s.TokenLimitTotal - s.TokenUsed
+	if remaining < 0 {
+		remaining = 0
+	}
+	return remaining, true
 }
 
 func (s *UserSubscription) BeforeUpdate(tx *gorm.DB) error {
@@ -482,6 +614,18 @@ func downgradeUserGroupForSubscriptionTx(tx *gorm.DB, sub *UserSubscription, now
 }
 
 func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, source string) (*UserSubscription, error) {
+	return CreateUserSubscriptionWithRenewModeTx(tx, userId, plan, source, SubscriptionRenewModeExtend)
+}
+
+// CreateUserSubscriptionWithRenewModeTx buys a plan for a user. When the user
+// already holds an active card of the same plan the renewal choice decides what
+// happens:
+//   - extend  queues the purchase after the current card, so the validity grows
+//     and the allowance refills on its normal schedule
+//   - refresh spends one day of the purchase immediately, which refills the
+//     allowance right away and leaves the card one day shorter than an
+//     extension would
+func CreateUserSubscriptionWithRenewModeTx(tx *gorm.DB, userId int, plan *SubscriptionPlan, source string, renewMode string) (*UserSubscription, error) {
 	if tx == nil {
 		return nil, errors.New("tx is nil")
 	}
@@ -504,15 +648,35 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 	}
 	nowUnix := GetDBTimestamp()
 	now := time.Unix(nowUnix, 0)
-	endUnix, err := calcPlanEndTime(now, plan)
+	purchasedEnd, err := calcPlanEndTime(now, plan)
 	if err != nil {
 		return nil, err
 	}
-	resetBase := now
+	var current UserSubscription
+	if err := lockForUpdate(tx).
+		Where("user_id = ? AND plan_id = ? AND status = ? AND end_time > ?", userId, plan.Id, "active", nowUnix).
+		Order("end_time desc, id desc").
+		Limit(1).
+		Find(&current).Error; err != nil {
+		return nil, err
+	}
+	if current.Id > 0 && NormalizeSubscriptionRenewMode(renewMode) == SubscriptionRenewModeRefresh {
+		return refreshSubscriptionNowTx(tx, &current, plan, purchasedEnd-nowUnix, now)
+	}
+	startUnix := nowUnix
+	if current.Id > 0 {
+		startUnix = current.EndTime
+	}
+	start := time.Unix(startUnix, 0)
+	endUnix, err := calcPlanEndTime(start, plan)
+	if err != nil {
+		return nil, err
+	}
+	resetBase := start
 	nextReset := calcNextResetTime(resetBase, plan, endUnix)
 	lastReset := int64(0)
 	if nextReset > 0 {
-		lastReset = now.Unix()
+		lastReset = start.Unix()
 	}
 	upgradeGroup := strings.TrimSpace(plan.UpgradeGroup)
 	prevGroup := ""
@@ -538,7 +702,7 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		PlanId:              plan.Id,
 		AmountTotal:         plan.TotalAmount,
 		AmountUsed:          0,
-		StartTime:           now.Unix(),
+		StartTime:           startUnix,
 		EndTime:             endUnix,
 		Status:              "active",
 		Source:              source,
@@ -548,6 +712,9 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		PrevUserGroup:       prevGroup,
 		DowngradeGroup:      strings.TrimSpace(plan.DowngradeGroup),
 		AllowWalletOverflow: allowWalletOverflow,
+		TokenLimitTotal:     plan.TokenLimit,
+		TokenUsed:           0,
+		AllowedModels:       NormalizeSubscriptionModels(plan.AllowedModels),
 		CreatedAt:           common.GetTimestamp(),
 		UpdatedAt:           common.GetTimestamp(),
 	}
@@ -555,6 +722,45 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 		return nil, err
 	}
 	return sub, nil
+}
+
+// refreshSubscriptionNowTx extends a card by the purchased duration and spends
+// one day of it immediately so the allowance refills now instead of on the next
+// scheduled reset. The day that is spent pays for the early refill, so the card
+// ends up one day shorter than a plain extension.
+func refreshSubscriptionNowTx(tx *gorm.DB, current *UserSubscription, plan *SubscriptionPlan, purchasedSeconds int64, now time.Time) (*UserSubscription, error) {
+	if purchasedSeconds <= 0 {
+		return nil, common.NewMessage("Plan duration is invalid")
+	}
+	if plan.MaxPurchasePerUser > 0 {
+		var count int64
+		if err := tx.Model(&UserSubscription{}).
+			Where("user_id = ? AND plan_id = ?", current.UserId, plan.Id).
+			Count(&count).Error; err != nil {
+			return nil, err
+		}
+		if count > int64(plan.MaxPurchasePerUser) {
+			return nil, common.NewMessage("Purchase limit for this plan has been reached")
+		}
+	}
+	spentSeconds := min(int64(24*60*60), purchasedSeconds)
+	newEnd := current.EndTime + purchasedSeconds - spentSeconds
+	if newEnd <= now.Unix() {
+		return nil, common.NewMessage("The card has too little validity left to refresh now; renew by extending it instead")
+	}
+	current.EndTime = newEnd
+	current.AmountTotal = plan.TotalAmount
+	current.AmountUsed = 0
+	current.TokenLimitTotal = plan.TokenLimit
+	current.TokenUsed = 0
+	current.AllowedModels = NormalizeSubscriptionModels(plan.AllowedModels)
+	current.LastResetTime = now.Unix()
+	current.NextResetTime = calcNextResetTime(now, plan, newEnd)
+	current.UpdatedAt = common.GetTimestamp()
+	if err := tx.Save(current).Error; err != nil {
+		return nil, err
+	}
+	return current, nil
 }
 
 func refreshSubscriptionUserGroupCache(userId int, operation string) {
@@ -606,7 +812,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		if err := lockForUpdate(tx).Select("id").Where("id = ?", order.UserId).First(&userRow).Error; err != nil {
 			return err
 		}
-		subscription, err := CreateUserSubscriptionFromPlanTx(tx, order.UserId, plan, "order")
+		subscription, err := CreateUserSubscriptionWithRenewModeTx(tx, order.UserId, plan, "order", order.RenewMode)
 		if err != nil {
 			return err
 		}
@@ -711,7 +917,7 @@ func ExpireSubscriptionOrder(tradeNo string, expectedPaymentProvider string) err
 }
 
 // Admin bind (no payment). Creates a UserSubscription from a plan.
-func AdminBindSubscription(userId int, planId int, sourceNote string) (*common.Message, error) {
+func AdminBindSubscription(userId int, planId int, renewMode string, sourceNote string) (*common.Message, error) {
 	if userId <= 0 || planId <= 0 {
 		return nil, errors.New("invalid userId or planId")
 	}
@@ -726,7 +932,7 @@ func AdminBindSubscription(userId int, planId int, sourceNote string) (*common.M
 		if err := lockForUpdate(tx).Select("id").Where("id = ?", userId).First(&userRow).Error; err != nil {
 			return err
 		}
-		subscription, err := CreateUserSubscriptionFromPlanTx(tx, userId, plan, "admin")
+		subscription, err := CreateUserSubscriptionWithRenewModeTx(tx, userId, plan, "admin", renewMode)
 		if err == nil {
 			groupChanged = subscription.PrevUserGroup != ""
 		}
@@ -756,7 +962,7 @@ func calcSubscriptionBalanceQuota(priceAmount float64) (int, error) {
 }
 
 // PurchaseSubscriptionWithBalance creates a subscription by deducting the user's wallet quota.
-func PurchaseSubscriptionWithBalance(userId int, planId int) error {
+func PurchaseSubscriptionWithBalance(userId int, planId int, renewMode string) error {
 	if userId <= 0 || planId <= 0 {
 		return errors.New("invalid userId or planId")
 	}
@@ -799,7 +1005,7 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 			}
 		}
 
-		subscription, err := CreateUserSubscriptionFromPlanTx(tx, userId, plan, PaymentMethodBalance)
+		subscription, err := CreateUserSubscriptionWithRenewModeTx(tx, userId, plan, PaymentMethodBalance, renewMode)
 		if err != nil {
 			return err
 		}
@@ -816,6 +1022,7 @@ func PurchaseSubscriptionWithBalance(userId int, planId int) error {
 			Status:          common.TopUpStatusSuccess,
 			CreateTime:      now,
 			CompleteTime:    now,
+			RenewMode:       NormalizeSubscriptionRenewMode(renewMode),
 			ProviderPayload: fmt.Sprintf("charged_quota=%d", requiredQuota),
 		}
 		if err := tx.Create(order).Error; err != nil {
@@ -1020,6 +1227,7 @@ func resetUserSubscriptionTx(tx *gorm.DB, sub *UserSubscription, plan *Subscript
 		return errors.New("invalid reset args")
 	}
 	sub.AmountUsed = 0
+	sub.TokenUsed = 0
 	if advanceResetTime {
 		nextReset := calcNextResetTime(time.Unix(now, 0), plan, sub.EndTime)
 		sub.NextResetTime = nextReset
@@ -1295,6 +1503,7 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 		return nil
 	}
 	sub.AmountUsed = 0
+	sub.TokenUsed = 0
 	sub.LastResetTime = base.Unix()
 	sub.NextResetTime = next
 	return tx.Save(sub).Error
@@ -1347,6 +1556,12 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 		if len(subs) == 0 {
 			return errors.New("no active subscription")
 		}
+		// A plan-policy rejection is only returned when no candidate can serve
+		// the request. It beats a plain quota shortfall because it tells the
+		// user what to change: renew, wait, or use an allowed model.
+		requestedModel := strings.TrimSpace(modelName)
+		var modelRejection error
+		var tokenRejection error
 		for _, candidate := range subs {
 			sub := candidate
 			plan, err := getSubscriptionPlanByIdTx(tx, sub.PlanId)
@@ -1355,6 +1570,21 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			}
 			if err := maybeResetUserSubscriptionWithPlanTx(tx, &sub, plan, now); err != nil {
 				return err
+			}
+			if requestedModel != "" && !sub.AllowsModel(requestedModel) {
+				if modelRejection == nil {
+					modelRejection = &SubscriptionModelNotAllowedError{
+						Model:   requestedModel,
+						Allowed: sub.AllowedModels,
+					}
+				}
+				continue
+			}
+			if remaining, limited := sub.RemainingTokens(); limited && remaining <= 0 {
+				if tokenRejection == nil {
+					tokenRejection = &SubscriptionTokenQuotaExhaustedError{Used: sub.TokenUsed, Limit: sub.TokenLimitTotal}
+				}
+				continue
 			}
 			usedBefore := sub.AmountUsed
 			if sub.AmountTotal > 0 {
@@ -1395,6 +1625,12 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			returnValue.AmountUsedBefore = usedBefore
 			returnValue.AmountUsedAfter = sub.AmountUsed
 			return nil
+		}
+		if modelRejection != nil {
+			return modelRejection
+		}
+		if tokenRejection != nil {
+			return tokenRejection
 		}
 		return fmt.Errorf("subscription quota insufficient, need=%d", amount)
 	})
@@ -1534,4 +1770,22 @@ func PostConsumeUserSubscriptionDelta(userSubscriptionId int, delta int64) error
 		sub.AmountUsed = newUsed
 		return tx.Save(&sub).Error
 	})
+}
+
+// AddUserSubscriptionTokens charges prompt + completion tokens to a
+// subscription's current period. It is a no-op when the subscription carries no
+// token limit, and it saturates instead of overflowing so a single absurd usage
+// figure cannot wrap the counter into a negative remainder.
+func AddUserSubscriptionTokens(userSubscriptionId int, tokens int64) error {
+	if userSubscriptionId <= 0 || tokens <= 0 {
+		return nil
+	}
+	const maxTokensPerCharge = int64(1) << 62
+	if tokens > maxTokensPerCharge {
+		common.SysError(common.LogText("subscription token charge saturated: subscription=%d tokens=%d", userSubscriptionId, tokens))
+		tokens = maxTokensPerCharge
+	}
+	return DB.Model(&UserSubscription{}).
+		Where("id = ? AND token_limit_total > 0", userSubscriptionId).
+		UpdateColumn("token_used", gorm.Expr("token_used + ?", tokens)).Error
 }

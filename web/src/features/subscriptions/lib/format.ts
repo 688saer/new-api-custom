@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import type { TFunction } from 'i18next'
 
 import dayjs from '@/lib/dayjs'
+import { formatCompactNumber } from '@/lib/format'
 
 import type { SubscriptionPlan } from '../types'
 
@@ -65,4 +66,39 @@ export function formatResetPeriod(
 export function formatTimestamp(ts: number): string {
   if (!ts) return '-'
   return dayjs(ts * 1000).format('YYYY-MM-DD HH:mm:ss')
+}
+
+/**
+ * Renders a token allowance, e.g. 200000000 → "200M tokens" (or "2亿 tokens" in
+ * Chinese). An empty string means the plan does not cap tokens.
+ */
+export function formatTokenAllowance(
+  tokens: number,
+  t: TFunction,
+  locale?: Intl.LocalesArgument
+): string {
+  if (!tokens || tokens <= 0) return ''
+  return t('{{value}} tokens', {
+    value: formatCompactNumber(tokens, locale),
+  })
+}
+
+/** Share of the token allowance already spent, clamped to 0-100. */
+export function getTokenUsagePercent(used: number, limit: number): number {
+  if (limit <= 0) return 0
+  return Math.min(100, Math.max(0, Math.round((used / limit) * 100)))
+}
+
+/** True when the plan caps tokens and the current period's allowance is gone. */
+export function isTokenAllowanceExhausted(
+  used: number,
+  limit: number
+): boolean {
+  return limit > 0 && used >= limit
+}
+
+/** Remaining tokens for the current period, or 0 when the plan is uncapped. */
+export function getRemainingTokens(used: number, limit: number): number {
+  if (limit <= 0) return 0
+  return Math.max(0, limit - used)
 }

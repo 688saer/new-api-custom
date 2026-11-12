@@ -19,6 +19,9 @@ import (
 type SubscriptionEpayPayRequest struct {
 	PlanId        int    `json:"plan_id"`
 	PaymentMethod string `json:"payment_method"`
+	// RenewMode records the checkout choice made when the buyer already holds
+	// this plan: extend its validity, or spend a day of it to refill now.
+	RenewMode string `json:"renew_mode"`
 }
 
 func SubscriptionRequestEpay(c *gin.Context) {
@@ -91,6 +94,7 @@ func SubscriptionRequestEpay(c *gin.Context) {
 		TradeNo:         tradeNo,
 		PaymentMethod:   req.PaymentMethod,
 		PaymentProvider: model.PaymentProviderEpay,
+		RenewMode:       model.NormalizeSubscriptionRenewMode(req.RenewMode),
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}

@@ -33,6 +33,10 @@ export const subscriptionPlanSchema = z.object({
   custom_seconds: z.number().optional(),
   quota_reset_period: z.enum(['never', 'daily', 'weekly', 'monthly', 'custom']),
   quota_reset_custom_seconds: z.number().optional(),
+  // Token allowance per reset period. 0 means the plan does not cap tokens.
+  token_limit: z.number().default(0),
+  // Model whitelist for this plan. Empty means every model is callable.
+  allowed_models: z.array(z.string()).default([]),
   enabled: z.boolean(),
   sort_order: z.number(),
   allow_balance_pay: z.boolean().optional().default(true),
@@ -67,6 +71,11 @@ export const userSubscriptionSchema = z.object({
   amount_total: z.number(),
   amount_used: z.number(),
   next_reset_time: z.number().optional(),
+  // Token allowance captured at purchase, with the usage counted against it.
+  token_limit_total: z.number().optional(),
+  token_used: z.number().optional(),
+  // Model whitelist captured at purchase. Empty means every model.
+  allowed_models: z.array(z.string()).optional(),
 })
 
 export type UserSubscription = z.infer<typeof userSubscriptionSchema>
@@ -89,9 +98,17 @@ export interface PlanPayload {
   plan: Partial<SubscriptionPlan>
 }
 
+/**
+ * Renewal choice for a buyer who already holds the plan:
+ * - `extend` queues the purchase after the current card.
+ * - `refresh` spends one day of the purchase to refill the allowance now.
+ */
+export type SubscriptionRenewMode = 'extend' | 'refresh'
+
 export interface SubscriptionPayRequest {
   plan_id: number
   payment_method?: string
+  renew_mode?: SubscriptionRenewMode
 }
 
 export interface SubscriptionPayResponse {
@@ -115,6 +132,7 @@ export interface SubscriptionPayResponse {
 
 export interface CreateUserSubscriptionRequest {
   plan_id: number
+  renew_mode?: SubscriptionRenewMode
 }
 
 export interface ResetUserSubscriptionsRequest {

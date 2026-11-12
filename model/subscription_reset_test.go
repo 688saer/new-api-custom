@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -198,4 +199,109 @@ func TestAdminResetPlanSubscriptionsNoMatchSucceeds(t *testing.T) {
 	assert.Zero(t, result.ResetCount)
 	assert.Zero(t, result.UserCount)
 	assert.Empty(t, result.AffectedUserIds)
+}
+
+func TestSubscriptionTokenLimitAndModelWhitelistGovernPreConsume(t *testing.T) {
+	truncateTables(t)
+	require.NoError(t, DB.AutoMigrate(&SubscriptionPreConsumeRecord{}))
+
+	now := GetDBTimestamp()
+	const userID = 9701
+	plan := &SubscriptionPlan{
+		Id:               9702,
+		Title:            "Token card",
+		PriceAmount:      2,
+		DurationUnit:     SubscriptionDurationDay,
+		DurationValue:    1,
+		QuotaResetPeriod: SubscriptionResetDaily,
+		TokenLimit:       200_000_000,
+		AllowedModels:    []string{"gpt-4o-mini"},
+	}
+	seedSubscriptionResetPlan(t, plan)
+	seedSubscriptionResetSub(t, &UserSubscription{
+		Id:              9703,
+		UserId:          userID,
+		PlanId:          plan.Id,
+		StartTime:       now - 60,
+		EndTime:         now + 24*3600,
+		Status:          "active",
+		LastResetTime:   now - 60,
+		NextResetTime:   now + 24*3600,
+		TokenLimitTotal: plan.TokenLimit,
+		AllowedModels:   plan.AllowedModels,
+	})
+
+	// A model outside the whitelist is rejected and names both sides.
+	_, err := PreConsumeUserSubscription("req-blocked-model", userID, "gpt-4o", 0, 1)
+	var modelErr *SubscriptionModelNotAllowedError
+	require.ErrorAs(t, err, &modelErr)
+	assert.Equal(t, "gpt-4o", modelErr.Model)
+	assert.Equal(t, []string{"gpt-4o-mini"}, modelErr.Allowed)
+
+	// A listed model with allowance left is admitted.
+	_, err = PreConsumeUserSubscription("req-allowed-model", userID, "gpt-4o-mini", 0, 1)
+	require.NoError(t, err)
+
+	// Spending the whole allowance stops the next request on the same model.
+	require.NoError(t, AddUserSubscriptionTokens(9703, plan.TokenLimit))
+	_, err = PreConsumeUserSubscription("req-exhausted", userID, "gpt-4o-mini", 0, 1)
+	var tokenErr *SubscriptionTokenQuotaExhaustedError
+	require.ErrorAs(t, err, &tokenErr)
+	assert.EqualValues(t, plan.TokenLimit, tokenErr.Used)
+	assert.EqualValues(t, plan.TokenLimit, tokenErr.Limit)
+
+	// The API contract exposes the whitelist as a real array, not a JSON string.
+	payload, err := common.Marshal(plan)
+	require.NoError(t, err)
+	assert.Contains(t, string(payload), `"allowed_models":["gpt-4o-mini"]`)
+}
+
+func TestSubscriptionRenewModeDecidesWhetherTheAllowanceRefillsNow(t *testing.T) {
+	truncateTables(t)
+
+	now := GetDBTimestamp()
+	const daySeconds = int64(24 * 3600)
+	const userID = 9711
+	plan := &SubscriptionPlan{
+		Id:               9712,
+		Title:            "Day card",
+		PriceAmount:      2,
+		DurationUnit:     SubscriptionDurationDay,
+		DurationValue:    1,
+		QuotaResetPeriod: SubscriptionResetDaily,
+		TokenLimit:       1000,
+	}
+	seedSubscriptionResetPlan(t, plan)
+	endTime := now + daySeconds
+	seedSubscriptionResetSub(t, &UserSubscription{
+		Id:              9713,
+		UserId:          userID,
+		PlanId:          plan.Id,
+		AmountUsed:      7,
+		StartTime:       now - 3600,
+		EndTime:         endTime,
+		Status:          "active",
+		LastResetTime:   now - 3600,
+		NextResetTime:   endTime,
+		TokenLimitTotal: plan.TokenLimit,
+		TokenUsed:       plan.TokenLimit,
+	})
+
+	// Refreshing spends the purchased day immediately: the allowance refills
+	// now and the validity does not grow.
+	refreshed, err := CreateUserSubscriptionWithRenewModeTx(DB, userID, plan, "test", SubscriptionRenewModeRefresh)
+	require.NoError(t, err)
+	assert.Equal(t, 9713, refreshed.Id)
+	assert.Zero(t, refreshed.TokenUsed)
+	assert.Zero(t, refreshed.AmountUsed)
+	assert.EqualValues(t, endTime, refreshed.EndTime)
+
+	// Extending queues a second card after the current one and leaves the
+	// current period's usage untouched.
+	extended, err := CreateUserSubscriptionWithRenewModeTx(DB, userID, plan, "test", SubscriptionRenewModeExtend)
+	require.NoError(t, err)
+	assert.NotEqual(t, refreshed.Id, extended.Id)
+	assert.EqualValues(t, endTime, extended.StartTime)
+	assert.EqualValues(t, endTime+daySeconds, extended.EndTime)
+	assert.EqualValues(t, plan.TokenLimit, extended.TokenLimitTotal)
 }

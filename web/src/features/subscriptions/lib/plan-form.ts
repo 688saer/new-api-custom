@@ -39,6 +39,8 @@ export function getPlanFormSchema(t: TFunction) {
       'custom',
     ]),
     quota_reset_custom_seconds: z.coerce.number().min(0).optional(),
+    token_limit: z.coerce.number().min(0),
+    allowed_models: z.array(z.string()),
     enabled: z.boolean(),
     sort_order: z.coerce.number(),
     allow_balance_pay: z.boolean(),
@@ -64,6 +66,8 @@ export const PLAN_FORM_DEFAULTS: PlanFormValues = {
   custom_seconds: 0,
   quota_reset_period: 'never',
   quota_reset_custom_seconds: 0,
+  token_limit: 0,
+  allowed_models: [],
   enabled: true,
   sort_order: 0,
   allow_balance_pay: true,
@@ -87,6 +91,8 @@ export function planToFormValues(plan: SubscriptionPlan): PlanFormValues {
     custom_seconds: Number(plan.custom_seconds || 0),
     quota_reset_period: plan.quota_reset_period || 'never',
     quota_reset_custom_seconds: Number(plan.quota_reset_custom_seconds || 0),
+    token_limit: Number(plan.token_limit || 0),
+    allowed_models: plan.allowed_models || [],
     enabled: plan.enabled !== false,
     sort_order: Number(plan.sort_order || 0),
     allow_balance_pay: plan.allow_balance_pay !== false,
@@ -117,6 +123,15 @@ export function formValuesToPlanPayload(values: PlanFormValues): PlanPayload {
       sort_order: Number(values.sort_order || 0),
       max_purchase_per_user: Number(values.max_purchase_per_user || 0),
       total_amount: parseQuotaFromDollars(Number(values.total_amount || 0)),
+      token_limit: Math.max(0, Math.trunc(Number(values.token_limit || 0))),
+      // The server trims and de-duplicates too; keep the payload canonical.
+      allowed_models: [
+        ...new Set(
+          (values.allowed_models || [])
+            .map((model) => model.trim())
+            .filter((model) => model.length > 0)
+        ),
+      ],
       upgrade_group: values.upgrade_group || '',
       downgrade_group: values.downgrade_group || '',
     },

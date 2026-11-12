@@ -18,6 +18,9 @@ import (
 
 type SubscriptionWaffoPancakePayRequest struct {
 	PlanId int `json:"plan_id"`
+	// RenewMode records the checkout choice made when the buyer already holds
+	// this plan: extend its validity, or spend a day of it to refill now.
+	RenewMode string `json:"renew_mode"`
 }
 
 func SubscriptionRequestWaffoPancakePay(c *gin.Context) {
@@ -86,6 +89,7 @@ func SubscriptionRequestWaffoPancakePay(c *gin.Context) {
 		TradeNo:         tradeNo,
 		PaymentMethod:   model.PaymentMethodWaffoPancake,
 		PaymentProvider: model.PaymentProviderWaffoPancake,
+		RenewMode:       model.NormalizeSubscriptionRenewMode(req.RenewMode),
 		CreateTime:      time.Now().Unix(),
 		Status:          common.TopUpStatusPending,
 	}
