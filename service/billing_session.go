@@ -25,6 +25,18 @@ import (
 // BillingSession — 统一计费会话
 // ---------------------------------------------------------------------------
 
+// planPolicyRejection 是套餐策略拒绝（模型不在白名单、token 额度用尽）对外返回的错误：
+// 消息已按请求语言翻译，Unwrap 保留原始策略错误，调用方据此识别"这是策略拒绝，
+// 不能回退钱包"，而不是把它当成普通的额度不足。
+type planPolicyRejection struct {
+	message string
+	cause   error
+}
+
+func (e *planPolicyRejection) Error() string { return e.message }
+
+func (e *planPolicyRejection) Unwrap() error { return e.cause }
+
 // BillingSession 封装单次请求的预扣费/结算/退款生命周期。
 // 实现 relaycommon.BillingSettler 接口。
 type BillingSession struct {
@@ -251,20 +263,26 @@ func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIErro
 		var modelNotAllowed *model.SubscriptionModelNotAllowedError
 		if errors.As(err, &modelNotAllowed) {
 			return types.NewErrorWithStatusCode(
-				errors.New(i18n.T(c, i18n.MsgQuotaSubscriptionModelNotAllowed, map[string]any{
-					"Model":   modelNotAllowed.Model,
-					"Allowed": strings.Join(modelNotAllowed.Allowed, ", "),
-				})),
+				&planPolicyRejection{
+					message: i18n.T(c, i18n.MsgQuotaSubscriptionModelNotAllowed, map[string]any{
+						"Model":   modelNotAllowed.Model,
+						"Allowed": strings.Join(modelNotAllowed.Allowed, ", "),
+					}),
+					cause: modelNotAllowed,
+				},
 				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
 				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
 		}
 		var tokensExhausted *model.SubscriptionTokenQuotaExhaustedError
 		if errors.As(err, &tokensExhausted) {
 			return types.NewErrorWithStatusCode(
-				errors.New(i18n.T(c, i18n.MsgQuotaSubscriptionTokensExhausted, map[string]any{
-					"Used":  tokensExhausted.Used,
-					"Limit": tokensExhausted.Limit,
-				})),
+				&planPolicyRejection{
+					message: i18n.T(c, i18n.MsgQuotaSubscriptionTokensExhausted, map[string]any{
+						"Used":  tokensExhausted.Used,
+						"Limit": tokensExhausted.Limit,
+					}),
+					cause: tokensExhausted,
+				},
 				types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
 				types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
 		}
