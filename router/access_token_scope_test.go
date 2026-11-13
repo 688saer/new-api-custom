@@ -66,6 +66,9 @@ var accessTokenExemptRoutes = []string{
 	"POST /api/subscription/epay/notify",
 	"GET /api/subscription/epay/return",
 	"POST /api/subscription/epay/return",
+	"POST /api/subscription/alipay/notify",
+	"GET /api/subscription/alipay/return",
+	"POST /api/subscription/wechat/notify",
 
 	// API key authentication (TokenAuthReadOnly).
 	"GET /api/usage/token/",

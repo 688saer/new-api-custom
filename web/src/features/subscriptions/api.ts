@@ -167,6 +167,54 @@ export async function paySubscriptionBalance(
   return res.data
 }
 
+/**
+ * Official Alipay checkout for a plan.
+ *
+ * page/wap products answer with a checkout URL to navigate to; the qr product
+ * answers with the code this console renders as a QR.
+ */
+export async function paySubscriptionAlipay(
+  data: SubscriptionPayRequest
+): Promise<SubscriptionPayResponse> {
+  const res = await api.post('/api/subscription/alipay/pay', data, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function checkSubscriptionAlipayOrder(
+  tradeNo: string
+): Promise<{ status: string }> {
+  const res = await api.get('/api/subscription/alipay/status', {
+    params: { trade_no: tradeNo },
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Official WeChat Pay (Native) checkout for a plan; answers with the
+ * `weixin://` link the console draws as a QR.
+ */
+export async function paySubscriptionWechat(
+  data: SubscriptionPayRequest
+): Promise<SubscriptionPayResponse> {
+  const res = await api.post('/api/subscription/wechat/pay', data, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function checkSubscriptionWechatOrder(
+  tradeNo: string
+): Promise<{ status: string }> {
+  const res = await api.get('/api/subscription/wechat/status', {
+    params: { trade_no: tradeNo },
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
 // Mints a Pancake OnetimeProduct (see controller for the OnetimeProduct vs
 // SubscriptionProduct rationale) using persisted creds + StoreID.
 export async function createWaffoPancakeSubscriptionProduct(data: {

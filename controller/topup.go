@@ -155,6 +155,8 @@ func GetTopUpInfo(c *gin.Context) {
 		"enable_stripe_subscription":        isStripeSubscriptionPayAvailable(),
 		"enable_creem_subscription":         isCreemSubscriptionPayAvailable(),
 		"enable_waffo_pancake_subscription": isWaffoPancakeSubscriptionPayAvailable(),
+		"enable_alipay_subscription":        isAlipaySubscriptionPayAvailable(),
+		"enable_wechat_subscription":        isWechatSubscriptionPayAvailable(),
 		"enable_redemption":                 complianceConfirmed,
 		"payment_compliance_confirmed":      complianceConfirmed,
 		"payment_compliance_terms_version":  operation_setting.CurrentComplianceTermsVersion,

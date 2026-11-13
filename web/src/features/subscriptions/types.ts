@@ -128,6 +128,12 @@ export interface SubscriptionPayResponse {
     token_expires_at?: number | string
   }
   url?: string
+  // Official Alipay 当面付: the code the console renders as a QR.
+  qr_code?: string
+  // Official WeChat Pay Native: the weixin:// link rendered as a QR.
+  code_url?: string
+  // Order number for the scan-to-pay dialogs to poll.
+  trade_no?: string
 }
 
 export interface CreateUserSubscriptionRequest {

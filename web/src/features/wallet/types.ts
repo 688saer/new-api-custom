@@ -137,6 +137,10 @@ export interface TopupInfo {
   enable_creem_subscription?: boolean
   /** Whether Waffo Pancake can take a subscription plan purchase */
   enable_waffo_pancake_subscription?: boolean
+  /** Whether the official Alipay channel can take a subscription plan purchase */
+  enable_alipay_subscription?: boolean
+  /** Whether the official WeChat Pay channel can take a subscription plan purchase */
+  enable_wechat_subscription?: boolean
   /** Whether the official Alipay channel is enabled */
   enable_alipay_topup?: boolean
   /** Minimum topup amount for the official Alipay channel */

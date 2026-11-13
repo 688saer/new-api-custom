@@ -26,7 +26,13 @@ import type { TopupInfo } from '@/features/wallet/types'
 import { api } from '@/lib/api'
 
 vi.mock('sonner', () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+}))
+
+vi.mock('qrcode.react', () => ({
+  QRCodeSVG: (props: { value: string }) => (
+    <div data-testid='qr-code'>{props.value}</div>
+  ),
 }))
 
 const baseTopupInfo: TopupInfo = {
@@ -142,5 +148,62 @@ describe('subscription plan payment channels', () => {
     expect(
       screen.queryByRole('button', { name: 'Stripe' })
     ).not.toBeInTheDocument()
+  })
+
+  it('offers the official Alipay channel and opens its QR when the plan is paid by scan', async () => {
+    const payload = planRecord('')
+    mockApis(payload)
+    const post = vi.spyOn(api, 'post').mockResolvedValue({
+      data: {
+        message: 'success',
+        qr_code: 'https://qr.alipay.com/abc',
+        trade_no: 'SUB1',
+      },
+    } as never)
+
+    const user = userEvent.setup()
+    await openPurchaseDialog({
+      ...baseTopupInfo,
+      enable_alipay_topup: true,
+      enable_alipay_subscription: true,
+    })
+
+    await user.click(await screen.findByRole('button', { name: 'Alipay' }))
+
+    expect(post).toHaveBeenCalledWith(
+      '/api/subscription/alipay/pay',
+      expect.objectContaining({ plan_id: 1, renew_mode: 'extend' }),
+      expect.anything()
+    )
+    expect(
+      await screen.findByText('https://qr.alipay.com/abc')
+    ).toBeInTheDocument()
+  })
+
+  it('offers the official WeChat channel and opens its QR from the native code url', async () => {
+    mockApis(planRecord(''))
+    const post = vi.spyOn(api, 'post').mockResolvedValue({
+      data: {
+        message: 'success',
+        code_url: 'weixin://wxpay/native',
+        trade_no: 'SUB2',
+      },
+    } as never)
+
+    const user = userEvent.setup()
+    await openPurchaseDialog({
+      ...baseTopupInfo,
+      enable_wechat_topup: true,
+      enable_wechat_subscription: true,
+    })
+
+    await user.click(await screen.findByRole('button', { name: 'WeChat Pay' }))
+
+    expect(post).toHaveBeenCalledWith(
+      '/api/subscription/wechat/pay',
+      expect.objectContaining({ plan_id: 1 }),
+      expect.anything()
+    )
+    expect(await screen.findByText('weixin://wxpay/native')).toBeInTheDocument()
   })
 })

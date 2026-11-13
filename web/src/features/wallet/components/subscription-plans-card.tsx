@@ -81,9 +81,18 @@ interface SubscriptionPlansCardProps {
   onPurchaseSuccess?: () => void | Promise<void>
 }
 
+// 官方支付宝 / 微信支付有自己的下单接口和扫码弹窗，不能混进易支付的
+// 支付方式里（易支付只认它自己的 type），所以这里把它们剔掉。
+const DEDICATED_PAY_METHOD_TYPES = new Set([
+  'stripe',
+  'creem',
+  'alipay_official',
+  'wechat_official',
+])
+
 function getEpayMethods(payMethods: PaymentMethod[] = []): PaymentMethod[] {
   return payMethods.filter(
-    (m) => m?.type && m.type !== 'stripe' && m.type !== 'creem'
+    (m) => m?.type && !DEDICATED_PAY_METHOD_TYPES.has(m.type)
   )
 }
 
@@ -142,6 +151,12 @@ export function SubscriptionPlansCard({
   const enableWaffoPancake = !!(
     topupInfo?.enable_waffo_pancake_subscription ??
     topupInfo?.enable_waffo_pancake_topup
+  )
+  const enableAlipay = !!(
+    topupInfo?.enable_alipay_subscription ?? topupInfo?.enable_alipay_topup
+  )
+  const enableWechat = !!(
+    topupInfo?.enable_wechat_subscription ?? topupInfo?.enable_wechat_topup
   )
   const enableOnlineTopUp = !!topupInfo?.enable_online_topup
   const epayMethods = useMemo(
@@ -838,6 +853,8 @@ export function SubscriptionPlansCard({
         enableStripe={enableStripe}
         enableCreem={enableCreem}
         enableWaffoPancake={enableWaffoPancake}
+        enableAlipay={enableAlipay}
+        enableWechat={enableWechat}
         enableOnlineTopUp={enableOnlineTopUp}
         epayMethods={epayMethods}
         userQuota={userQuota}

@@ -64,6 +64,16 @@ func isWaffoPancakeSubscriptionPayAvailable() bool {
 		strings.TrimSpace(setting.WaffoPancakePrivateKey) != ""
 }
 
+// 支付宝官方与微信支付官方没有「充值商品」这一层：套餐金额直接用于下单，所以
+// 订阅结账与钱包充值使用同一套凭据判定，不存在套餐被充值配置卡住的情况。
+func isAlipaySubscriptionPayAvailable() bool {
+	return isAlipayTopUpEnabled()
+}
+
+func isWechatSubscriptionPayAvailable() bool {
+	return isWechatTopUpEnabled()
+}
+
 func isCreemWebhookConfigured() bool {
 	return strings.TrimSpace(setting.CreemWebhookSecret) != ""
 }

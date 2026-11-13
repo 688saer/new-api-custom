@@ -29,6 +29,8 @@ import { Combobox } from '@/components/ui/combobox'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { ensurePurchaseAgreement } from '@/features/purchase-agreement'
+import { AlipayQrDialog } from '@/features/wallet/components/dialogs/alipay-qr-dialog'
+import { WechatQrDialog } from '@/features/wallet/components/dialogs/wechat-qr-dialog'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatCompactNumber, formatQuota } from '@/lib/format'
@@ -41,6 +43,10 @@ import {
   paySubscriptionEpay,
   paySubscriptionWaffoPancake,
   paySubscriptionBalance,
+  paySubscriptionAlipay,
+  paySubscriptionWechat,
+  checkSubscriptionAlipayOrder,
+  checkSubscriptionWechatOrder,
 } from '../../api'
 import {
   formatDuration,
@@ -68,6 +74,8 @@ interface Props {
   enableStripe?: boolean
   enableCreem?: boolean
   enableWaffoPancake?: boolean
+  enableAlipay?: boolean
+  enableWechat?: boolean
   enableOnlineTopUp?: boolean
   epayMethods?: PaymentMethod[]
   purchaseLimit?: number
@@ -78,12 +86,19 @@ interface Props {
   onPurchaseSuccess?: () => void | Promise<void>
 }
 
+interface ScanOrder {
+  tradeNo: string
+  qrCode?: string
+  codeUrl?: string
+}
+
 export function SubscriptionPurchaseDialog(props: Props) {
   const { t, i18n } = useTranslation()
   const { currency } = useSystemConfig()
   const [paying, setPaying] = useState(false)
   const [selectedEpayMethod, setSelectedEpayMethod] = useState('')
   const [renewMode, setRenewMode] = useState<SubscriptionRenewMode>('extend')
+  const [scanOrder, setScanOrder] = useState<ScanOrder | null>(null)
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
 
   useEffect(() => {
@@ -106,7 +121,15 @@ export function SubscriptionPurchaseDialog(props: Props) {
     props.enableWaffoPancake && !!plan.waffo_pancake_product_id
   const hasEpay =
     props.enableOnlineTopUp && (props.epayMethods || []).length > 0
-  const hasAnyPayment = hasStripe || hasCreem || hasWaffoPancake || hasEpay
+  const hasAlipay = !!props.enableAlipay
+  const hasWechat = !!props.enableWechat
+  const hasAnyPayment =
+    hasStripe ||
+    hasCreem ||
+    hasWaffoPancake ||
+    hasEpay ||
+    hasAlipay ||
+    hasWechat
   const totalAmount = Number(plan.total_amount || 0)
   const price = Number(plan.price_amount || 0).toFixed(2)
   const quotaPerUnit =
@@ -279,6 +302,59 @@ export function SubscriptionPurchaseDialog(props: Props) {
     }
   }
 
+  // 官方支付宝：page/wap 直接整页跳转，qr 则把二维码交给弹窗自己画。
+  const handlePayAlipay = async () => {
+    if (!(await ensurePurchaseAgreement('subscription'))) {
+      return
+    }
+    setPaying(true)
+    try {
+      const res = await paySubscriptionAlipay({
+        plan_id: plan.id,
+        renew_mode: renewModePayload,
+      })
+      if (res.qr_code) {
+        setScanOrder({ tradeNo: res.trade_no || '', qrCode: res.qr_code })
+        props.onOpenChange(false)
+        return
+      }
+      if (res.url) {
+        toast.success(t('Redirecting to payment page...'))
+        window.location.href = res.url
+        return
+      }
+      handleServerError(res, t('Payment request failed'))
+    } catch (error) {
+      handleServerError(error, t('Payment request failed'))
+    } finally {
+      setPaying(false)
+    }
+  }
+
+  // 官方微信支付只有 Native：返回 weixin:// 链接，扫码弹窗负责画码和轮询。
+  const handlePayWechat = async () => {
+    if (!(await ensurePurchaseAgreement('subscription'))) {
+      return
+    }
+    setPaying(true)
+    try {
+      const res = await paySubscriptionWechat({
+        plan_id: plan.id,
+        renew_mode: renewModePayload,
+      })
+      if (res.code_url) {
+        setScanOrder({ tradeNo: res.trade_no || '', codeUrl: res.code_url })
+        props.onOpenChange(false)
+        return
+      }
+      handleServerError(res, t('Payment request failed'))
+    } catch (error) {
+      handleServerError(error, t('Payment request failed'))
+    } finally {
+      setPaying(false)
+    }
+  }
+
   const handlePayBalance = async () => {
     if (!allowBalancePay) {
       toast.error(t('This plan does not allow balance redemption'))
@@ -308,253 +384,314 @@ export function SubscriptionPurchaseDialog(props: Props) {
   }
 
   return (
-    <Dialog
-      open={props.open}
-      onOpenChange={props.onOpenChange}
-      title={
-        <>
-          <Crown className='h-5 w-5' />
-          {t('Purchase Subscription')}
-        </>
-      }
-      contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'
-      titleClassName='flex items-center gap-2'
-      contentHeight='auto'
-      bodyClassName='space-y-4'
-    >
-      <div className='space-y-3 sm:space-y-4'>
-        <div className='bg-muted/50 space-y-2.5 rounded-lg border p-3 sm:space-y-3 sm:p-4'>
-          <div className='flex justify-between'>
-            <span className='text-muted-foreground text-sm'>
-              {t('Plan Name')}
-            </span>
-            <span className='max-w-[200px] truncate text-sm font-medium'>
-              {plan.title}
-            </span>
-          </div>
-          <div className='flex items-center justify-between'>
-            <span className='text-muted-foreground text-sm'>
-              {t('Validity Period')}
-            </span>
-            <span className='flex items-center gap-1 text-sm'>
-              <CalendarClock className='h-3.5 w-3.5' />
-              {formatDuration(plan, t)}
-            </span>
-          </div>
-          {formatResetPeriod(plan, t) !== t('No Reset') && (
+    <>
+      <Dialog
+        open={props.open}
+        onOpenChange={props.onOpenChange}
+        title={
+          <>
+            <Crown className='h-5 w-5' />
+            {t('Purchase Subscription')}
+          </>
+        }
+        contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'
+        titleClassName='flex items-center gap-2'
+        contentHeight='auto'
+        bodyClassName='space-y-4'
+      >
+        <div className='space-y-3 sm:space-y-4'>
+          <div className='bg-muted/50 space-y-2.5 rounded-lg border p-3 sm:space-y-3 sm:p-4'>
             <div className='flex justify-between'>
               <span className='text-muted-foreground text-sm'>
-                {t('Reset Period')}
+                {t('Plan Name')}
               </span>
-              <span className='text-sm'>{formatResetPeriod(plan, t)}</span>
+              <span className='max-w-[200px] truncate text-sm font-medium'>
+                {plan.title}
+              </span>
             </div>
-          )}
-          <div className='flex items-center justify-between'>
-            <span className='text-muted-foreground text-sm'>
-              {t('Plan Quota')}
-            </span>
-            <span className='flex items-center gap-1 text-sm'>
-              <Package className='h-3.5 w-3.5' />
-              {totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited')}
-            </span>
-          </div>
-          {plan.upgrade_group && (
             <div className='flex items-center justify-between'>
               <span className='text-muted-foreground text-sm'>
-                {t('Upgrade Group')}
+                {t('Validity Period')}
               </span>
-              <GroupBadge group={plan.upgrade_group} />
+              <span className='flex items-center gap-1 text-sm'>
+                <CalendarClock className='h-3.5 w-3.5' />
+                {formatDuration(plan, t)}
+              </span>
             </div>
-          )}
-          {planTokenAllowance && (
-            <div className='flex items-center justify-between gap-2'>
-              <span className='text-muted-foreground text-sm'>
-                {t('Token Allowance')}
-              </span>
-              <span className='flex min-w-0 items-center gap-1 text-sm'>
-                <Cpu className='h-3.5 w-3.5 shrink-0' />
-                <span className='truncate'>{planTokenAllowance}</span>
-                <span className='text-muted-foreground shrink-0 text-xs'>
-                  / {formatResetPeriod(plan, t)}
+            {formatResetPeriod(plan, t) !== t('No Reset') && (
+              <div className='flex justify-between'>
+                <span className='text-muted-foreground text-sm'>
+                  {t('Reset Period')}
                 </span>
-              </span>
-            </div>
-          )}
-          {planModels.length > 0 && (
-            <div className='flex items-start justify-between gap-2'>
-              <span className='text-muted-foreground shrink-0 text-sm'>
-                {t('Allowed Models')}
-              </span>
-              <div className='flex min-w-0 flex-wrap justify-end gap-1'>
-                {planModels.slice(0, 3).map((model) => (
-                  <span
-                    key={model}
-                    className='bg-background max-w-[110px] truncate rounded border px-1.5 py-0.5 text-xs'
-                  >
-                    {model}
-                  </span>
-                ))}
-                {planModels.length > 3 && (
-                  <span className='text-muted-foreground text-xs'>
-                    +{planModels.length - 3}
-                  </span>
-                )}
+                <span className='text-sm'>{formatResetPeriod(plan, t)}</span>
               </div>
-            </div>
-          )}
-          <Separator />
-          <div className='flex items-center justify-between'>
-            <span className='text-sm font-medium'>{t('Amount Due')}</span>
-            <span className='text-primary text-lg font-bold'>${price}</span>
-          </div>
-        </div>
-
-        {limitReached && (
-          <Alert variant='destructive'>
-            <AlertDescription>
-              {t('Purchase limit reached')} ({props.purchaseCount}/
-              {props.purchaseLimit})
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {holdsActiveCard && (
-          <div className='space-y-2 rounded-md border p-3'>
-            <div className='flex items-center justify-between gap-2 text-xs'>
-              <span className='text-muted-foreground'>{t('Current card')}</span>
-              <span>
-                {t('{{count}} days remaining', { count: remainingDays })}
+            )}
+            <div className='flex items-center justify-between'>
+              <span className='text-muted-foreground text-sm'>
+                {t('Plan Quota')}
+              </span>
+              <span className='flex items-center gap-1 text-sm'>
+                <Package className='h-3.5 w-3.5' />
+                {totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited')}
               </span>
             </div>
-            {heldTokenLimit > 0 && (
-              <>
-                <div className='text-muted-foreground flex items-center justify-between gap-2 text-xs'>
-                  <span>{t('Tokens this period')}</span>
-                  <span>
-                    {formatCompactNumber(heldTokenUsed, locale)} /{' '}
-                    {formatCompactNumber(heldTokenLimit, locale)}
-                  </span>
-                </div>
-                <Progress value={allowanceUsedPercent} className='h-1.5' />
-              </>
+            {plan.upgrade_group && (
+              <div className='flex items-center justify-between'>
+                <span className='text-muted-foreground text-sm'>
+                  {t('Upgrade Group')}
+                </span>
+                <GroupBadge group={plan.upgrade_group} />
+              </div>
             )}
+            {planTokenAllowance && (
+              <div className='flex items-center justify-between gap-2'>
+                <span className='text-muted-foreground text-sm'>
+                  {t('Token Allowance')}
+                </span>
+                <span className='flex min-w-0 items-center gap-1 text-sm'>
+                  <Cpu className='h-3.5 w-3.5 shrink-0' />
+                  <span className='truncate'>{planTokenAllowance}</span>
+                  <span className='text-muted-foreground shrink-0 text-xs'>
+                    / {formatResetPeriod(plan, t)}
+                  </span>
+                </span>
+              </div>
+            )}
+            {planModels.length > 0 && (
+              <div className='flex items-start justify-between gap-2'>
+                <span className='text-muted-foreground shrink-0 text-sm'>
+                  {t('Allowed Models')}
+                </span>
+                <div className='flex min-w-0 flex-wrap justify-end gap-1'>
+                  {planModels.slice(0, 3).map((model) => (
+                    <span
+                      key={model}
+                      className='bg-background max-w-[110px] truncate rounded border px-1.5 py-0.5 text-xs'
+                    >
+                      {model}
+                    </span>
+                  ))}
+                  {planModels.length > 3 && (
+                    <span className='text-muted-foreground text-xs'>
+                      +{planModels.length - 3}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            <Separator />
+            <div className='flex items-center justify-between'>
+              <span className='text-sm font-medium'>{t('Amount Due')}</span>
+              <span className='text-primary text-lg font-bold'>${price}</span>
+            </div>
           </div>
-        )}
 
-        {holdsActiveCard && (
-          <SubscriptionRenewModeChoice
-            value={renewMode}
-            onChange={setRenewMode}
-            canRefresh={heldCardSecondsLeft >= 86400}
-            allowanceExhausted={allowanceExhausted}
-          />
-        )}
-
-        <div className='flex flex-col gap-2 rounded-md border p-3'>
-          <div className='flex items-center justify-between gap-2 text-xs'>
-            <span className='text-muted-foreground'>{t('Required')}</span>
-            <span>{formatQuota(balanceCost)}</span>
-          </div>
-          <div className='flex items-center justify-between gap-2 text-xs'>
-            <span className='text-muted-foreground'>{t('Available')}</span>
-            <span>{formatQuota(userQuota)}</span>
-          </div>
-          {!allowBalancePay ? (
+          {limitReached && (
             <Alert variant='destructive'>
               <AlertDescription>
-                {t('This plan does not allow balance redemption')}
+                {t('Purchase limit reached')} ({props.purchaseCount}/
+                {props.purchaseLimit})
               </AlertDescription>
             </Alert>
-          ) : (
-            insufficientBalance && (
-              <Alert variant='destructive'>
-                <AlertDescription>{t('Insufficient balance')}</AlertDescription>
-              </Alert>
-            )
           )}
-          <Button
-            variant='outline'
-            onClick={handlePayBalance}
-            disabled={
-              paying || limitReached || !allowBalancePay || insufficientBalance
-            }
-          >
-            {t('Pay with Balance')}
-          </Button>
-        </div>
 
-        {!hasAnyPayment && (
-          <Alert>
-            <AlertDescription>
-              {t(
-                'Online payment is not configured for this plan yet, so only balance payment is available.'
+          {holdsActiveCard && (
+            <div className='space-y-2 rounded-md border p-3'>
+              <div className='flex items-center justify-between gap-2 text-xs'>
+                <span className='text-muted-foreground'>
+                  {t('Current card')}
+                </span>
+                <span>
+                  {t('{{count}} days remaining', { count: remainingDays })}
+                </span>
+              </div>
+              {heldTokenLimit > 0 && (
+                <>
+                  <div className='text-muted-foreground flex items-center justify-between gap-2 text-xs'>
+                    <span>{t('Tokens this period')}</span>
+                    <span>
+                      {formatCompactNumber(heldTokenUsed, locale)} /{' '}
+                      {formatCompactNumber(heldTokenLimit, locale)}
+                    </span>
+                  </div>
+                  <Progress value={allowanceUsedPercent} className='h-1.5' />
+                </>
               )}
-            </AlertDescription>
-          </Alert>
-        )}
+            </div>
+          )}
 
-        {hasAnyPayment && (
-          <div className='space-y-3'>
-            <p className='text-muted-foreground text-xs'>
-              {t('Select payment method')}
-            </p>
-            {(hasStripe || hasCreem || hasWaffoPancake) && (
-              <div className='grid grid-cols-2 gap-2 sm:flex'>
-                {hasStripe && (
-                  <Button
-                    variant='outline'
-                    className='flex-1'
-                    onClick={handlePayStripe}
-                    disabled={paying || limitReached}
-                  >
-                    Stripe
-                  </Button>
-                )}
-                {hasCreem && (
-                  <Button
-                    variant='outline'
-                    className='flex-1'
-                    onClick={handlePayCreem}
-                    disabled={paying || limitReached}
-                  >
-                    Creem
-                  </Button>
-                )}
-                {hasWaffoPancake && (
-                  <Button
-                    variant='outline'
-                    className='flex-1'
-                    onClick={handlePayWaffoPancake}
-                    disabled={paying || limitReached}
-                  >
-                    Waffo Pancake
-                  </Button>
-                )}
-              </div>
+          {holdsActiveCard && (
+            <SubscriptionRenewModeChoice
+              value={renewMode}
+              onChange={setRenewMode}
+              canRefresh={heldCardSecondsLeft >= 86400}
+              allowanceExhausted={allowanceExhausted}
+            />
+          )}
+
+          <div className='flex flex-col gap-2 rounded-md border p-3'>
+            <div className='flex items-center justify-between gap-2 text-xs'>
+              <span className='text-muted-foreground'>{t('Required')}</span>
+              <span>{formatQuota(balanceCost)}</span>
+            </div>
+            <div className='flex items-center justify-between gap-2 text-xs'>
+              <span className='text-muted-foreground'>{t('Available')}</span>
+              <span>{formatQuota(userQuota)}</span>
+            </div>
+            {!allowBalancePay ? (
+              <Alert variant='destructive'>
+                <AlertDescription>
+                  {t('This plan does not allow balance redemption')}
+                </AlertDescription>
+              </Alert>
+            ) : (
+              insufficientBalance && (
+                <Alert variant='destructive'>
+                  <AlertDescription>
+                    {t('Insufficient balance')}
+                  </AlertDescription>
+                </Alert>
+              )
             )}
-            {hasEpay && (
-              <div className='grid grid-cols-[minmax(0,1fr)_auto] gap-2'>
-                <Combobox
-                  options={(props.epayMethods || []).map((m) => ({
-                    value: m.type,
-                    label: m.name || m.type,
-                  }))}
-                  value={selectedEpayMethod}
-                  onValueChange={(v) => v !== null && setSelectedEpayMethod(v)}
-                  disabled={limitReached}
-                  className='flex-1'
-                />
-                <Button
-                  onClick={handlePayEpay}
-                  disabled={paying || !selectedEpayMethod || limitReached}
-                >
-                  {t('Pay')}
-                </Button>
-              </div>
-            )}
+            <Button
+              variant='outline'
+              onClick={handlePayBalance}
+              disabled={
+                paying ||
+                limitReached ||
+                !allowBalancePay ||
+                insufficientBalance
+              }
+            >
+              {t('Pay with Balance')}
+            </Button>
           </div>
-        )}
-      </div>
-    </Dialog>
+
+          {!hasAnyPayment && (
+            <Alert>
+              <AlertDescription>
+                {t(
+                  'Online payment is not configured for this plan yet, so only balance payment is available.'
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {hasAnyPayment && (
+            <div className='space-y-3'>
+              <p className='text-muted-foreground text-xs'>
+                {t('Select payment method')}
+              </p>
+              {(hasStripe || hasCreem || hasWaffoPancake) && (
+                <div className='grid grid-cols-2 gap-2 sm:flex'>
+                  {hasStripe && (
+                    <Button
+                      variant='outline'
+                      className='flex-1'
+                      onClick={handlePayStripe}
+                      disabled={paying || limitReached}
+                    >
+                      Stripe
+                    </Button>
+                  )}
+                  {hasCreem && (
+                    <Button
+                      variant='outline'
+                      className='flex-1'
+                      onClick={handlePayCreem}
+                      disabled={paying || limitReached}
+                    >
+                      Creem
+                    </Button>
+                  )}
+                  {hasWaffoPancake && (
+                    <Button
+                      variant='outline'
+                      className='flex-1'
+                      onClick={handlePayWaffoPancake}
+                      disabled={paying || limitReached}
+                    >
+                      Waffo Pancake
+                    </Button>
+                  )}
+                </div>
+              )}
+              {hasEpay && (
+                <div className='grid grid-cols-[minmax(0,1fr)_auto] gap-2'>
+                  <Combobox
+                    options={(props.epayMethods || []).map((m) => ({
+                      value: m.type,
+                      label: m.name || m.type,
+                    }))}
+                    value={selectedEpayMethod}
+                    onValueChange={(v) =>
+                      v !== null && setSelectedEpayMethod(v)
+                    }
+                    disabled={limitReached}
+                    className='flex-1'
+                  />
+                  <Button
+                    onClick={handlePayEpay}
+                    disabled={paying || !selectedEpayMethod || limitReached}
+                  >
+                    {t('Pay')}
+                  </Button>
+                </div>
+              )}
+              {(hasAlipay || hasWechat) && (
+                <div className='grid grid-cols-2 gap-2'>
+                  {hasAlipay && (
+                    <Button
+                      variant='outline'
+                      onClick={handlePayAlipay}
+                      disabled={paying || limitReached}
+                    >
+                      {t('Alipay')}
+                    </Button>
+                  )}
+                  {hasWechat && (
+                    <Button
+                      variant='outline'
+                      onClick={handlePayWechat}
+                      disabled={paying || limitReached}
+                    >
+                      {t('WeChat Pay')}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Dialog>
+
+      <AlipayQrDialog
+        open={!!scanOrder?.qrCode}
+        onOpenChange={(open) => {
+          if (!open) setScanOrder(null)
+        }}
+        qrCode={scanOrder?.qrCode ?? ''}
+        tradeNo={scanOrder?.tradeNo ?? ''}
+        checkOrderStatus={checkSubscriptionAlipayOrder}
+        successMessage={t('Subscription purchased successfully')}
+        onPaid={() => {
+          void props.onPurchaseSuccess?.()
+        }}
+      />
+
+      <WechatQrDialog
+        open={!!scanOrder?.codeUrl}
+        onOpenChange={(open) => {
+          if (!open) setScanOrder(null)
+        }}
+        codeUrl={scanOrder?.codeUrl ?? ''}
+        tradeNo={scanOrder?.tradeNo ?? ''}
+        checkOrderStatus={checkSubscriptionWechatOrder}
+        successMessage={t('Subscription purchased successfully')}
+        onPaid={() => {
+          void props.onPurchaseSuccess?.()
+        }}
+      />
+    </>
   )
 }

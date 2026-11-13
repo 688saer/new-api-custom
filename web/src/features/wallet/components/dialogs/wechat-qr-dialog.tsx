@@ -55,6 +55,14 @@ interface WechatQrDialogProps {
   tradeNo: string
   /** Called once the order stops being pending, so the wallet can refresh. */
   onPaid: () => void
+  /**
+   * Asks the server about this order. The wallet checks its top-up order, a
+   * subscription checkout checks its plan order, so the caller decides which
+   * endpoint answers instead of this dialog hard-coding one.
+   */
+  checkOrderStatus?: (tradeNo: string) => Promise<{ status: string }>
+  /** Toast shown when the order settles; defaults to the wallet wording. */
+  successMessage?: string
 }
 
 /**
@@ -69,6 +77,8 @@ export function WechatQrDialog({
   codeUrl,
   tradeNo,
   onPaid,
+  checkOrderStatus,
+  successMessage,
 }: WechatQrDialogProps) {
   const { t } = useTranslation()
   const [checking, setChecking] = useState(false)
@@ -77,10 +87,10 @@ export function WechatQrDialog({
 
   const settle = useCallback(() => {
     settledRef.current = true
-    toast.success(t('Payment received, balance updated'))
+    toast.success(successMessage || t('Payment received, balance updated'))
     onPaid()
     onOpenChange(false)
-  }, [onPaid, onOpenChange, t])
+  }, [onPaid, onOpenChange, successMessage, t])
 
   const checkStatus = useCallback(
     async (silent: boolean) => {
@@ -89,7 +99,9 @@ export function WechatQrDialog({
       }
       setChecking(true)
       try {
-        const response = await requestWechatOrderStatus({ trade_no: tradeNo })
+        const response = checkOrderStatus
+          ? await checkOrderStatus(tradeNo)
+          : await requestWechatOrderStatus({ trade_no: tradeNo })
         if (response.status === 'success') {
           settle()
           return
@@ -113,7 +125,7 @@ export function WechatQrDialog({
         setChecking(false)
       }
     },
-    [onPaid, settle, t, tradeNo]
+    [checkOrderStatus, onPaid, settle, t, tradeNo]
   )
 
   // 定时器只认最新的检查函数，避免回调身份变化把轮询重置掉。
