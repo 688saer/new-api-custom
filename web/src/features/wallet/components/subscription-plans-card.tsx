@@ -50,6 +50,7 @@ import {
   getSelfSubscriptionFull,
   updateBillingPreference,
 } from '@/features/subscriptions/api'
+import { ResetQuotaNowDialog } from '@/features/subscriptions/components/dialogs/reset-quota-now-dialog'
 import { SubscriptionPurchaseDialog } from '@/features/subscriptions/components/dialogs/subscription-purchase-dialog'
 import {
   formatDuration,
@@ -61,6 +62,8 @@ import {
 } from '@/features/subscriptions/lib'
 import type {
   PlanRecord,
+  SubscriptionPlan,
+  UserSubscription,
   UserSubscriptionRecord,
 } from '@/features/subscriptions/types'
 import { toIntlLocale } from '@/i18n/languages'
@@ -125,10 +128,21 @@ export function SubscriptionPlansCard({
 
   const [purchaseOpen, setPurchaseOpen] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<PlanRecord | null>(null)
+  const [resetTarget, setResetTarget] = useState<UserSubscription | null>(null)
 
-  const enableStripe = !!topupInfo?.enable_stripe_topup
-  const enableCreem = !!topupInfo?.enable_creem_topup
-  const enableWaffoPancake = !!topupInfo?.enable_waffo_pancake_topup
+  // A subscription purchase uses the plan's own price/product id, so it must not
+  // depend on the wallet top-up product being configured. Fall back to the
+  // top-up flags when an older backend omits the subscription-specific ones.
+  const enableStripe = !!(
+    topupInfo?.enable_stripe_subscription ?? topupInfo?.enable_stripe_topup
+  )
+  const enableCreem = !!(
+    topupInfo?.enable_creem_subscription ?? topupInfo?.enable_creem_topup
+  )
+  const enableWaffoPancake = !!(
+    topupInfo?.enable_waffo_pancake_subscription ??
+    topupInfo?.enable_waffo_pancake_topup
+  )
   const enableOnlineTopUp = !!topupInfo?.enable_online_topup
   const epayMethods = useMemo(
     () => getEpayMethods(topupInfo?.pay_methods),
@@ -226,6 +240,18 @@ export function SubscriptionPlansCard({
     for (const p of plans) {
       if (p?.plan?.id) {
         map.set(p.plan.id, p.plan.title || '')
+      }
+    }
+    return map
+  }, [plans])
+
+  // Whether a card belongs to a plan that refills its allowance periodically;
+  // only those have something to refill on demand.
+  const planMap = useMemo(() => {
+    const map = new Map<number, SubscriptionPlan>()
+    for (const p of plans) {
+      if (p?.plan?.id) {
+        map.set(p.plan.id, p.plan)
       }
     }
     return map
@@ -456,6 +482,25 @@ export function SubscriptionPlansCard({
                     tokenUsed,
                     tokenLimitTotal
                   )
+                  // A card can refill its allowance on demand when the plan resets
+                  // periodically, the allowance really ran out, and spending one
+                  // day still leaves validity behind.
+                  const cardPlan = subscription?.plan_id
+                    ? planMap.get(subscription.plan_id)
+                    : undefined
+                  const planRefillsAllowance =
+                    !!cardPlan && cardPlan.quota_reset_period !== 'never'
+                  const amountExhausted =
+                    totalAmount > 0 && usedAmount >= totalAmount
+                  const allowanceExhausted =
+                    tokenLimitTotal > 0 ? tokenExhausted : amountExhausted
+                  const secondsLeft =
+                    (subscription?.end_time || 0) - Date.now() / 1000
+                  const canResetQuota =
+                    isActive &&
+                    planRefillsAllowance &&
+                    allowanceExhausted &&
+                    secondsLeft > 86400
                   const subscriptionModels = subscription?.allowed_models || []
                   let statusBadge = (
                     <StatusBadge
@@ -585,7 +630,36 @@ export function SubscriptionPlansCard({
                               )}
                             </div>
                           )}
+                          {canResetQuota && (
+                            <Button
+                              variant='outline'
+                              size='sm'
+                              className='mt-1 h-7 px-2'
+                              onClick={() => {
+                                if (subscription) setResetTarget(subscription)
+                              }}
+                            >
+                              <RefreshCw
+                                className='size-3.5'
+                                aria-hidden='true'
+                              />
+                              {t('Refill allowance now')}
+                            </Button>
+                          )}
                         </div>
+                      )}
+                      {canResetQuota && tokenLimitTotal <= 0 && (
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          className='mt-2 h-7 px-2'
+                          onClick={() => {
+                            if (subscription) setResetTarget(subscription)
+                          }}
+                        >
+                          <RefreshCw className='size-3.5' aria-hidden='true' />
+                          {t('Refill allowance now')}
+                        </Button>
                       )}
                       {subscriptionModels.length > 0 && (
                         <div className='text-muted-foreground mt-1 flex flex-wrap items-center gap-1'>
@@ -779,6 +853,18 @@ export function SubscriptionPlansCard({
             : undefined
         }
         activeSubscription={selectedPlanActiveSubscription}
+      />
+
+      <ResetQuotaNowDialog
+        open={!!resetTarget}
+        onOpenChange={(open) => {
+          if (!open) setResetTarget(null)
+        }}
+        subscription={resetTarget}
+        onSuccess={async () => {
+          await fetchSelfSubscription()
+          await onPurchaseSuccess?.()
+        }}
       />
     </>
   )

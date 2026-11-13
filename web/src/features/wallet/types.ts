@@ -131,6 +131,12 @@ export interface TopupInfo {
   enable_online_topup: boolean
   /** Whether Stripe topup is enabled */
   enable_stripe_topup: boolean
+  /** Whether Stripe can take a subscription plan purchase (plan carries its own price id) */
+  enable_stripe_subscription?: boolean
+  /** Whether Creem can take a subscription plan purchase (plan carries its own product id) */
+  enable_creem_subscription?: boolean
+  /** Whether Waffo Pancake can take a subscription plan purchase */
+  enable_waffo_pancake_subscription?: boolean
   /** Whether the official Alipay channel is enabled */
   enable_alipay_topup?: boolean
   /** Minimum topup amount for the official Alipay channel */

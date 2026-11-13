@@ -238,6 +238,18 @@ export async function updateBillingPreference(
   return res.data
 }
 
+/**
+ * Spends one day of the card's validity to refill this period's allowance.
+ */
+export async function resetSubscriptionQuotaNow(
+  userSubscriptionId: number
+): Promise<ApiResponse> {
+  const res = await api.post('/api/subscription/self/reset_quota', {
+    user_subscription_id: userSubscriptionId,
+  })
+  return res.data
+}
+
 export async function getGroups(): Promise<ApiResponse<string[]>> {
   const res = await api.get('/api/group')
   return res.data

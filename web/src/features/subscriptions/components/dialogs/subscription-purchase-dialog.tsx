@@ -483,6 +483,16 @@ export function SubscriptionPurchaseDialog(props: Props) {
           </Button>
         </div>
 
+        {!hasAnyPayment && (
+          <Alert>
+            <AlertDescription>
+              {t(
+                'Online payment is not configured for this plan yet, so only balance payment is available.'
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {hasAnyPayment && (
           <div className='space-y-3'>
             <p className='text-muted-foreground text-xs'>

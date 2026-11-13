@@ -120,6 +120,29 @@ func SubscriptionRequestBalancePay(c *gin.Context) {
 	common.ApiSuccess(c, nil)
 }
 
+type SubscriptionResetQuotaRequest struct {
+	UserSubscriptionId int `json:"user_subscription_id"`
+}
+
+// SubscriptionResetQuotaNow spends one day of the card's validity to refill the
+// current allowance, so a user whose daily allowance ran out does not have to
+// wait for the next reset or buy another card.
+func SubscriptionResetQuotaNow(c *gin.Context) {
+	userId := c.GetInt("id")
+	var req SubscriptionResetQuotaRequest
+	if err := c.ShouldBindJSON(&req); err != nil || req.UserSubscriptionId <= 0 {
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
+
+	message, err := model.ResetUserSubscriptionQuotaNow(userId, req.UserSubscriptionId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, message)
+}
+
 // ---- Admin APIs ----
 
 func AdminListSubscriptionPlans(c *gin.Context) {

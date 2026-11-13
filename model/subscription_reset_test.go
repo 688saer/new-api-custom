@@ -342,3 +342,46 @@ func TestDeleteSubscriptionPlanRefusesWhileACardIsActive(t *testing.T) {
 
 	require.ErrorIs(t, DeleteSubscriptionPlan(endedPlan.Id), gorm.ErrRecordNotFound)
 }
+
+func TestResetUserSubscriptionQuotaNowSpendsOneDayAndRefills(t *testing.T) {
+	truncateTables(t)
+
+	const day = int64(24 * 60 * 60)
+	now := GetDBTimestamp()
+	weekPlan := &SubscriptionPlan{Id: 9501, Title: "Week", PriceAmount: 10, DurationUnit: SubscriptionDurationDay, DurationValue: 7, TotalAmount: 1000, TokenLimit: 100, QuotaResetPeriod: SubscriptionResetDaily}
+	neverPlan := &SubscriptionPlan{Id: 9502, Title: "One shot", PriceAmount: 10, DurationUnit: SubscriptionDurationDay, DurationValue: 7, TotalAmount: 1000, TokenLimit: 100, QuotaResetPeriod: SubscriptionResetNever}
+	seedSubscriptionResetPlan(t, weekPlan)
+	seedSubscriptionResetPlan(t, neverPlan)
+	// The lookup behind the reset reads the plan cache, so drop anything cached
+	// for these ids by an earlier test before relying on the seeded rows.
+	InvalidateSubscriptionPlanCache(weekPlan.Id)
+	InvalidateSubscriptionPlanCache(neverPlan.Id)
+	// A running week card whose daily allowance ran out, five days before it ends.
+	seedSubscriptionResetSub(t, &UserSubscription{Id: 9511, UserId: 121, PlanId: weekPlan.Id, Status: "active", StartTime: now - 2*day, EndTime: now + 5*day, AmountTotal: 1000, AmountUsed: 1000, TokenLimitTotal: 100, TokenUsed: 100, LastResetTime: now - 3600, NextResetTime: now + 3600})
+	// The same plan one day before it ends has nothing left to spend.
+	seedSubscriptionResetSub(t, &UserSubscription{Id: 9512, UserId: 121, PlanId: weekPlan.Id, Status: "active", StartTime: now - 6*day, EndTime: now + day - 10, AmountTotal: 1000, AmountUsed: 1000, TokenLimitTotal: 100, TokenUsed: 100, LastResetTime: now - 3600, NextResetTime: now + 3600})
+	// A plan without periodic resets has no allowance to refill.
+	seedSubscriptionResetSub(t, &UserSubscription{Id: 9513, UserId: 121, PlanId: neverPlan.Id, Status: "active", StartTime: now - 2*day, EndTime: now + 5*day, AmountTotal: 1000, AmountUsed: 1000, TokenLimitTotal: 100, TokenUsed: 100, NextResetTime: 0})
+
+	message, err := ResetUserSubscriptionQuotaNow(121, 9511)
+	require.NoError(t, err)
+	require.NotNil(t, message)
+
+	refilled := getSubscriptionResetSub(t, 9511)
+	assert.EqualValues(t, now+4*day, refilled.EndTime, "one day of validity is spent")
+	assert.Zero(t, refilled.AmountUsed)
+	assert.Zero(t, refilled.TokenUsed)
+	assert.Greater(t, refilled.NextResetTime, now)
+	assert.EqualValues(t, 100, refilled.TokenLimitTotal, "the per-period allowance is unchanged")
+
+	_, err = ResetUserSubscriptionQuotaNow(121, 9512)
+	require.Error(t, err)
+	assert.EqualValues(t, now+day-10, getSubscriptionResetSub(t, 9512).EndTime)
+
+	_, err = ResetUserSubscriptionQuotaNow(121, 9513)
+	require.Error(t, err)
+	assert.EqualValues(t, 1000, getSubscriptionResetSub(t, 9513).AmountUsed, "the usage of a plan without resets is left alone")
+
+	_, err = ResetUserSubscriptionQuotaNow(122, 9511)
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound, "another user's card must not be refillable")
+}

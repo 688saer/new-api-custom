@@ -140,19 +140,24 @@ func GetTopUpInfo(c *gin.Context) {
 	}
 
 	data := gin.H{
-		"enable_online_topup":              isEpayTopUpEnabled(),
-		"enable_alipay_topup":              enableAlipay,
-		"enable_wechat_topup":              enableWechat,
-		"wechat_min_topup":                 getWechatMinTopup(),
-		"alipay_min_topup":                 getAlipayMinTopup(),
-		"alipay_product":                   getAlipayProduct(),
-		"enable_stripe_topup":              isStripeTopUpEnabled(),
-		"enable_creem_topup":               isCreemTopUpEnabled(),
-		"enable_waffo_topup":               enableWaffo,
-		"enable_waffo_pancake_topup":       enableWaffoPancake,
-		"enable_redemption":                complianceConfirmed,
-		"payment_compliance_confirmed":     complianceConfirmed,
-		"payment_compliance_terms_version": operation_setting.CurrentComplianceTermsVersion,
+		"enable_online_topup":        isEpayTopUpEnabled(),
+		"enable_alipay_topup":        enableAlipay,
+		"enable_wechat_topup":        enableWechat,
+		"wechat_min_topup":           getWechatMinTopup(),
+		"alipay_min_topup":           getAlipayMinTopup(),
+		"alipay_product":             getAlipayProduct(),
+		"enable_stripe_topup":        isStripeTopUpEnabled(),
+		"enable_creem_topup":         isCreemTopUpEnabled(),
+		"enable_waffo_topup":         enableWaffo,
+		"enable_waffo_pancake_topup": enableWaffoPancake,
+		// Subscription plans carry their own price/product id, so these only
+		// report whether the gateway credentials are usable for a plan purchase.
+		"enable_stripe_subscription":        isStripeSubscriptionPayAvailable(),
+		"enable_creem_subscription":         isCreemSubscriptionPayAvailable(),
+		"enable_waffo_pancake_subscription": isWaffoPancakeSubscriptionPayAvailable(),
+		"enable_redemption":                 complianceConfirmed,
+		"payment_compliance_confirmed":      complianceConfirmed,
+		"payment_compliance_terms_version":  operation_setting.CurrentComplianceTermsVersion,
 		"waffo_pay_methods": func() any {
 			if enableWaffo {
 				return setting.GetWaffoPayMethods()

@@ -805,6 +805,57 @@ func refreshSubscriptionUserGroupCache(userId int, operation string) {
 	}
 }
 
+// ResetUserSubscriptionQuotaNow lets the owner of a running card spend one day
+// of its validity to refill the current allowance immediately. Only plans that
+// reset their allowance periodically have something to refill, and the card
+// must keep at least one day afterwards.
+func ResetUserSubscriptionQuotaNow(userId int, userSubscriptionId int) (*common.Message, error) {
+	if userId <= 0 || userSubscriptionId <= 0 {
+		return nil, errors.New("invalid userId or userSubscriptionId")
+	}
+	now := time.Now()
+	var remainingDays int
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var sub UserSubscription
+		if err := lockForUpdate(tx).Where("id = ?", userSubscriptionId).First(&sub).Error; err != nil {
+			return err
+		}
+		if sub.UserId != userId {
+			// Another user's card must not be distinguishable from a missing one.
+			return gorm.ErrRecordNotFound
+		}
+		if sub.Status != "active" || sub.EndTime <= now.Unix() {
+			return common.NewMessage("This subscription is no longer active")
+		}
+		plan, err := getSubscriptionPlanByIdTx(tx, sub.PlanId)
+		if err != nil {
+			return err
+		}
+		if NormalizeResetPeriod(plan.QuotaResetPeriod) == SubscriptionResetNever {
+			return common.NewMessage("This plan does not reset its allowance, so there is nothing to refill")
+		}
+		newEnd := sub.EndTime - int64(24*60*60)
+		if newEnd <= now.Unix() {
+			return common.NewMessage("Only one day is left on this card, so its allowance cannot be refilled now")
+		}
+		sub.EndTime = newEnd
+		sub.AmountUsed = 0
+		sub.TokenUsed = 0
+		sub.LastResetTime = now.Unix()
+		sub.NextResetTime = calcNextResetTime(now, plan, newEnd)
+		sub.UpdatedAt = common.GetTimestamp()
+		if err := tx.Save(&sub).Error; err != nil {
+			return err
+		}
+		remainingDays = int((newEnd - now.Unix() + int64(24*60*60) - 1) / int64(24*60*60))
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return common.NewMessage("Allowance refilled. {{days}} days of validity remain.", map[string]any{"days": remainingDays}), nil
+}
+
 // Complete a subscription order (idempotent). Creates a UserSubscription snapshot from the plan.
 // expectedPaymentProvider guards against cross-gateway callback attacks (empty skips the check).
 // actualPaymentMethod updates the order's PaymentMethod to reflect the real payment type used (empty skips update).

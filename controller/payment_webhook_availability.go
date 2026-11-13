@@ -38,6 +38,32 @@ func isCreemTopUpEnabled() bool {
 		products != "[]"
 }
 
+// 订阅套餐走官方支付时，商品由套餐自己的 price id 决定，与钱包充值的固定商品无关，
+// 因此这里只校验凭据，不要求配置充值用的 StripePriceId / CreemProducts。
+func isStripeSubscriptionPayAvailable() bool {
+	if !isPaymentComplianceConfirmed() {
+		return false
+	}
+	secret := strings.TrimSpace(setting.StripeApiSecret)
+	return (strings.HasPrefix(secret, "sk_") || strings.HasPrefix(secret, "rk_")) &&
+		strings.TrimSpace(setting.StripeWebhookSecret) != ""
+}
+
+func isCreemSubscriptionPayAvailable() bool {
+	if !isPaymentComplianceConfirmed() {
+		return false
+	}
+	return strings.TrimSpace(setting.CreemApiKey) != ""
+}
+
+func isWaffoPancakeSubscriptionPayAvailable() bool {
+	if !isPaymentComplianceConfirmed() {
+		return false
+	}
+	return strings.TrimSpace(setting.WaffoPancakeMerchantID) != "" &&
+		strings.TrimSpace(setting.WaffoPancakePrivateKey) != ""
+}
+
 func isCreemWebhookConfigured() bool {
 	return strings.TrimSpace(setting.CreemWebhookSecret) != ""
 }
