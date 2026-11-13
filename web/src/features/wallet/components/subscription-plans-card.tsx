@@ -57,6 +57,8 @@ import {
   formatResetPeriod,
   formatTokenAllowance,
   getRemainingTokens,
+  getResetPeriodDays,
+  getResetPeriodSeconds,
   getTokenUsagePercent,
   isTokenAllowanceExhausted,
 } from '@/features/subscriptions/lib'
@@ -130,6 +132,9 @@ export function SubscriptionPlansCard({
   const [allSubscriptions, setAllSubscriptions] = useState<
     UserSubscriptionRecord[]
   >([])
+  const [purchaseCounts, setPurchaseCounts] = useState<Record<string, number>>(
+    {}
+  )
   const [billingPreference, setBillingPreference] =
     useState('subscription_first')
   const [loading, setLoading] = useState(true)
@@ -185,6 +190,7 @@ export function SubscriptionPlansCard({
         )
         setActiveSubscriptions(res.data.subscriptions || [])
         setAllSubscriptions(res.data.all_subscriptions || [])
+        setPurchaseCounts(res.data.plan_purchase_counts || {})
       }
     } catch (error) {
       handleServerError(error)
@@ -238,13 +244,21 @@ export function SubscriptionPlansCard({
 
   const planPurchaseCountMap = useMemo(() => {
     const map = new Map<number, number>()
+    // A renewal grows the card the user already holds, so cards no longer count
+    // purchases. Prefer the server tally and fall back for older backends.
+    if (Object.keys(purchaseCounts).length > 0) {
+      for (const [planId, count] of Object.entries(purchaseCounts)) {
+        map.set(Number(planId), Number(count) || 0)
+      }
+      return map
+    }
     for (const sub of allSubscriptions) {
       const planId = sub?.subscription?.plan_id
       if (!planId) continue
       map.set(planId, (map.get(planId) || 0) + 1)
     }
     return map
-  }, [allSubscriptions])
+  }, [allSubscriptions, purchaseCounts])
 
   useEffect(() => {
     onAvailabilityChange?.(isAvailable)
@@ -497,25 +511,20 @@ export function SubscriptionPlansCard({
                     tokenUsed,
                     tokenLimitTotal
                   )
-                  // A card can refill its allowance on demand when the plan resets
-                  // periodically, the allowance really ran out, and spending one
-                  // day still leaves validity behind.
+                  // A card can refill its allowance on demand whenever the plan
+                  // resets periodically and one more period of validity is left;
+                  // the allowance does not have to run out first.
                   const cardPlan = subscription?.plan_id
                     ? planMap.get(subscription.plan_id)
                     : undefined
-                  const planRefillsAllowance =
-                    !!cardPlan && cardPlan.quota_reset_period !== 'never'
-                  const amountExhausted =
-                    totalAmount > 0 && usedAmount >= totalAmount
-                  const allowanceExhausted =
-                    tokenLimitTotal > 0 ? tokenExhausted : amountExhausted
+                  const resetPeriodSeconds = getResetPeriodSeconds(cardPlan)
+                  const resetPeriodDays = getResetPeriodDays(cardPlan)
                   const secondsLeft =
                     (subscription?.end_time || 0) - Date.now() / 1000
                   const canResetQuota =
                     isActive &&
-                    planRefillsAllowance &&
-                    allowanceExhausted &&
-                    secondsLeft > 86400
+                    resetPeriodSeconds > 0 &&
+                    secondsLeft > resetPeriodSeconds
                   const subscriptionModels = subscription?.allowed_models || []
                   let statusBadge = (
                     <StatusBadge
@@ -645,36 +654,7 @@ export function SubscriptionPlansCard({
                               )}
                             </div>
                           )}
-                          {canResetQuota && (
-                            <Button
-                              variant='outline'
-                              size='sm'
-                              className='mt-1 h-7 px-2'
-                              onClick={() => {
-                                if (subscription) setResetTarget(subscription)
-                              }}
-                            >
-                              <RefreshCw
-                                className='size-3.5'
-                                aria-hidden='true'
-                              />
-                              {t('Refill allowance now')}
-                            </Button>
-                          )}
                         </div>
-                      )}
-                      {canResetQuota && tokenLimitTotal <= 0 && (
-                        <Button
-                          variant='outline'
-                          size='sm'
-                          className='mt-2 h-7 px-2'
-                          onClick={() => {
-                            if (subscription) setResetTarget(subscription)
-                          }}
-                        >
-                          <RefreshCw className='size-3.5' aria-hidden='true' />
-                          {t('Refill allowance now')}
-                        </Button>
                       )}
                       {subscriptionModels.length > 0 && (
                         <div className='text-muted-foreground mt-1 flex flex-wrap items-center gap-1'>
@@ -700,6 +680,21 @@ export function SubscriptionPlansCard({
                             </Tooltip>
                           )}
                         </div>
+                      )}
+                      {canResetQuota && (
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          className='mt-2 h-7 w-full px-2'
+                          onClick={() => {
+                            if (subscription) setResetTarget(subscription)
+                          }}
+                        >
+                          <RefreshCw className='size-3.5' aria-hidden='true' />
+                          {t('Refill allowance (spends {{days}} days)', {
+                            days: resetPeriodDays,
+                          })}
+                        </Button>
                       )}
                     </div>
                   )
@@ -878,6 +873,9 @@ export function SubscriptionPlansCard({
           if (!open) setResetTarget(null)
         }}
         subscription={resetTarget}
+        spendDays={getResetPeriodDays(
+          resetTarget?.plan_id ? planMap.get(resetTarget.plan_id) : undefined
+        )}
         onSuccess={async () => {
           await fetchSelfSubscription()
           await onPurchaseSuccess?.()

@@ -257,7 +257,7 @@ func TestSubscriptionTokenLimitAndModelWhitelistGovernPreConsume(t *testing.T) {
 	assert.Contains(t, string(payload), `"allowed_models":["gpt-4o-mini"]`)
 }
 
-func TestSubscriptionRenewModeDecidesWhetherTheAllowanceRefillsNow(t *testing.T) {
+func TestSubscriptionRenewModeExtendsTheSameCardOrRefillsItNow(t *testing.T) {
 	truncateTables(t)
 
 	now := GetDBTimestamp()
@@ -297,14 +297,50 @@ func TestSubscriptionRenewModeDecidesWhetherTheAllowanceRefillsNow(t *testing.T)
 	assert.Zero(t, refreshed.AmountUsed)
 	assert.EqualValues(t, endTime, refreshed.EndTime)
 
-	// Extending queues a second card after the current one and leaves the
-	// current period's usage untouched.
+	// Extending grows that same card, so the wallet keeps showing a single
+	// subscription, and leaves the current period's usage untouched.
 	extended, err := CreateUserSubscriptionWithRenewModeTx(DB, userID, plan, "test", SubscriptionRenewModeExtend)
 	require.NoError(t, err)
-	assert.NotEqual(t, refreshed.Id, extended.Id)
-	assert.EqualValues(t, endTime, extended.StartTime)
+	assert.Equal(t, refreshed.Id, extended.Id, "a renewal must not add a second card")
 	assert.EqualValues(t, endTime+daySeconds, extended.EndTime)
 	assert.EqualValues(t, plan.TokenLimit, extended.TokenLimitTotal)
+	var cards int64
+	require.NoError(t, DB.Model(&UserSubscription{}).
+		Where("user_id = ? AND plan_id = ?", userID, plan.Id).
+		Count(&cards).Error)
+	assert.EqualValues(t, 1, cards)
+
+	// A plan that never resets has one allowance for the whole card, so the
+	// bought allowance is credited instead of being swallowed by the extension.
+	oneShot := &SubscriptionPlan{
+		Id:               9714,
+		Title:            "One shot",
+		PriceAmount:      2,
+		DurationUnit:     SubscriptionDurationDay,
+		DurationValue:    30,
+		QuotaResetPeriod: SubscriptionResetNever,
+		TotalAmount:      500,
+		TokenLimit:       1000,
+	}
+	seedSubscriptionResetPlan(t, oneShot)
+	InvalidateSubscriptionPlanCache(oneShot.Id)
+	seedSubscriptionResetSub(t, &UserSubscription{
+		Id:              9715,
+		UserId:          userID,
+		PlanId:          oneShot.Id,
+		StartTime:       now - 3600,
+		EndTime:         now + 10*daySeconds,
+		Status:          "active",
+		NextResetTime:   0,
+		AmountTotal:     500,
+		TokenLimitTotal: 1000,
+	})
+	credited, err := CreateUserSubscriptionWithRenewModeTx(DB, userID, oneShot, "test", SubscriptionRenewModeExtend)
+	require.NoError(t, err)
+	assert.EqualValues(t, 9715, credited.Id)
+	assert.EqualValues(t, now+40*daySeconds, credited.EndTime)
+	assert.EqualValues(t, 1000, credited.AmountTotal, "the bought quota is credited")
+	assert.EqualValues(t, 2000, credited.TokenLimitTotal)
 }
 
 func TestDeleteSubscriptionPlanRefusesWhileACardIsActive(t *testing.T) {
@@ -343,25 +379,33 @@ func TestDeleteSubscriptionPlanRefusesWhileACardIsActive(t *testing.T) {
 	require.ErrorIs(t, DeleteSubscriptionPlan(endedPlan.Id), gorm.ErrRecordNotFound)
 }
 
-func TestResetUserSubscriptionQuotaNowSpendsOneDayAndRefills(t *testing.T) {
+func TestResetUserSubscriptionQuotaNowSpendsOneResetPeriodAndRefills(t *testing.T) {
 	truncateTables(t)
 
 	const day = int64(24 * 60 * 60)
 	now := GetDBTimestamp()
 	weekPlan := &SubscriptionPlan{Id: 9501, Title: "Week", PriceAmount: 10, DurationUnit: SubscriptionDurationDay, DurationValue: 7, TotalAmount: 1000, TokenLimit: 100, QuotaResetPeriod: SubscriptionResetDaily}
 	neverPlan := &SubscriptionPlan{Id: 9502, Title: "One shot", PriceAmount: 10, DurationUnit: SubscriptionDurationDay, DurationValue: 7, TotalAmount: 1000, TokenLimit: 100, QuotaResetPeriod: SubscriptionResetNever}
+	weeklyPlan := &SubscriptionPlan{Id: 9503, Title: "Four weeks", PriceAmount: 40, DurationUnit: SubscriptionDurationDay, DurationValue: 28, TotalAmount: 4000, TokenLimit: 400, QuotaResetPeriod: SubscriptionResetWeekly}
 	seedSubscriptionResetPlan(t, weekPlan)
 	seedSubscriptionResetPlan(t, neverPlan)
+	seedSubscriptionResetPlan(t, weeklyPlan)
 	// The lookup behind the reset reads the plan cache, so drop anything cached
 	// for these ids by an earlier test before relying on the seeded rows.
 	InvalidateSubscriptionPlanCache(weekPlan.Id)
 	InvalidateSubscriptionPlanCache(neverPlan.Id)
+	InvalidateSubscriptionPlanCache(weeklyPlan.Id)
 	// A running week card whose daily allowance ran out, five days before it ends.
 	seedSubscriptionResetSub(t, &UserSubscription{Id: 9511, UserId: 121, PlanId: weekPlan.Id, Status: "active", StartTime: now - 2*day, EndTime: now + 5*day, AmountTotal: 1000, AmountUsed: 1000, TokenLimitTotal: 100, TokenUsed: 100, LastResetTime: now - 3600, NextResetTime: now + 3600})
 	// The same plan one day before it ends has nothing left to spend.
 	seedSubscriptionResetSub(t, &UserSubscription{Id: 9512, UserId: 121, PlanId: weekPlan.Id, Status: "active", StartTime: now - 6*day, EndTime: now + day - 10, AmountTotal: 1000, AmountUsed: 1000, TokenLimitTotal: 100, TokenUsed: 100, LastResetTime: now - 3600, NextResetTime: now + 3600})
 	// A plan without periodic resets has no allowance to refill.
 	seedSubscriptionResetSub(t, &UserSubscription{Id: 9513, UserId: 121, PlanId: neverPlan.Id, Status: "active", StartTime: now - 2*day, EndTime: now + 5*day, AmountTotal: 1000, AmountUsed: 1000, TokenLimitTotal: 100, TokenUsed: 100, NextResetTime: 0})
+	// A card with allowance left may still refill: running out first is not required.
+	seedSubscriptionResetSub(t, &UserSubscription{Id: 9514, UserId: 121, PlanId: weekPlan.Id, Status: "active", StartTime: now - 2*day, EndTime: now + 5*day, AmountTotal: 1000, AmountUsed: 40, TokenLimitTotal: 100, TokenUsed: 10, LastResetTime: now - 3600, NextResetTime: now + 3600})
+	// A weekly card spends a whole week, so ten days left is enough and six is not.
+	seedSubscriptionResetSub(t, &UserSubscription{Id: 9515, UserId: 121, PlanId: weeklyPlan.Id, Status: "active", StartTime: now - 18*day, EndTime: now + 10*day, AmountTotal: 4000, AmountUsed: 4000, TokenLimitTotal: 400, TokenUsed: 400, LastResetTime: now - 3600, NextResetTime: now + 3600})
+	seedSubscriptionResetSub(t, &UserSubscription{Id: 9516, UserId: 121, PlanId: weeklyPlan.Id, Status: "active", StartTime: now - 22*day, EndTime: now + 6*day, AmountTotal: 4000, AmountUsed: 4000, TokenLimitTotal: 400, TokenUsed: 400, LastResetTime: now - 3600, NextResetTime: now + 3600})
 
 	message, err := ResetUserSubscriptionQuotaNow(121, 9511)
 	require.NoError(t, err)
@@ -373,6 +417,25 @@ func TestResetUserSubscriptionQuotaNowSpendsOneDayAndRefills(t *testing.T) {
 	assert.Zero(t, refilled.TokenUsed)
 	assert.Greater(t, refilled.NextResetTime, now)
 	assert.EqualValues(t, 100, refilled.TokenLimitTotal, "the per-period allowance is unchanged")
+
+	// The allowance does not have to run out first.
+	_, err = ResetUserSubscriptionQuotaNow(121, 9514)
+	require.NoError(t, err)
+	partlyUsed := getSubscriptionResetSub(t, 9514)
+	assert.EqualValues(t, now+4*day, partlyUsed.EndTime)
+	assert.Zero(t, partlyUsed.TokenUsed)
+	assert.Zero(t, partlyUsed.AmountUsed)
+
+	// A weekly plan spends a week of validity.
+	_, err = ResetUserSubscriptionQuotaNow(121, 9515)
+	require.NoError(t, err)
+	weekly := getSubscriptionResetSub(t, 9515)
+	assert.EqualValues(t, now+3*day, weekly.EndTime, "a week of validity is spent")
+	assert.Zero(t, weekly.TokenUsed)
+
+	_, err = ResetUserSubscriptionQuotaNow(121, 9516)
+	require.Error(t, err)
+	assert.EqualValues(t, now+6*day, getSubscriptionResetSub(t, 9516).EndTime, "less than one period left is refused")
 
 	_, err = ResetUserSubscriptionQuotaNow(121, 9512)
 	require.Error(t, err)

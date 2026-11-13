@@ -158,11 +158,11 @@ describe('subscription allowance refill', () => {
     await renderCard()
 
     expect(
-      screen.getByRole('button', { name: /Refill allowance now/ })
+      screen.getByRole('button', { name: /Refill allowance \(spends 1 days\)/ })
     ).toBeVisible()
   })
 
-  it('hides the refill button while the allowance still has room', async () => {
+  it('still offers the refill button while the allowance has room left', async () => {
     mockApis(
       [
         planRecord({
@@ -186,8 +186,8 @@ describe('subscription allowance refill', () => {
     await renderCard()
 
     expect(
-      screen.queryByRole('button', { name: /Refill allowance now/ })
-    ).not.toBeInTheDocument()
+      screen.getByRole('button', { name: /Refill allowance \(spends 1 days\)/ })
+    ).toBeVisible()
   })
 
   it('hides the refill button when the card has one day or less left', async () => {
@@ -214,7 +214,7 @@ describe('subscription allowance refill', () => {
     await renderCard()
 
     expect(
-      screen.queryByRole('button', { name: /Refill allowance now/ })
+      screen.queryByRole('button', { name: /Refill allowance \(spends/ })
     ).not.toBeInTheDocument()
   })
 
@@ -242,11 +242,67 @@ describe('subscription allowance refill', () => {
     await renderCard()
 
     expect(
-      screen.queryByRole('button', { name: /Refill allowance now/ })
+      screen.queryByRole('button', { name: /Refill allowance \(spends/ })
     ).not.toBeInTheDocument()
   })
 
-  it('spends one day through the self endpoint after confirmation', async () => {
+  it('charges a whole week when the plan resets weekly', async () => {
+    mockApis(
+      [
+        planRecord({
+          id: 1,
+          title: 'Four weeks',
+          resetPeriod: 'weekly',
+          tokenLimit: 400,
+        }),
+      ],
+      [
+        subscriptionRecord({
+          id: 7,
+          planId: 1,
+          secondsLeft: 10 * DAY,
+          tokenUsed: 400,
+          tokenLimit: 400,
+        }),
+      ]
+    )
+
+    await renderCard()
+
+    expect(
+      screen.getByRole('button', { name: /Refill allowance \(spends 7 days\)/ })
+    ).toBeVisible()
+  })
+
+  it('hides the weekly refill button when less than a week remains', async () => {
+    mockApis(
+      [
+        planRecord({
+          id: 1,
+          title: 'Four weeks',
+          resetPeriod: 'weekly',
+          tokenLimit: 400,
+        }),
+      ],
+      [
+        subscriptionRecord({
+          id: 7,
+          planId: 1,
+          secondsLeft: 6 * DAY,
+          tokenUsed: 400,
+          tokenLimit: 400,
+        }),
+      ]
+    )
+
+    await renderCard()
+
+    expect(
+      screen.queryByRole('button', { name: /Refill allowance \(spends/ })
+    ).not.toBeInTheDocument()
+  })
+
+  it('spends one reset period through the self endpoint after confirmation', async () => {
     const user = userEvent.setup()
     mockApis(
       [
@@ -273,15 +329,15 @@ describe('subscription allowance refill', () => {
 
     await renderCard()
     await user.click(
-      screen.getByRole('button', { name: /Refill allowance now/ })
+      screen.getByRole('button', { name: /Refill allowance \(spends 1 days\)/ })
     )
 
     const dialog = await screen.findByRole('alertdialog')
-    expect(
-      within(dialog).getByText(/This spends one day of your card validity/)
-    ).toBeInTheDocument()
+    expect(within(dialog).getByText(/card validity/)).toBeInTheDocument()
 
-    await user.click(within(dialog).getByRole('button', { name: 'Refill now' }))
+    await user.click(
+      within(dialog).getByRole('button', { name: /Refill now \(spends 1 days\)/ })
+    )
 
     await waitFor(() => {
       expect(post).toHaveBeenCalledWith('/api/subscription/self/reset_quota', {

@@ -71,10 +71,18 @@ func GetSubscriptionSelf(c *gin.Context) {
 		activeSubscriptions = []model.SubscriptionSummary{}
 	}
 
+	// Renewing a plan grows the existing card, so the purchase count behind the
+	// per-plan limit has to come from the orders rather than from the cards.
+	purchaseCounts, err := model.CountUserPlanPurchasesByPlan(userId)
+	if err != nil {
+		purchaseCounts = map[int]int64{}
+	}
+
 	common.ApiSuccess(c, gin.H{
-		"billing_preference": pref,
-		"subscriptions":      activeSubscriptions, // all active subscriptions
-		"all_subscriptions":  allSubscriptions,    // all subscriptions including expired
+		"billing_preference":   pref,
+		"subscriptions":        activeSubscriptions, // all active subscriptions
+		"all_subscriptions":    allSubscriptions,    // all subscriptions including expired
+		"plan_purchase_counts": purchaseCounts,      // purchases per plan, for the purchase limit
 	})
 }
 

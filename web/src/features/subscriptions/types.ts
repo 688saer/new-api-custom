@@ -166,6 +166,8 @@ export interface SelfSubscriptionData {
   billing_preference: string
   subscriptions: UserSubscriptionRecord[]
   all_subscriptions: UserSubscriptionRecord[]
+  /** Purchases per plan id, used by the per-plan purchase limit. */
+  plan_purchase_counts?: Record<string, number>
 }
 
 // ============================================================================

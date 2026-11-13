@@ -542,19 +542,6 @@ func getSubscriptionPlanByIdTx(tx *gorm.DB, id int) (*SubscriptionPlan, error) {
 	return &plan, nil
 }
 
-func CountUserSubscriptionsByPlan(userId int, planId int) (int64, error) {
-	if userId <= 0 || planId <= 0 {
-		return 0, errors.New("invalid userId or planId")
-	}
-	var count int64
-	if err := DB.Model(&UserSubscription{}).
-		Where("user_id = ? AND plan_id = ?", userId, planId).
-		Count(&count).Error; err != nil {
-		return 0, err
-	}
-	return count, nil
-}
-
 // SubscriptionPlanInUseError reports that a plan still serves subscriptions, so
 // the plan row cannot be removed without stranding them.
 type SubscriptionPlanInUseError struct {
@@ -656,8 +643,8 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 // CreateUserSubscriptionWithRenewModeTx buys a plan for a user. When the user
 // already holds an active card of the same plan the renewal choice decides what
 // happens:
-//   - extend  queues the purchase after the current card, so the validity grows
-//     and the allowance refills on its normal schedule
+//   - extend  grows the card the user already holds, so the wallet keeps showing
+//     one subscription per plan and the allowance refills on its normal schedule
 //   - refresh spends one day of the purchase immediately, which refills the
 //     allowance right away and leaves the card one day shorter than an
 //     extension would
@@ -672,13 +659,11 @@ func CreateUserSubscriptionWithRenewModeTx(tx *gorm.DB, userId int, plan *Subscr
 		return nil, errors.New("invalid user id")
 	}
 	if plan.MaxPurchasePerUser > 0 {
-		var count int64
-		if err := tx.Model(&UserSubscription{}).
-			Where("user_id = ? AND plan_id = ?", userId, plan.Id).
-			Count(&count).Error; err != nil {
+		purchases, err := countUserPlanPurchasesTx(tx, userId, plan.Id)
+		if err != nil {
 			return nil, err
 		}
-		if count >= int64(plan.MaxPurchasePerUser) {
+		if purchases >= int64(plan.MaxPurchasePerUser) {
 			return nil, common.NewMessage("Purchase limit for this plan has been reached")
 		}
 	}
@@ -696,13 +681,13 @@ func CreateUserSubscriptionWithRenewModeTx(tx *gorm.DB, userId int, plan *Subscr
 		Find(&current).Error; err != nil {
 		return nil, err
 	}
-	if current.Id > 0 && NormalizeSubscriptionRenewMode(renewMode) == SubscriptionRenewModeRefresh {
-		return refreshSubscriptionNowTx(tx, &current, plan, purchasedEnd-nowUnix, now)
+	if current.Id > 0 {
+		if NormalizeSubscriptionRenewMode(renewMode) == SubscriptionRenewModeRefresh {
+			return refreshSubscriptionNowTx(tx, &current, plan, purchasedEnd-nowUnix, now)
+		}
+		return extendSubscriptionTx(tx, &current, plan, now)
 	}
 	startUnix := nowUnix
-	if current.Id > 0 {
-		startUnix = current.EndTime
-	}
 	start := time.Unix(startUnix, 0)
 	endUnix, err := calcPlanEndTime(start, plan)
 	if err != nil {
@@ -717,16 +702,9 @@ func CreateUserSubscriptionWithRenewModeTx(tx *gorm.DB, userId int, plan *Subscr
 	upgradeGroup := strings.TrimSpace(plan.UpgradeGroup)
 	prevGroup := ""
 	if upgradeGroup != "" {
-		currentGroup, err := getUserGroupByIdTx(tx, userId)
+		prevGroup, err = applySubscriptionGroupUpgradeTx(tx, userId, upgradeGroup)
 		if err != nil {
 			return nil, err
-		}
-		if currentGroup != upgradeGroup {
-			prevGroup = currentGroup
-			if err := tx.Model(&User{}).Where("id = ?", userId).
-				Update("group", upgradeGroup).Error; err != nil {
-				return nil, err
-			}
 		}
 	}
 	allowWalletOverflow := true
@@ -760,6 +738,125 @@ func CreateUserSubscriptionWithRenewModeTx(tx *gorm.DB, userId int, plan *Subscr
 	return sub, nil
 }
 
+// applySubscriptionGroupUpgradeTx moves the user into the plan's upgrade group
+// and returns the group they came from, empty when nothing had to change.
+func applySubscriptionGroupUpgradeTx(tx *gorm.DB, userId int, upgradeGroup string) (string, error) {
+	if upgradeGroup == "" {
+		return "", nil
+	}
+	currentGroup, err := getUserGroupByIdTx(tx, userId)
+	if err != nil {
+		return "", err
+	}
+	if currentGroup == upgradeGroup {
+		return "", nil
+	}
+	if err := tx.Model(&User{}).Where("id = ?", userId).Update("group", upgradeGroup).Error; err != nil {
+		return "", err
+	}
+	return currentGroup, nil
+}
+
+// countUserPlanPurchasesTx counts how many times a user bought a plan. A renewal
+// of a plan the user already holds grows that card instead of adding another one,
+// so the cards alone undercount: every completed subscription order is one
+// purchase, and every card an admin granted counts as one more.
+func countUserPlanPurchasesTx(tx *gorm.DB, userId int, planId int) (int64, error) {
+	var orders int64
+	if err := tx.Model(&SubscriptionOrder{}).
+		Where("user_id = ? AND plan_id = ? AND status = ?", userId, planId, common.TopUpStatusSuccess).
+		Count(&orders).Error; err != nil {
+		return 0, err
+	}
+	var granted int64
+	if err := tx.Model(&UserSubscription{}).
+		Where("user_id = ? AND plan_id = ? AND source = ?", userId, planId, "admin").
+		Count(&granted).Error; err != nil {
+		return 0, err
+	}
+	return orders + granted, nil
+}
+
+// CountUserPlanPurchases reports the purchase count used by the per-plan limit.
+func CountUserPlanPurchases(userId int, planId int) (int64, error) {
+	if userId <= 0 || planId <= 0 {
+		return 0, errors.New("invalid userId or planId")
+	}
+	return countUserPlanPurchasesTx(DB, userId, planId)
+}
+
+// CountUserPlanPurchasesByPlan reports the same purchase count for every plan the
+// user has bought, so the console can show an accurate purchase limit.
+func CountUserPlanPurchasesByPlan(userId int) (map[int]int64, error) {
+	if userId <= 0 {
+		return nil, errors.New("invalid userId")
+	}
+	type planCountRow struct {
+		PlanId int
+		Total  int64
+	}
+	counts := make(map[int]int64)
+	var rows []planCountRow
+	if err := DB.Model(&SubscriptionOrder{}).
+		Select("plan_id, count(*) as total").
+		Where("user_id = ? AND status = ?", userId, common.TopUpStatusSuccess).
+		Group("plan_id").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		counts[row.PlanId] += row.Total
+	}
+	rows = nil
+	if err := DB.Model(&UserSubscription{}).
+		Select("plan_id, count(*) as total").
+		Where("user_id = ? AND source = ?", userId, "admin").
+		Group("plan_id").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		counts[row.PlanId] += row.Total
+	}
+	return counts, nil
+}
+
+// extendSubscriptionTx adds another purchased period to the card the user already
+// holds, so renewing grows that card instead of queuing a second one. Periodic
+// plans hand out their allowance through the normal reset schedule; a card that
+// never resets would swallow the purchase, so the bought allowance is credited to
+// it and the validity is extended at the same time.
+func extendSubscriptionTx(tx *gorm.DB, current *UserSubscription, plan *SubscriptionPlan, now time.Time) (*UserSubscription, error) {
+	endUnix, err := calcPlanEndTime(time.Unix(current.EndTime, 0), plan)
+	if err != nil {
+		return nil, err
+	}
+	current.EndTime = endUnix
+	current.NextResetTime = calcNextResetTime(now, plan, endUnix)
+	if NormalizeResetPeriod(plan.QuotaResetPeriod) == SubscriptionResetNever {
+		current.AmountTotal += plan.TotalAmount
+		current.TokenLimitTotal += plan.TokenLimit
+	}
+	upgradeGroup := strings.TrimSpace(plan.UpgradeGroup)
+	if upgradeGroup != "" {
+		prevGroup, err := applySubscriptionGroupUpgradeTx(tx, current.UserId, upgradeGroup)
+		if err != nil {
+			return nil, err
+		}
+		if prevGroup != "" && strings.TrimSpace(current.PrevUserGroup) == "" {
+			current.PrevUserGroup = prevGroup
+		}
+		if strings.TrimSpace(current.UpgradeGroup) == "" {
+			current.UpgradeGroup = upgradeGroup
+		}
+	}
+	current.UpdatedAt = common.GetTimestamp()
+	if err := tx.Save(current).Error; err != nil {
+		return nil, err
+	}
+	return current, nil
+}
+
 // refreshSubscriptionNowTx extends a card by the purchased duration and spends
 // one day of it immediately so the allowance refills now instead of on the next
 // scheduled reset. The day that is spent pays for the early refill, so the card
@@ -769,13 +866,11 @@ func refreshSubscriptionNowTx(tx *gorm.DB, current *UserSubscription, plan *Subs
 		return nil, common.NewMessage("Plan duration is invalid")
 	}
 	if plan.MaxPurchasePerUser > 0 {
-		var count int64
-		if err := tx.Model(&UserSubscription{}).
-			Where("user_id = ? AND plan_id = ?", current.UserId, plan.Id).
-			Count(&count).Error; err != nil {
+		purchases, err := countUserPlanPurchasesTx(tx, current.UserId, plan.Id)
+		if err != nil {
 			return nil, err
 		}
-		if count > int64(plan.MaxPurchasePerUser) {
+		if purchases > int64(plan.MaxPurchasePerUser) {
 			return nil, common.NewMessage("Purchase limit for this plan has been reached")
 		}
 	}
@@ -805,10 +900,31 @@ func refreshSubscriptionUserGroupCache(userId int, operation string) {
 	}
 }
 
-// ResetUserSubscriptionQuotaNow lets the owner of a running card spend one day
-// of its validity to refill the current allowance immediately. Only plans that
-// reset their allowance periodically have something to refill, and the card
-// must keep at least one day afterwards.
+// subscriptionResetPeriodSeconds is the validity a single on-demand refill costs:
+// the plan's own reset period, so a daily plan spends a day, a weekly plan spends
+// a week and a monthly plan spends a month. Plans that never reset return 0.
+func subscriptionResetPeriodSeconds(plan *SubscriptionPlan) int64 {
+	if plan == nil {
+		return 0
+	}
+	switch NormalizeResetPeriod(plan.QuotaResetPeriod) {
+	case SubscriptionResetDaily:
+		return int64(24 * 60 * 60)
+	case SubscriptionResetWeekly:
+		return int64(7 * 24 * 60 * 60)
+	case SubscriptionResetMonthly:
+		return int64(30 * 24 * 60 * 60)
+	case SubscriptionResetCustom:
+		return max(int64(0), plan.QuotaResetCustomSeconds)
+	default:
+		return 0
+	}
+}
+
+// ResetUserSubscriptionQuotaNow lets the owner of a running card spend one reset
+// period of its validity to refill the current allowance immediately. The card may
+// be refilled at any time as long as it still has more validity than one period
+// left; the allowance does not have to run out first.
 func ResetUserSubscriptionQuotaNow(userId int, userSubscriptionId int) (*common.Message, error) {
 	if userId <= 0 || userSubscriptionId <= 0 {
 		return nil, errors.New("invalid userId or userSubscriptionId")
@@ -831,12 +947,14 @@ func ResetUserSubscriptionQuotaNow(userId int, userSubscriptionId int) (*common.
 		if err != nil {
 			return err
 		}
-		if NormalizeResetPeriod(plan.QuotaResetPeriod) == SubscriptionResetNever {
+		periodSeconds := subscriptionResetPeriodSeconds(plan)
+		if periodSeconds <= 0 {
 			return common.NewMessage("This plan does not reset its allowance, so there is nothing to refill")
 		}
-		newEnd := sub.EndTime - int64(24*60*60)
+		periodDays := int((periodSeconds + int64(24*60*60) - 1) / int64(24*60*60))
+		newEnd := sub.EndTime - periodSeconds
 		if newEnd <= now.Unix() {
-			return common.NewMessage("Only one day is left on this card, so its allowance cannot be refilled now")
+			return common.NewMessage("This card needs more than {{days}} days of validity to refill its allowance", map[string]any{"days": periodDays})
 		}
 		sub.EndTime = newEnd
 		sub.AmountUsed = 0

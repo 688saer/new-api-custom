@@ -34,9 +34,9 @@ interface Props {
 }
 
 /**
- * Renewal choice for a buyer who already holds the plan: queue the purchase
- * after the current card, or spend one day of it to refill the allowance now.
- * Mirrors the backend renewal modes so the wording cannot drift from behaviour.
+ * Renewal choice for a buyer who already holds the plan: grow that same card, or
+ * spend one day of it to refill the allowance now. Mirrors the backend renewal
+ * modes so the wording cannot drift from behaviour.
  */
 export function SubscriptionRenewModeChoice(props: Props) {
   const { t } = useTranslation()
@@ -53,7 +53,7 @@ export function SubscriptionRenewModeChoice(props: Props) {
       mode: 'extend',
       title: t('Extend validity'),
       description: t(
-        'The purchase is queued after the current card, so total validity grows and the allowance refills on its normal reset schedule.'
+        'Adds the purchased period to the card you already hold, so its validity grows and the allowance refills on its normal reset schedule.'
       ),
     },
     {

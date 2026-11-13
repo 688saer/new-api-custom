@@ -68,7 +68,7 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 	}
 
 	if plan.MaxPurchasePerUser > 0 {
-		count, err := model.CountUserSubscriptionsByPlan(userId, plan.Id)
+		count, err := model.CountUserPlanPurchases(userId, plan.Id)
 		if err != nil {
 			common.ApiError(c, err)
 			return

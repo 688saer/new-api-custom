@@ -30,12 +30,15 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   subscription: UserSubscription | null
+  /** Days of validity one refill costs: one reset period of the plan. */
+  spendDays?: number
   onSuccess?: () => void | Promise<void>
 }
 
 /**
- * Confirms spending one day of the card's validity to refill the allowance that
- * ran out, so the user does not have to wait for the next scheduled reset.
+ * Confirms spending one reset period of the card's validity (a day for a daily
+ * plan, a week for a weekly one) to refill the allowance right away, so the user
+ * does not have to wait for the next scheduled reset.
  */
 export function ResetQuotaNowDialog(props: Props) {
   const { t } = useTranslation()
@@ -44,6 +47,7 @@ export function ResetQuotaNowDialog(props: Props) {
   if (!props.open || !props.subscription) return null
 
   const subscription = props.subscription
+  const spendDays = props.spendDays && props.spendDays > 0 ? props.spendDays : 1
   const daysLeft = Math.max(
     0,
     Math.ceil((subscription.end_time - Date.now() / 1000) / 86400)
@@ -73,12 +77,12 @@ export function ResetQuotaNowDialog(props: Props) {
       onOpenChange={props.onOpenChange}
       title={t('Refill allowance now')}
       desc={t(
-        'This spends one day of your card validity ({{days}} days left) and refills this period allowance immediately. Continue?',
-        { days: daysLeft }
+        'This spends {{days}} days of card validity ({{left}} days left) and refills the current allowance immediately. Continue?',
+        { days: spendDays, left: daysLeft }
       )}
       handleConfirm={handleConfirm}
       isLoading={loading}
-      confirmText={t('Refill now')}
+      confirmText={t('Refill now (spends {{days}} days)', { days: spendDays })}
     />
   )
 }

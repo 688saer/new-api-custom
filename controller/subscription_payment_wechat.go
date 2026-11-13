@@ -60,7 +60,7 @@ func SubscriptionRequestWechat(c *gin.Context) {
 
 	userId := c.GetInt("id")
 	if plan.MaxPurchasePerUser > 0 {
-		count, err := model.CountUserSubscriptionsByPlan(userId, plan.Id)
+		count, err := model.CountUserPlanPurchases(userId, plan.Id)
 		if err != nil {
 			common.ApiError(c, err)
 			return

@@ -63,8 +63,33 @@ export function formatResetPeriod(
   return t('No Reset')
 }
 
-export function formatTimestamp(ts: number): string {
-  if (!ts) return '-'
+/**
+ * Validity one on-demand allowance refill costs, in seconds: the plan's own
+ * reset period, so a daily plan spends a day and a weekly plan spends a week.
+ * Zero means the plan never resets and has nothing to refill.
+ */
+export function getResetPeriodSeconds(
+  plan: Partial<SubscriptionPlan> | undefined
+): number {
+  const period = plan?.quota_reset_period || 'never'
+  if (period === 'daily') return 86400
+  if (period === 'weekly') return 7 * 86400
+  if (period === 'monthly') return 30 * 86400
+  if (period === 'custom') {
+    return Math.max(0, Number(plan?.quota_reset_custom_seconds || 0))
+  }
+  return 0
+}
+
+/** Whole days one refill costs, e.g. 604800 seconds -> 7 days. */
+export function getResetPeriodDays(
+  plan: Partial<SubscriptionPlan> | undefined
+): number {
+  const seconds = getResetPeriodSeconds(plan)
+  return seconds > 0 ? Math.max(1, Math.ceil(seconds / 86400)) : 0
+}
+
+export function formatTimestamp(ts: number): string {  if (!ts) return '-'
   return dayjs(ts * 1000).format('YYYY-MM-DD HH:mm:ss')
 }
 
