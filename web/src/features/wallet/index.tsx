@@ -377,21 +377,42 @@ export function Wallet(props: WalletProps) {
           </Button>
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-5'>
-            <WalletStatsCard user={user} loading={userLoading} />
+          <div className='mx-auto flex w-full max-w-7xl flex-col gap-6 sm:gap-8'>
+            <section aria-labelledby='wallet-overview' className='space-y-3'>
+              <div className='space-y-1'>
+                <h3
+                  id='wallet-overview'
+                  className='text-sm font-semibold tracking-tight'
+                >
+                  {t('Account overview')}
+                </h3>
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'Balance, total usage and request count for this account.'
+                  )}
+                </p>
+              </div>
+              <WalletStatsCard user={user} loading={userLoading} />
+            </section>
 
-            {/* 发卡购买入口：以前只是兑换框下的一行小字，现在单独突出 */}
-            {topupInfo?.enable_redemption !== false && (
-              <RedemptionStoreCard topupLink={topupInfo?.topup_link} />
-            )}
-
-            <div
-              className={
-                showSubscriptionPanel
-                  ? 'grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] xl:items-start'
-                  : 'grid gap-4'
-              }
-            >
+            <section aria-labelledby='wallet-topup' className='space-y-3'>
+              <div className='space-y-1'>
+                <h3
+                  id='wallet-topup'
+                  className='text-sm font-semibold tracking-tight'
+                >
+                  {t('Top up & redeem')}
+                </h3>
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'Choose an amount and payment method, or redeem a code you already bought.'
+                  )}
+                </p>
+              </div>
+              {/* 发卡购买入口：以前只是兑换框下的一行小字，现在单独突出 */}
+              {topupInfo?.enable_redemption !== false && (
+                <RedemptionStoreCard topupLink={topupInfo?.topup_link} />
+              )}
               <div id='wallet-add-funds' className='scroll-mt-4'>
                 <RechargeFormCard
                   topupInfo={topupInfo}
@@ -425,27 +446,61 @@ export function Wallet(props: WalletProps) {
                   }
                 />
               </div>
+            </section>
 
-              <SubscriptionPlansCard
-                topupInfo={topupInfo}
-                onAvailabilityChange={handleSubscriptionAvailabilityChange}
-                userQuota={user?.quota}
-                onPurchaseSuccess={fetchUser}
+            {showSubscriptionPanel && (
+              <section
+                aria-labelledby='wallet-subscriptions'
+                className='space-y-3'
+              >
+                <div className='space-y-1'>
+                  <h3
+                    id='wallet-subscriptions'
+                    className='text-sm font-semibold tracking-tight'
+                  >
+                    {t('Subscription Plans')}
+                  </h3>
+                  <p className='text-muted-foreground text-xs'>
+                    {t(
+                      'Buy a plan, renew the one you hold to extend it, or refill its allowance.'
+                    )}
+                  </p>
+                </div>
+                <SubscriptionPlansCard
+                  topupInfo={topupInfo}
+                  onAvailabilityChange={handleSubscriptionAvailabilityChange}
+                  userQuota={user?.quota}
+                  onPurchaseSuccess={fetchUser}
+                />
+              </section>
+            )}
+
+            <section aria-labelledby='wallet-referral' className='space-y-3'>
+              <div className='space-y-1'>
+                <h3
+                  id='wallet-referral'
+                  className='text-sm font-semibold tracking-tight'
+                >
+                  {t('Referral rewards')}
+                </h3>
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'Invite friends, transfer rewards into your balance, or withdraw them.'
+                  )}
+                </p>
+              </div>
+              <AffiliateRewardsCard
+                user={user}
+                affiliateLink={affiliateLink}
+                onTransfer={() => setTransferDialogOpen(true)}
+                onWithdrawAlipay={() => setAlipayWithdrawDialogOpen(true)}
+                complianceConfirmed={
+                  topupInfo?.payment_compliance_confirmed !== false
+                }
+                loading={affiliateLoading}
               />
-            </div>
-
-            <AffiliateRewardsCard
-              user={user}
-              affiliateLink={affiliateLink}
-              onTransfer={() => setTransferDialogOpen(true)}
-              onWithdrawAlipay={() => setAlipayWithdrawDialogOpen(true)}
-              complianceConfirmed={
-                topupInfo?.payment_compliance_confirmed !== false
-              }
-              loading={affiliateLoading}
-            />
-
-            <AffWithdrawalHistoryCard items={withdrawals} />
+              <AffWithdrawalHistoryCard items={withdrawals} />
+            </section>
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>
