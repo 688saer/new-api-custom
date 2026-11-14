@@ -21,6 +21,7 @@ import { describe, expect, test } from 'vitest'
 import type { WheelAdminPrize } from '../../types'
 import {
   createEmptyPrizeDraft,
+  prizeChancePercents,
   stockLabel,
   toPrizeDraft,
   validatePrizeDraft,
@@ -103,10 +104,14 @@ describe('validatePrizeDraft', () => {
     expect(validatePrizeDraft({ ...prize, stock: -1 })).toBeNull()
   })
 
-  test('权重不能为负', () => {
+  test('中奖概率必须在 0 到 100 之间', () => {
     expect(validatePrizeDraft({ ...prize, weight: -1 })).toBe(
-      'Prize weight cannot be negative'
+      'Prize chance must be between 0 and 100'
     )
+    expect(validatePrizeDraft({ ...prize, weight: 100.5 })).toBe(
+      'Prize chance must be between 0 and 100'
+    )
+    expect(validatePrizeDraft({ ...prize, weight: 100 })).toBeNull()
   })
 
   test('合法草稿通过校验', () => {
@@ -118,5 +123,57 @@ describe('stockLabel', () => {
   test('不限量库存显示为 Unlimited', () => {
     expect(stockLabel(-1)).toBe('Unlimited')
     expect(stockLabel(12)).toBe('12')
+  })
+})
+
+describe('prizeChancePercents', () => {
+  test('按权重折算实际中奖概率', () => {
+    const chances = prizeChancePercents([
+      { id: 1, weight: 30, enabled: true },
+      { id: 2, weight: 10, enabled: true },
+      { id: 3, weight: 60, enabled: true },
+    ])
+    expect(chances.get(1)).toBe(30)
+    expect(chances.get(2)).toBe(10)
+    expect(chances.get(3)).toBe(60)
+  })
+
+  test('合计不等于 100 时按比例归一化', () => {
+    const chances = prizeChancePercents([
+      { id: 1, weight: 30, enabled: true },
+      { id: 2, weight: 10, enabled: true },
+    ])
+    expect(chances.get(1)).toBeCloseTo(75, 6)
+    expect(chances.get(2)).toBeCloseTo(25, 6)
+  })
+
+  test('停用的奖品不参与抽奖，概率记为 0', () => {
+    const chances = prizeChancePercents([
+      { id: 1, weight: 10, enabled: true },
+      { id: 2, weight: 90, enabled: false },
+    ])
+    expect(chances.get(1)).toBe(100)
+    expect(chances.get(2)).toBe(0)
+  })
+
+  test('权重全为 0 时启用的奖品等概率', () => {
+    const chances = prizeChancePercents([
+      { id: 1, weight: 0, enabled: true },
+      { id: 2, weight: 0, enabled: true },
+      { id: 3, weight: 0, enabled: true },
+      { id: 4, weight: 0, enabled: false },
+    ])
+    expect(chances.get(1)).toBeCloseTo(100 / 3, 6)
+    expect(chances.get(3)).toBeCloseTo(100 / 3, 6)
+    expect(chances.get(4)).toBe(0)
+  })
+
+  test('概率为 0 的奖品在有其它权重时不中奖', () => {
+    const chances = prizeChancePercents([
+      { id: 1, weight: 0, enabled: true },
+      { id: 2, weight: 5, enabled: true },
+    ])
+    expect(chances.get(1)).toBe(0)
+    expect(chances.get(2)).toBe(100)
   })
 })

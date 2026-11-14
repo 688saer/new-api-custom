@@ -42,18 +42,21 @@ import {
   listWheelRecords,
   shipWheelRecord,
   updateWheelPrize,
+  updateWheelPrizeChances,
   updateWheelSettings,
 } from '../api'
 import { toPrizeDraft } from '../lib/prizes'
 import type {
   WheelAdminPrize,
   WheelOverview,
+  WheelPrizeChance,
   WheelPrizeDraft,
   WheelRecordFilter,
   WheelSettings,
 } from '../types'
 import { CardKeyDialog } from './card-key-dialog'
 import { OverviewPanel } from './overview-panel'
+import { PrizeChanceDialog } from './prize-chance-dialog'
 import { PrizeFormDialog } from './prize-form-dialog'
 import { PrizeTable } from './prize-table'
 import { RecordActionDialog } from './record-action-dialog'
@@ -108,6 +111,10 @@ export function WheelConsole() {
   const [stockError, setStockError] = useState<string | null>(null)
 
   const [codesTarget, setCodesTarget] = useState<WheelAdminPrize | null>(null)
+
+  const [chanceOpen, setChanceOpen] = useState(false)
+  const [chanceSubmitting, setChanceSubmitting] = useState(false)
+  const [chanceError, setChanceError] = useState<string | null>(null)
 
   const [recordAction, setRecordAction] = useState<{
     action: WheelRecordAction
@@ -286,6 +293,25 @@ export function WheelConsole() {
     }
   }
 
+  const handleSaveChances = async (items: WheelPrizeChance[]) => {
+    setChanceSubmitting(true)
+    setChanceError(null)
+    try {
+      const res = await updateWheelPrizeChances(items)
+      if (!res.success) {
+        setChanceError(res.reason || res.message || t('Update failed'))
+        return
+      }
+      toast.success(t('Chances updated'))
+      setChanceOpen(false)
+      refreshAfterPrizeChange()
+    } catch {
+      setChanceError(t('Update failed'))
+    } finally {
+      setChanceSubmitting(false)
+    }
+  }
+
   const handleAdjustStock = async (delta: number) => {
     if (!stockTarget) return
     setStockLoading(true)
@@ -427,6 +453,10 @@ export function WheelConsole() {
                       setStockTarget(prize)
                     }}
                     onManageCodes={(prize) => setCodesTarget(prize)}
+                    onEditChances={() => {
+                      setChanceError(null)
+                      setChanceOpen(true)
+                    }}
                     onToggleEnabled={(prize, enabled) =>
                       void handleToggleEnabled(prize, enabled)
                     }
@@ -490,6 +520,18 @@ export function WheelConsole() {
           }
         }}
         onSubmit={(draft) => void handleSubmitPrize(draft)}
+      />
+
+      <PrizeChanceDialog
+        open={chanceOpen}
+        prizes={prizes}
+        submitting={chanceSubmitting}
+        error={chanceError}
+        onOpenChange={(open) => {
+          setChanceOpen(open)
+          if (!open) setChanceError(null)
+        }}
+        onSubmit={(items) => void handleSaveChances(items)}
       />
 
       <StockDialog

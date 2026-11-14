@@ -427,6 +427,7 @@ func SetApiRouter(router *gin.Engine) {
 			wheelAdminRoute.PUT("/setting", controller.AdminUpdateWheelSetting)
 			wheelAdminRoute.GET("/prizes", controller.AdminListWheelPrizes)
 			wheelAdminRoute.POST("/prizes", controller.AdminCreateWheelPrize)
+			wheelAdminRoute.PUT("/prizes/chances", controller.AdminUpdateWheelPrizeChances)
 			wheelAdminRoute.PUT("/prizes/:id", controller.AdminUpdateWheelPrize)
 			wheelAdminRoute.DELETE("/prizes/:id", controller.AdminDeleteWheelPrize)
 			wheelAdminRoute.POST("/prizes/:id/stock", controller.AdminAdjustWheelPrizeStock)

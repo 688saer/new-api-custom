@@ -188,6 +188,23 @@ func AdminUpdateWheelPrize(c *gin.Context) {
 	common.ApiSuccess(c, updated)
 }
 
+// AdminUpdateWheelPrizeChances 批量保存中奖概率（PUT /api/wheel/prizes/chances）
+func AdminUpdateWheelPrizeChances(c *gin.Context) {
+	var req struct {
+		Items []model.WheelPrizeChanceInput `json:"items"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiErrorMsg(c, "Invalid parameters")
+		return
+	}
+	prizes, err := model.UpdateWheelPrizeChances(req.Items)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"items": prizes})
+}
+
 // AdminDeleteWheelPrize 删除奖品（DELETE /api/wheel/prizes/:id）
 func AdminDeleteWheelPrize(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))

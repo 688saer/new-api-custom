@@ -21,6 +21,7 @@ import { api } from '@/lib/api'
 import type {
   WheelAdminPrize,
   WheelOverview,
+  WheelPrizeChance,
   WheelPrizeCodePage,
   WheelPrizeDraft,
   WheelRecordFilter,
@@ -71,6 +72,17 @@ export async function updateWheelPrize(
 
 export async function deleteWheelPrize(id: number): Promise<ApiEnvelope<null>> {
   const res = await api.delete(`/api/wheel/prizes/${id}`, silentOptions)
+  return res.data
+}
+
+export async function updateWheelPrizeChances(
+  items: WheelPrizeChance[]
+): Promise<ApiEnvelope<{ items: WheelAdminPrize[] }>> {
+  const res = await api.put(
+    '/api/wheel/prizes/chances',
+    { items },
+    silentOptions
+  )
   return res.data
 }
 

@@ -191,17 +191,19 @@ function PrizeForm(props: PrizeFormProps) {
           </NativeSelect>
         </div>
         <div className='grid gap-1.5'>
-          <Label htmlFor='wheel-prize-weight'>{t('Weight')}</Label>
+          <Label htmlFor='wheel-prize-weight'>{t('Winning chance (%)')}</Label>
           <Input
             id='wheel-prize-weight'
             type='number'
-            min={0}
-            step={1}
+            step={0.01}
             value={draft.weight}
             onChange={(event) =>
               patch({ weight: Number(event.target.value) || 0 })
             }
           />
+          <p className='text-muted-foreground text-xs'>
+            {t('Chances are normalized across the wheel.')}
+          </p>
         </div>
       </div>
       {typeHint ? (

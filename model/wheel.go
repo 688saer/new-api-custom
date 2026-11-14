@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -43,6 +44,9 @@ const (
 
 // WheelStockUnlimited 不限量库存的哨兵值
 const WheelStockUnlimited = -1
+
+// WheelChanceMaxPercent 单个奖品可设置的中奖概率上限（百分比点数）
+const WheelChanceMaxPercent = 100.0
 
 // WheelPrize 转盘奖品
 type WheelPrize struct {
@@ -193,8 +197,8 @@ func NormalizeWheelPrize(prize *WheelPrize) error {
 	if len([]rune(prize.Name)) > 64 {
 		return common.NewMessage("Prize name must be at most 64 characters")
 	}
-	if prize.Weight < 0 {
-		return common.NewMessage("Prize weight cannot be negative")
+	if prize.Weight < 0 || prize.Weight > WheelChanceMaxPercent {
+		return common.NewMessage("Prize chance must be between 0 and 100")
 	}
 	if prize.Stock < WheelStockUnlimited {
 		return common.NewMessage("Prize stock cannot be less than -1")
@@ -264,7 +268,19 @@ func CreateWheelPrize(prize *WheelPrize) error {
 	prize.CreatedAt = now
 	prize.UpdatedAt = now
 	prize.IssuedCount = 0
-	return DB.Create(prize).Error
+	weight := prize.Weight
+	if err := DB.Create(prize).Error; err != nil {
+		return err
+	}
+	// 权重列带默认值，插入 0 会被默认值顶成 1；0 表示永不中奖，这里补一次显式写入
+	if weight != 0 {
+		return nil
+	}
+	if err := DB.Model(&WheelPrize{}).Where("id = ?", prize.Id).Update("weight", 0).Error; err != nil {
+		return err
+	}
+	prize.Weight = 0
+	return nil
 }
 
 // UpdateWheelPrize 更新奖品
@@ -277,6 +293,66 @@ func UpdateWheelPrize(prize *WheelPrize) error {
 		"name", "icon", "type", "label", "description", "color", "weight",
 		"stock", "quota_value", "plan_id", "enabled", "sort_order", "updated_at",
 	).Updates(prize).Error
+}
+
+// WheelPrizeChanceInput 一次提交的奖品中奖概率（百分比点数）
+type WheelPrizeChanceInput struct {
+	Id     int     `json:"id"`
+	Weight float64 `json:"weight"`
+}
+
+// UpdateWheelPrizeChances 一次保存多个奖品的中奖概率。
+// 保存的值直接作为权重，抽取时按合计归一化，所以合计不必等于 100%；
+// 权重为 0 的奖品永远不会被抽中。
+func UpdateWheelPrizeChances(items []WheelPrizeChanceInput) ([]WheelPrize, error) {
+	if len(items) == 0 {
+		return nil, common.NewMessage("Select at least one prize")
+	}
+	seen := make(map[int]struct{}, len(items))
+	for _, item := range items {
+		if item.Id <= 0 {
+			return nil, common.NewMessage("Invalid prize ID")
+		}
+		if _, duplicate := seen[item.Id]; duplicate {
+			return nil, common.NewMessage("Duplicate prize in the chance list")
+		}
+		seen[item.Id] = struct{}{}
+		if math.IsNaN(item.Weight) || math.IsInf(item.Weight, 0) {
+			return nil, common.NewMessage("Prize chance must be between 0 and 100")
+		}
+		if item.Weight < 0 || item.Weight > WheelChanceMaxPercent {
+			return nil, common.NewMessage("Prize chance must be between 0 and 100")
+		}
+	}
+
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		// MySQL 在值未变化时返回 RowsAffected=0，所以先确认奖品都存在，再逐条更新
+		ids := make([]int, 0, len(items))
+		for _, item := range items {
+			ids = append(ids, item.Id)
+		}
+		var found int64
+		if err := tx.Model(&WheelPrize{}).Where("id IN ?", ids).Count(&found).Error; err != nil {
+			return err
+		}
+		if found != int64(len(items)) {
+			return common.NewMessage("Prize not found")
+		}
+
+		now := common.GetTimestamp()
+		for _, item := range items {
+			if err := tx.Model(&WheelPrize{}).
+				Where("id = ?", item.Id).
+				Updates(map[string]any{"weight": item.Weight, "updated_at": now}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return ListWheelPrizes(true)
 }
 
 // DeleteWheelPrize 删除奖品；已发放过的奖品不允许删除，请改为停用

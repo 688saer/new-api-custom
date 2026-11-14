@@ -937,7 +937,7 @@ export const STATIC_I18N_KEYS = [
   'Amber',
   'Prize name cannot be empty',
   'Prize name must be at most 64 characters',
-  'Prize weight cannot be negative',
+  'Prize chance must be between 0 and 100',
   'Prize amount must be greater than zero',
   'Select a subscription plan for this prize',
   'Prize stock cannot be less than -1',

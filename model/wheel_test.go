@@ -161,7 +161,7 @@ func TestUserWheelSpinSkipsSoldOutPrize(t *testing.T) {
 	createWheelTestPrize(t, WheelPrize{
 		Name:       "sold out",
 		Type:       WheelPrizeTypeQuota,
-		Weight:     1000,
+		Weight:     WheelChanceMaxPercent,
 		Stock:      0,
 		QuotaValue: 500000,
 	})
@@ -358,4 +358,109 @@ func TestUserWheelSpinRejectsInsufficientQuota(t *testing.T) {
 	var stored User
 	require.NoError(t, DB.First(&stored, "id = ?", user.Id).Error)
 	assert.Equal(t, 0, stored.Quota)
+}
+
+// 批量保存中奖概率：一次更新多个奖品，值没变化的奖品同样算保存成功。
+func TestUpdateWheelPrizeChancesSavesEveryPrize(t *testing.T) {
+	setupWheelTestState(t, 1, 0)
+	credit := createWheelTestPrize(t, WheelPrize{
+		Name:       "1 USD",
+		Type:       WheelPrizeTypeQuota,
+		Weight:     30,
+		Stock:      5,
+		QuotaValue: 500000,
+	})
+	thanks := createWheelTestPrize(t, WheelPrize{
+		Name:   "Thanks",
+		Type:   WheelPrizeTypeNone,
+		Weight: 29,
+	})
+	// 新建时就填 0 的奖品要真的是 0，不能被权重列的默认值顶成 1
+	never := createWheelTestPrize(t, WheelPrize{
+		Name:   "Never",
+		Type:   WheelPrizeTypeNone,
+		Weight: 0,
+	})
+	var storedNever WheelPrize
+	require.NoError(t, DB.First(&storedNever, "id = ?", never.Id).Error)
+	assert.Equal(t, 0.0, storedNever.Weight)
+
+	prizes, err := UpdateWheelPrizeChances([]WheelPrizeChanceInput{
+		{Id: credit.Id, Weight: 2.5},
+		{Id: thanks.Id, Weight: 29},
+		{Id: never.Id, Weight: 0},
+	})
+	require.NoError(t, err)
+	require.Len(t, prizes, 3)
+	assert.Equal(t, 2.5, prizes[0].Weight)
+	assert.Equal(t, 29.0, prizes[1].Weight)
+	assert.Equal(t, 0.0, prizes[2].Weight)
+
+	var stored WheelPrize
+	require.NoError(t, DB.First(&stored, "id = ?", credit.Id).Error)
+	assert.Equal(t, 2.5, stored.Weight)
+	// 概率以外的字段不受影响
+	assert.Equal(t, 500000, stored.QuotaValue)
+	assert.Equal(t, 5, stored.Stock)
+}
+
+// 概率超出 0–100、重复提交、奖品不存在时整批都不写入。
+func TestUpdateWheelPrizeChancesRejectsInvalidInput(t *testing.T) {
+	setupWheelTestState(t, 1, 0)
+	prize := createWheelTestPrize(t, WheelPrize{
+		Name:   "Thanks",
+		Type:   WheelPrizeTypeNone,
+		Weight: 10,
+	})
+
+	cases := []struct {
+		name  string
+		items []WheelPrizeChanceInput
+	}{
+		{name: "out of range", items: []WheelPrizeChanceInput{{Id: prize.Id, Weight: 100.5}}},
+		{name: "negative", items: []WheelPrizeChanceInput{{Id: prize.Id, Weight: -1}}},
+		{name: "duplicate", items: []WheelPrizeChanceInput{{Id: prize.Id, Weight: 5}, {Id: prize.Id, Weight: 6}}},
+		{name: "unknown prize", items: []WheelPrizeChanceInput{{Id: prize.Id, Weight: 5}, {Id: 999999, Weight: 6}}},
+		{name: "empty", items: nil},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			_, err := UpdateWheelPrizeChances(testCase.items)
+			require.Error(t, err)
+
+			var stored WheelPrize
+			require.NoError(t, DB.First(&stored, "id = ?", prize.Id).Error)
+			assert.Equal(t, 10.0, stored.Weight)
+		})
+	}
+}
+
+// 概率设为 0 的奖品永远不会被抽中。
+func TestUserWheelSpinNeverPicksZeroChancePrize(t *testing.T) {
+	setupWheelTestState(t, 5, 0)
+	user := createWheelTestUser(t, 0)
+	thanks := createWheelTestPrize(t, WheelPrize{
+		Name:   "Thanks",
+		Type:   WheelPrizeTypeNone,
+		Weight: 10,
+	})
+	credit := createWheelTestPrize(t, WheelPrize{
+		Name:       "1 USD",
+		Type:       WheelPrizeTypeQuota,
+		Weight:     10,
+		Stock:      WheelStockUnlimited,
+		QuotaValue: 500000,
+	})
+	// 权重列的默认值会覆盖 0，所以概率要通过设置接口写入
+	_, err := UpdateWheelPrizeChances([]WheelPrizeChanceInput{
+		{Id: thanks.Id, Weight: 0},
+		{Id: credit.Id, Weight: 100},
+	})
+	require.NoError(t, err)
+
+	for range 5 {
+		result, err := UserWheelSpin(user.Id)
+		require.NoError(t, err)
+		assert.Equal(t, credit.Id, result.PrizeId)
+	}
 }

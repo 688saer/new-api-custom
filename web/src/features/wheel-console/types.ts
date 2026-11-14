@@ -55,6 +55,12 @@ export interface WheelPrizeDraft {
   sort_order: number
 }
 
+/** 中奖概率：weight 为百分比点数，抽取时按全部奖品合计归一化。 */
+export interface WheelPrizeChance {
+  id: number
+  weight: number
+}
+
 /** 概览里的单个奖品统计。 */
 export interface WheelPrizeStat {
   id: number

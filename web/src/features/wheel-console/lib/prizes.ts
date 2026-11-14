@@ -119,7 +119,9 @@ export function validatePrizeDraft(draft: WheelPrizeDraft): string | null {
   if (draft.name.trim().length > 64) {
     return 'Prize name must be at most 64 characters'
   }
-  if (draft.weight < 0) return 'Prize weight cannot be negative'
+  if (draft.weight < 0 || draft.weight > 100) {
+    return 'Prize chance must be between 0 and 100'
+  }
   if (
     (draft.type === 'quota' || draft.type === 'redemption_code') &&
     draft.quota_value <= 0
@@ -141,4 +143,36 @@ export function validatePrizeDraft(draft: WheelPrizeDraft): string | null {
 /** 库存的展示文案键：-1 表示不限量。 */
 export function stockLabel(stock: number): string {
   return stock < 0 ? 'Unlimited' : String(stock)
+}
+
+/** 参与概率折算的奖品字段。 */
+export interface PrizeChanceSource {
+  id: number
+  weight: number
+  enabled: boolean
+}
+
+/**
+ * 按权重折算每个奖品的实际中奖概率（百分比）。
+ * 停用奖品不会被抽中，记为 0；权重全为 0 时抽取按等概率进行，这里同步按等概率展示。
+ */
+export function prizeChancePercents(
+  prizes: PrizeChanceSource[]
+): Map<number, number> {
+  const chances = new Map<number, number>()
+  const drawn = prizes.filter((prize) => prize.enabled)
+  const total = drawn.reduce((sum, prize) => sum + Math.max(prize.weight, 0), 0)
+
+  for (const prize of prizes) {
+    if (!prize.enabled) {
+      chances.set(prize.id, 0)
+      continue
+    }
+    if (total <= 0) {
+      chances.set(prize.id, 100 / drawn.length)
+      continue
+    }
+    chances.set(prize.id, (Math.max(prize.weight, 0) / total) * 100)
+  }
+  return chances
 }

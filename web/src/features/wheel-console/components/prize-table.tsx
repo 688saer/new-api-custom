@@ -16,7 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { KeyRound, Pencil, Plus, SlidersHorizontal, Trash2 } from 'lucide-react'
+import {
+  KeyRound,
+  Pencil,
+  Percent,
+  Plus,
+  SlidersHorizontal,
+  Trash2,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { EmptyState } from '@/components/empty-state'
@@ -32,9 +39,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { formatQuota } from '@/lib/format'
+import { formatPercent, formatQuota } from '@/lib/format'
 
-import { PRIZE_TYPE_OPTIONS, stockLabel } from '../lib/prizes'
+import {
+  PRIZE_TYPE_OPTIONS,
+  prizeChancePercents,
+  stockLabel,
+} from '../lib/prizes'
 import type { WheelAdminPrize } from '../types'
 
 interface PrizeTableProps {
@@ -45,12 +56,14 @@ interface PrizeTableProps {
   onDelete: (prize: WheelAdminPrize) => void
   onAdjustStock: (prize: WheelAdminPrize) => void
   onManageCodes: (prize: WheelAdminPrize) => void
+  onEditChances: () => void
   onToggleEnabled: (prize: WheelAdminPrize, enabled: boolean) => void
 }
 
 /** 奖品配置列表。 */
 export function PrizeTable(props: PrizeTableProps) {
   const { t } = useTranslation()
+  const chances = prizeChancePercents(props.prizes)
 
   if (props.loading && props.prizes.length === 0) {
     return <LoadingState />
@@ -73,7 +86,11 @@ export function PrizeTable(props: PrizeTableProps) {
 
   return (
     <div className='space-y-3'>
-      <div className='flex justify-end'>
+      <div className='flex justify-end gap-2'>
+        <Button variant='outline' size='sm' onClick={props.onEditChances}>
+          <Percent aria-hidden='true' className='size-4' />
+          {t('Prize chances')}
+        </Button>
         <Button size='sm' onClick={props.onCreate}>
           <Plus aria-hidden='true' className='size-4' />
           {t('New prize')}
@@ -86,7 +103,7 @@ export function PrizeTable(props: PrizeTableProps) {
             <TableHead className='hidden sm:table-cell'>
               {t('Claim method')}
             </TableHead>
-            <TableHead className='text-right'>{t('Weight')}</TableHead>
+            <TableHead className='text-right'>{t('Winning chance')}</TableHead>
             <TableHead className='text-right'>{t('Stock')}</TableHead>
             <TableHead className='text-right'>{t('Issued')}</TableHead>
             <TableHead>{t('Enabled')}</TableHead>
@@ -120,7 +137,9 @@ export function PrizeTable(props: PrizeTableProps) {
                   {t(typeLabel)}
                 </TableCell>
                 <TableCell className='text-right tabular-nums'>
-                  {prize.weight}
+                  {prize.enabled
+                    ? formatPercent(chances.get(prize.id) ?? 0)
+                    : '-'}
                 </TableCell>
                 <TableCell className='text-right tabular-nums'>
                   {t(stockLabel(prize.stock))}
