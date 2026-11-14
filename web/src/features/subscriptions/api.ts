@@ -30,6 +30,8 @@ import type {
   SubscriptionPayResponse,
   SubscriptionPayRequest,
   SelfSubscriptionData,
+  AdminSubscriptionPage,
+  AdminSubscriptionQuery,
 } from './types'
 
 // ============================================================================
@@ -81,6 +83,26 @@ export async function getUserSubscriptions(
   const res = await api.get(
     `/api/subscription/admin/users/${userId}/subscriptions`
   )
+  return res.data
+}
+
+/**
+ * Every user's card, filtered and paged on the server, with the summary counts
+ * for the whole filtered set.
+ */
+export async function listAllUserSubscriptions(
+  query: AdminSubscriptionQuery
+): Promise<ApiResponse<AdminSubscriptionPage>> {
+  const res = await api.get('/api/subscription/admin/subscriptions', {
+    params: {
+      keyword: query.keyword || undefined,
+      status: query.status || undefined,
+      plan_id: query.planId || undefined,
+      expiring_days: query.expiringDays || undefined,
+      page: query.page,
+      page_size: query.pageSize,
+    },
+  })
   return res.data
 }
 

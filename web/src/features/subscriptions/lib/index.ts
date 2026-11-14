@@ -21,6 +21,7 @@ export {
   formatResetPeriod,
   formatTimestamp,
   formatTokenAllowance,
+  getDaysRemaining,
   getRemainingTokens,
   getResetPeriodDays,
   getResetPeriodSeconds,

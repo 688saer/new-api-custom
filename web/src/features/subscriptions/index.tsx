@@ -17,11 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Info } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
+import { AllSubscriptionsPanel } from './components/all-subscriptions-panel'
 import { SubscriptionsDialogs } from './components/subscriptions-dialogs'
 import { SubscriptionsPrimaryButtons } from './components/subscriptions-primary-buttons'
 import {
@@ -30,9 +33,14 @@ import {
 } from './components/subscriptions-provider'
 import { SubscriptionsTable } from './components/subscriptions-table'
 
+const SUBSCRIPTIONS_SECTIONS = ['plans', 'cards'] as const
+
+type SubscriptionsSection = (typeof SUBSCRIPTIONS_SECTIONS)[number]
+
 function SubscriptionsContent() {
   const { t } = useTranslation()
   const { complianceConfirmed } = useSubscriptions()
+  const [section, setSection] = useState<SubscriptionsSection>('plans')
 
   return (
     <>
@@ -41,32 +49,58 @@ function SubscriptionsContent() {
           {t('Subscription Management')}
         </SectionPageLayout.Title>
         <SectionPageLayout.Actions>
-          <div className='flex items-center gap-2'>
-            <Alert variant='default' className='hidden px-3 py-2 sm:flex'>
-              <Info className='h-4 w-4' />
-              <AlertDescription className='text-xs'>
-                {t(
-                  'Stripe/Creem requires creating products on the third-party platform and entering the ID'
-                )}
-              </AlertDescription>
-            </Alert>
-            <SubscriptionsPrimaryButtons />
-          </div>
-        </SectionPageLayout.Actions>
-        <SectionPageLayout.Content>
-          <div className='flex h-full min-h-0 flex-col gap-4'>
-            {!complianceConfirmed ? (
-              <Alert variant='destructive' className='shrink-0'>
-                <AlertDescription>
+          {section === 'plans' ? (
+            <div className='flex items-center gap-2'>
+              <Alert variant='default' className='hidden px-3 py-2 sm:flex'>
+                <Info className='h-4 w-4' />
+                <AlertDescription className='text-xs'>
                   {t(
-                    'Subscription plan creation and changes are locked until the administrator confirms compliance terms in Payment Gateway settings.'
+                    'Stripe/Creem requires creating products on the third-party platform and entering the ID'
                   )}
                 </AlertDescription>
               </Alert>
-            ) : null}
-            <div className='min-h-0 flex-1'>
-              <SubscriptionsTable />
+              <SubscriptionsPrimaryButtons />
             </div>
+          ) : null}
+        </SectionPageLayout.Actions>
+        <SectionPageLayout.Content>
+          <div className='flex h-full min-h-0 flex-col gap-4'>
+            <Tabs
+              value={section}
+              onValueChange={(value) =>
+                setSection(value as SubscriptionsSection)
+              }
+            >
+              <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
+                <TabsTrigger value='plans'>
+                  {t('Subscription Plans')}
+                </TabsTrigger>
+                <TabsTrigger value='cards'>
+                  {t('All Subscriptions')}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {section === 'plans' ? (
+              <>
+                {!complianceConfirmed ? (
+                  <Alert variant='destructive' className='shrink-0'>
+                    <AlertDescription>
+                      {t(
+                        'Subscription plan creation and changes are locked until the administrator confirms compliance terms in Payment Gateway settings.'
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+                <div className='min-h-0 flex-1'>
+                  <SubscriptionsTable />
+                </div>
+              </>
+            ) : (
+              <div className='min-h-0 flex-1'>
+                <AllSubscriptionsPanel />
+              </div>
+            )}
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

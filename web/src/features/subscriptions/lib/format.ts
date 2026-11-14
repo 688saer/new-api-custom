@@ -89,8 +89,15 @@ export function getResetPeriodDays(
   return seconds > 0 ? Math.max(1, Math.ceil(seconds / 86400)) : 0
 }
 
-export function formatTimestamp(ts: number): string {  if (!ts) return '-'
+export function formatTimestamp(ts: number): string {
+  if (!ts) return '-'
   return dayjs(ts * 1000).format('YYYY-MM-DD HH:mm:ss')
+}
+
+/** Whole days a card still runs, rounded up, and zero once it has ended. */
+export function getDaysRemaining(endTime: number, nowSeconds: number): number {
+  if (!endTime || endTime <= nowSeconds) return 0
+  return Math.ceil((endTime - nowSeconds) / 86400)
 }
 
 /**

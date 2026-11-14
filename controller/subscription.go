@@ -497,6 +497,32 @@ func AdminListUserSubscriptions(c *gin.Context) {
 	common.ApiSuccess(c, subs)
 }
 
+// AdminListAllSubscriptions lists every user's cards for the operator console,
+// with the summary counts that go with the same filters.
+func AdminListAllSubscriptions(c *gin.Context) {
+	page, _ := strconv.Atoi(c.Query("page"))
+	if page <= 0 {
+		page, _ = strconv.Atoi(c.Query("p"))
+	}
+	pageSize, _ := strconv.Atoi(c.Query("page_size"))
+	planId, _ := strconv.Atoi(c.Query("plan_id"))
+	expiringDays, _ := strconv.Atoi(c.Query("expiring_days"))
+
+	result, err := model.ListAdminUserSubscriptions(model.SubscriptionAdminFilter{
+		Keyword:      c.Query("keyword"),
+		Status:       c.Query("status"),
+		PlanId:       planId,
+		ExpiringDays: expiringDays,
+		Page:         page,
+		PageSize:     pageSize,
+	})
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, result)
+}
+
 type AdminCreateUserSubscriptionRequest struct {
 	PlanId int `json:"plan_id"`
 	// RenewMode chooses how a repeat purchase behaves for a user who already

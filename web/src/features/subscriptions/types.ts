@@ -159,6 +159,61 @@ export interface SubscriptionResetResult {
 }
 
 // ============================================================================
+// Operator-wide subscription list
+// ============================================================================
+
+/** One user's card, joined with the user and the plan it belongs to. */
+export interface AdminSubscriptionRow {
+  id: number
+  user_id: number
+  username: string
+  display_name: string
+  email: string
+  user_group: string
+  plan_id: number
+  plan_title: string
+  price_amount: number
+  status: string
+  source: string
+  start_time: number
+  end_time: number
+  next_reset_time: number
+  amount_total: number
+  amount_used: number
+  token_limit_total: number
+  token_used: number
+  upgrade_group: string
+  created_at: number
+}
+
+/** Counts for the whole filtered set, independent of the page shown. */
+export interface AdminSubscriptionSummary {
+  total: number
+  active: number
+  expiring_soon: number
+  expired: number
+  amount_total: number
+  amount_used: number
+}
+
+export interface AdminSubscriptionPage {
+  items: AdminSubscriptionRow[]
+  total: number
+  page: number
+  page_size: number
+  summary: AdminSubscriptionSummary
+}
+
+export interface AdminSubscriptionQuery {
+  keyword?: string
+  status?: string
+  planId?: number
+  expiringDays?: number
+  page: number
+  pageSize: number
+}
+
+// ============================================================================
 // Self Subscription Data (user-facing)
 // ============================================================================
 
