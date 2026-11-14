@@ -308,6 +308,16 @@ export function useCanvasBoard() {
     setNodes(next)
   }, [])
 
+  /** Change how large a picture sits on the board. */
+  const setNodeWidth = useCallback((id: string, width: number) => {
+    const next = nodesRef.current.map((node) =>
+      node.id === id && node.kind === 'image' ? { ...node, width } : node
+    )
+    dirtyRef.current.nodes = true
+    journalNodes(next)
+    setNodes(next)
+  }, [])
+
   const removeNodes = useCallback((ids: string[]) => {
     if (ids.length === 0) return
     const doomed = new Set(ids)
@@ -366,6 +376,7 @@ export function useCanvasBoard() {
     moveNodes,
     raiseNode,
     updateTextNode,
+    setNodeWidth,
     removeNodes,
     duplicateNode,
     clearNodes,

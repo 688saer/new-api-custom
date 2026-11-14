@@ -24,14 +24,24 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Combobox } from '@/components/ui/combobox'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
 import { listApiKeys, listImageModels } from '../api'
+import {
+  aspectLabel,
+  describeImageSize,
+  draftImageSize,
+  IMAGE_SIZE_PRESETS,
+  MAX_IMAGE_SIDE,
+  MIN_IMAGE_SIDE,
+  parseImageSize,
+} from '../lib/image-size'
 
-/** Aspect ratios the image relays in front of this console usually accept. */
-const SIZE_OPTIONS = ['1024x1024', '1536x1024', '1024x1536', '512x512']
+/** Value the size picker reports when the operator typed their own sides. */
+const CUSTOM_SIZE_VALUE = 'custom'
 
 const COUNT_OPTIONS = ['1', '2', '3', '4']
 
@@ -39,7 +49,10 @@ const COUNT_OPTIONS = ['1', '2', '3', '4']
 export interface CanvasDraft {
   apiKeyId: string
   model: string
-  size: string
+  /** Width the request asks for, in pixels, as typed. */
+  sizeWidth: string
+  /** Height the request asks for, in pixels, as typed. */
+  sizeHeight: string
   count: string
   prompt: string
 }
@@ -95,19 +108,39 @@ export function CanvasPromptPanel(props: CanvasPromptPanelProps) {
       })),
     [modelsQuery.data]
   )
-  const sizeOptions = useMemo(
-    () => SIZE_OPTIONS.map((item) => ({ value: item, label: item })),
-    []
-  )
   const countOptions = useMemo(
     () => COUNT_OPTIONS.map((item) => ({ value: item, label: item })),
     []
   )
 
+  const size = draftImageSize(props.draft.sizeWidth, props.draft.sizeHeight)
+  const parsedSide = parseImageSize(
+    `${props.draft.sizeWidth}x${props.draft.sizeHeight}`
+  )
+  // Shown on the picks itself so the operator sees "1024 × 1024 · 1:1" rather
+  // than having to work out what a pair of numbers looks like.
+  const sizeOptions = useMemo(
+    () => [
+      ...IMAGE_SIZE_PRESETS.map((preset) => ({
+        value: preset.value,
+        label: describeImageSize(preset.width, preset.height),
+      })),
+      { value: CUSTOM_SIZE_VALUE, label: t('Custom size') },
+    ],
+    [t]
+  )
+  const presetValue =
+    IMAGE_SIZE_PRESETS.find(
+      (preset) =>
+        String(preset.width) === props.draft.sizeWidth.trim() &&
+        String(preset.height) === props.draft.sizeHeight.trim()
+    )?.value ?? CUSTOM_SIZE_VALUE
+
   const canGenerate =
     Boolean(props.draft.apiKeyId) &&
     Boolean(props.draft.model.trim()) &&
     Boolean(props.draft.prompt.trim()) &&
+    Boolean(size) &&
     !props.generating
 
   // Hide the prompt that is already in the box: it is what the operator is
@@ -236,34 +269,103 @@ export function CanvasPromptPanel(props: CanvasPromptPanelProps) {
         />
       </div>
 
-      <div className='grid grid-cols-2 gap-3'>
-        <div className='flex flex-col gap-1.5'>
-          <Label>{t('Size')}</Label>
-          <Combobox
-            options={sizeOptions}
-            value={props.draft.size}
-            onValueChange={(value) =>
-              props.onDraftChange({ size: value ?? SIZE_OPTIONS[0] })
-            }
-            placeholder={t('Size')}
-            emptyText={t('No matching size')}
-            allowCustomValue
-            aria-label={t('Size')}
-          />
+      <div className='flex flex-col gap-1.5'>
+        <div className='flex items-baseline justify-between gap-2'>
+          <Label htmlFor='canvas-size'>{t('Image size')}</Label>
+          <span className='text-muted-foreground text-xs tabular-nums'>
+            {parsedSide
+              ? aspectLabel(parsedSide.width, parsedSide.height)
+              : t('Custom size')}
+          </span>
         </div>
-        <div className='flex flex-col gap-1.5'>
-          <Label>{t('Count')}</Label>
-          <Combobox
-            options={countOptions}
-            value={props.draft.count}
-            onValueChange={(value) =>
-              props.onDraftChange({ count: value ?? '1' })
-            }
-            placeholder={t('Count')}
-            emptyText={t('No matching option')}
-            aria-label={t('Count')}
-          />
+        <Combobox
+          id='canvas-size'
+          options={sizeOptions}
+          value={presetValue}
+          onValueChange={(value) => {
+            const preset = parseImageSize(value ?? '')
+            if (!preset) return
+            props.onDraftChange({
+              sizeWidth: String(preset.width),
+              sizeHeight: String(preset.height),
+            })
+          }}
+          placeholder={t('Image size')}
+          emptyText={t('No matching size')}
+          allowCustomValue
+          aria-label={t('Image size')}
+        />
+        <div className='grid grid-cols-2 gap-2'>
+          <div className='flex flex-col gap-1'>
+            <Label
+              htmlFor='canvas-size-width'
+              className='text-muted-foreground text-xs font-normal'
+            >
+              {t('Width')}
+            </Label>
+            <Input
+              id='canvas-size-width'
+              type='number'
+              inputMode='numeric'
+              min={MIN_IMAGE_SIDE}
+              max={MAX_IMAGE_SIDE}
+              step={1}
+              value={props.draft.sizeWidth}
+              onChange={(event) =>
+                props.onDraftChange({ sizeWidth: event.target.value })
+              }
+            />
+          </div>
+          <div className='flex flex-col gap-1'>
+            <Label
+              htmlFor='canvas-size-height'
+              className='text-muted-foreground text-xs font-normal'
+            >
+              {t('Height')}
+            </Label>
+            <Input
+              id='canvas-size-height'
+              type='number'
+              inputMode='numeric'
+              min={MIN_IMAGE_SIDE}
+              max={MAX_IMAGE_SIDE}
+              step={1}
+              value={props.draft.sizeHeight}
+              onChange={(event) =>
+                props.onDraftChange({ sizeHeight: event.target.value })
+              }
+            />
+          </div>
         </div>
+        {size ? (
+          <p className='text-muted-foreground text-xs'>
+            {t('Sends {{size}} to the model.', { size })}
+          </p>
+        ) : (
+          <p className='text-destructive text-xs'>
+            {t(
+              'Width and height must be whole numbers between {{min}} and {{max}}.',
+              {
+                min: MIN_IMAGE_SIDE,
+                max: MAX_IMAGE_SIDE,
+              }
+            )}
+          </p>
+        )}
+      </div>
+
+      <div className='flex flex-col gap-1.5'>
+        <Label>{t('Count')}</Label>
+        <Combobox
+          options={countOptions}
+          value={props.draft.count}
+          onValueChange={(value) =>
+            props.onDraftChange({ count: value ?? '1' })
+          }
+          placeholder={t('Count')}
+          emptyText={t('No matching option')}
+          aria-label={t('Count')}
+        />
       </div>
 
       <Button disabled={!canGenerate} onClick={props.onGenerate}>

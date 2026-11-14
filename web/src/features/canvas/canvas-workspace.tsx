@@ -33,7 +33,7 @@ import { handleServerError } from '@/lib/handle-server-error'
 
 import { editImage, generateImages, revealApiKey } from './api'
 import { CanvasBoard, type NodeMove } from './components/canvas-board'
-import { IMAGE_NODE_WIDTH } from './components/canvas-image-node'
+import { DEFAULT_IMAGE_NODE_WIDTH } from './components/canvas-image-node'
 import {
   CanvasPromptPanel,
   type CanvasDraft,
@@ -43,7 +43,8 @@ import { CanvasStorageAlerts } from './components/canvas-storage-alerts'
 import { useCanvasBoard } from './hooks/use-canvas-board'
 import { usePendingGenerations } from './hooks/use-pending-generations'
 import { finishGeneration, startGeneration } from './lib/generation-status'
-import { stepIntoFreeSpot } from './lib/selection'
+import { draftImageSize, parseImageSize } from './lib/image-size'
+import { stepIntoFreeSpot, GRID_SIZE } from './lib/selection'
 import type { CanvasImageNode, CanvasTextNode } from './types'
 
 const NODE_GAP = 24
@@ -60,10 +61,19 @@ const NOTE_CASCADE_STEP = 32
 /** How many finished prompts the panel offers to reuse. */
 const RECENT_PROMPT_LIMIT = 8
 
+/** Arrow-key nudges, in board units. A held Shift moves a whole grid step. */
+const KEY_NUDGES: Record<string, { dx: number; dy: number }> = {
+  ArrowLeft: { dx: -1, dy: 0 },
+  ArrowRight: { dx: 1, dy: 0 },
+  ArrowUp: { dx: 0, dy: -1 },
+  ArrowDown: { dx: 0, dy: 1 },
+}
+
 const EMPTY_DRAFT: CanvasDraft = {
   apiKeyId: '',
   model: '',
-  size: '1024x1024',
+  sizeWidth: '1024',
+  sizeHeight: '1024',
   count: '1',
   prompt: '',
 }
@@ -136,6 +146,11 @@ export function CanvasWorkspace() {
       handleServerError(new Error(t('Write a prompt and pick a model first.')))
       return
     }
+    const size = draftImageSize(request.sizeWidth, request.sizeHeight)
+    if (!size) {
+      handleServerError(new Error(t('Choose a width and height first.')))
+      return
+    }
 
     // Counted outside this component: the request keeps running after the
     // operator opens another page, and the panel must not look idle if they
@@ -161,7 +176,7 @@ export function CanvasWorkspace() {
             apiKey,
             model: request.model,
             prompt: request.prompt,
-            size: request.size,
+            size,
             count: Number(request.count),
             reference: from.image,
           })
@@ -169,7 +184,7 @@ export function CanvasWorkspace() {
             apiKey,
             model: request.model,
             prompt: request.prompt,
-            size: request.size,
+            size,
             count: Number(request.count),
           })
 
@@ -177,7 +192,9 @@ export function CanvasWorkspace() {
       const centerY = (view.height / 2 - board.viewport.y) / board.viewport.zoom
       const columns = Math.min(images.length, 2)
       const originX =
-        centerX - (columns * (IMAGE_NODE_WIDTH + NODE_GAP)) / 2 + NODE_GAP / 2
+        centerX -
+        (columns * (DEFAULT_IMAGE_NODE_WIDTH + NODE_GAP)) / 2 +
+        NODE_GAP / 2
       const originY = centerY - NODE_ROW_HEIGHT / 3
 
       const parent = parentId
@@ -187,7 +204,8 @@ export function CanvasWorkspace() {
       // pictures would be created somewhere the operator cannot see.
       const parentOnScreen =
         parent !== undefined &&
-        parent.x * board.viewport.zoom + board.viewport.x > -IMAGE_NODE_WIDTH &&
+        parent.x * board.viewport.zoom + board.viewport.x >
+          -DEFAULT_IMAGE_NODE_WIDTH &&
         parent.x * board.viewport.zoom + board.viewport.x < view.width &&
         parent.y * board.viewport.zoom + board.viewport.y > -NODE_ROW_HEIGHT &&
         parent.y * board.viewport.zoom + board.viewport.y < view.height
@@ -199,6 +217,7 @@ export function CanvasWorkspace() {
           image,
           prompt: request.prompt,
           model: request.model,
+          size,
           parentId: parent?.id,
           createdAt: Date.now(),
         }
@@ -208,14 +227,15 @@ export function CanvasWorkspace() {
         if (parent && parentOnScreen) {
           return {
             ...base,
-            x: parent.x + IMAGE_NODE_WIDTH + PARENT_GAP,
+            x: parent.x + DEFAULT_IMAGE_NODE_WIDTH + PARENT_GAP,
             y: parent.y + index * NODE_ROW_HEIGHT,
           }
         }
 
         return {
           ...base,
-          x: originX + (index % columns) * (IMAGE_NODE_WIDTH + NODE_GAP),
+          x:
+            originX + (index % columns) * (DEFAULT_IMAGE_NODE_WIDTH + NODE_GAP),
           y: originY + Math.floor(index / columns) * NODE_ROW_HEIGHT,
         }
       })
@@ -226,7 +246,7 @@ export function CanvasWorkspace() {
       setSelectedIds(created.map((node) => node.id))
       rememberPrompt(request.prompt)
       // Drawing is a user gesture, which is the moment browsers are most likely
-      // to grant persistent storage — worth asking again after a refusal.
+      // to grant persistent storage 鈥?worth asking again after a refusal.
       board.refreshStorage()
     } catch (error) {
       handleServerError(error, t('Could not generate the image.'))
@@ -257,10 +277,17 @@ export function CanvasWorkspace() {
 
   /** Draw again from an existing picture, reusing its prompt and model. */
   const handleRegenerate = (node: CanvasImageNode) => {
+    const requested = node.size ? parseImageSize(node.size) : null
     const next: CanvasDraft = {
       ...draft,
       prompt: node.prompt,
       model: node.model,
+      ...(requested
+        ? {
+            sizeWidth: String(requested.width),
+            sizeHeight: String(requested.height),
+          }
+        : {}),
     }
     setDraft(next)
     setReference(null)
@@ -318,6 +345,24 @@ export function CanvasWorkspace() {
         for (const id of selectedIds) board.duplicateNode(id)
         return
       }
+      const nudge = KEY_NUDGES[event.key]
+      if (nudge) {
+        if (selectedIds.length === 0) return
+        event.preventDefault()
+        const step = event.shiftKey ? GRID_SIZE : 1
+        const chosen = new Set(selectedIds)
+        board.moveNodes(
+          board.nodes
+            .filter((node) => chosen.has(node.id))
+            .map((node) => ({
+              id: node.id,
+              x: node.x + nudge.dx * step,
+              y: node.y + nudge.dy * step,
+            }))
+        )
+        return
+      }
+
       if (event.key !== 'Delete' && event.key !== 'Backspace') return
       if (selectedIds.length === 0) return
       event.preventDefault()
@@ -411,6 +456,7 @@ export function CanvasWorkspace() {
             }}
             onChangeText={board.updateTextNode}
             onDuplicateNode={handleDuplicateNode}
+            onResizeNode={board.setNodeWidth}
             onRegenerate={handleRegenerate}
             onUseAsReference={handleUseAsReference}
             onUseAsPrompt={(text) => {

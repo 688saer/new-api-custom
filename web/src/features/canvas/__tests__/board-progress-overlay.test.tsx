@@ -38,6 +38,7 @@ function showBoard() {
       onRemoveNodes={noop}
       onChangeText={noop}
       onDuplicateNode={noop}
+      onResizeNode={noop}
       onRegenerate={noop}
       onUseAsReference={noop}
       onUseAsPrompt={noop}

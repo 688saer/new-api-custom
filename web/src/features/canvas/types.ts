@@ -51,6 +51,16 @@ export interface CanvasImageNode extends CanvasNodeBase {
   image: string
   prompt: string
   model: string
+  /** Size the request asked for, `1024x1024`. Absent on older boards. */
+  size?: string
+  /**
+   * Width of the node in board units. Absent means the board's default, so a
+   * board written before the size was adjustable still opens at a sane scale.
+   */
+  width?: number
+  /** Pixel size the relay actually returned, once the picture has loaded. */
+  pixelWidth?: number
+  pixelHeight?: number
 }
 
 /** A free-form note, handy for keeping prompts around while iterating. */

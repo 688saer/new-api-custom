@@ -95,6 +95,8 @@ function toMeta(node: CanvasNode): NodeMeta {
     createdAt: node.createdAt,
     prompt: node.prompt,
     model: node.model,
+    ...(node.size ? { size: node.size } : {}),
+    ...(node.width ? { width: node.width } : {}),
     ...(node.parentId ? { parentId: node.parentId } : {}),
   }
 }

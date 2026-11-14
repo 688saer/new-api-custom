@@ -74,6 +74,8 @@ interface CanvasBoardProps {
   onRemoveNodes: (ids: string[]) => void
   onChangeText: (id: string, text: string) => void
   onDuplicateNode: (id: string) => void
+  /** Change how large a picture sits on the board. */
+  onResizeNode: (id: string, width: number) => void
   onRegenerate: (node: CanvasImageNode) => void
   onUseAsReference: (node: CanvasImageNode) => void
   onUseAsPrompt: (text: string) => void
@@ -543,12 +545,13 @@ export function CanvasBoard(props: CanvasBoardProps) {
     []
   )
 
-  const zoomAround = (factor: number) => {
+  /** Scale around the middle of the view, so the framing stays put. */
+  const zoomTo = (target: number) => {
     const element = containerRef.current
     if (!element) return
     const centerX = element.clientWidth / 2
     const centerY = element.clientHeight / 2
-    const nextZoom = clampZoom(props.viewport.zoom * factor)
+    const nextZoom = clampZoom(target)
     const ratio = nextZoom / props.viewport.zoom
 
     props.onViewportChange({
@@ -557,6 +560,8 @@ export function CanvasBoard(props: CanvasBoardProps) {
       y: centerY - (centerY - props.viewport.y) * ratio,
     })
   }
+
+  const zoomAround = (factor: number) => zoomTo(props.viewport.zoom * factor)
 
   /** Frame every node, which is what an operator wants after panning away. */
   const fitContent = () => {
@@ -631,6 +636,7 @@ export function CanvasBoard(props: CanvasBoardProps) {
               onDuplicate={props.onDuplicateNode}
               onRegenerate={props.onRegenerate}
               onUseAsReference={props.onUseAsReference}
+              onResize={props.onResizeNode}
               onMeasure={handleMeasure}
             />
           )
@@ -722,9 +728,18 @@ export function CanvasBoard(props: CanvasBoardProps) {
         >
           <Minus className='size-4' />
         </Button>
-        <span className='text-muted-foreground w-11 text-center text-xs tabular-nums'>
-          {Math.round(props.viewport.zoom * 100)}%
-        </span>
+        <Button
+          variant='ghost'
+          size='icon'
+          className='size-8 tabular-nums sm:size-7'
+          onClick={() => zoomTo(1)}
+          aria-label={t('Reset zoom to 100%')}
+          title={t('Reset zoom to 100%')}
+        >
+          <span className='text-xs'>
+            {Math.round(props.viewport.zoom * 100)}%
+          </span>
+        </Button>
         <Button
           variant='ghost'
           size='icon'
