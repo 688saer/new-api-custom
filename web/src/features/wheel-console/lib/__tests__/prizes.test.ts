@@ -22,10 +22,18 @@ import type { WheelAdminPrize } from '../../types'
 import {
   createEmptyPrizeDraft,
   prizeChancePercents,
+  prizeDeleteDescription,
   stockLabel,
   toPrizeDraft,
   validatePrizeDraft,
 } from '../prizes'
+
+type Translator = Parameters<typeof prizeDeleteDescription>[1]
+
+const translator = ((key: string, options?: { total?: number }) =>
+  options?.total === undefined
+    ? key
+    : key.replace('{{total}}', String(options.total))) as Translator
 
 const prize: WheelAdminPrize = {
   id: 9,
@@ -175,5 +183,31 @@ describe('prizeChancePercents', () => {
     ])
     expect(chances.get(1)).toBe(0)
     expect(chances.get(2)).toBe(100)
+  })
+})
+
+describe('prizeDeleteDescription', () => {
+  test('已中奖时删除文案带出中奖条数并说明记录仍可查看', () => {
+    const description = prizeDeleteDescription(
+      { ...prize, issued_count: 2 },
+      translator
+    )
+
+    expect(description).toContain('2')
+    expect(description).not.toContain('{{total}}')
+  })
+
+  test('未中奖时删除文案不带中奖条数', () => {
+    const empty = prizeDeleteDescription(
+      { ...prize, issued_count: 0 },
+      translator
+    )
+    const issued = prizeDeleteDescription(
+      { ...prize, issued_count: 2 },
+      translator
+    )
+
+    expect(empty).not.toContain('{{total}}')
+    expect(empty).not.toBe(issued)
   })
 })

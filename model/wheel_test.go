@@ -273,6 +273,37 @@ func TestUserWheelSpinPhysicalPrizeStaysPending(t *testing.T) {
 	assert.Equal(t, "SF123456", win.TrackingNo)
 }
 
+// 删除奖品：已经中奖的奖品同样可以删除，中奖记录靠快照保持可读、可继续发货。
+func TestDeleteWheelPrizeKeepsWinRecords(t *testing.T) {
+	setupWheelTestState(t, 1, 0)
+	user := createWheelTestUser(t, 0)
+	prize := createWheelTestPrize(t, WheelPrize{
+		Name:   "Mug",
+		Type:   WheelPrizeTypePhysical,
+		Weight: 1,
+		Stock:  2,
+	})
+
+	result, err := UserWheelSpin(user.Id)
+	require.NoError(t, err)
+	require.Equal(t, prize.Id, result.PrizeId)
+
+	require.NoError(t, DeleteWheelPrize(prize.Id))
+
+	_, err = GetWheelPrizeById(prize.Id)
+	require.Error(t, err, "删除后奖品行必须消失")
+
+	var win WheelWin
+	require.NoError(t, DB.First(&win, "id = ?", result.WinId).Error)
+	assert.Equal(t, "Mug", win.PrizeName)
+	assert.Equal(t, WheelWinStatusPending, win.Status)
+
+	view, err := SubmitWheelWinAddress(user.Id, result.WinId, "Alice", "13800000000", "Shanghai Pudong 1st road")
+	require.NoError(t, err)
+	assert.Equal(t, "Mug", view.PrizeName)
+	require.NoError(t, ShipWheelWin(result.WinId, "SF123456", "shipped"))
+}
+
 // 订阅奖品：中奖即为用户开通套餐。
 // useWheelWidePoolDB 换用允许多连接的 SQLite 库。
 // 订阅奖品发放会调用 CreateUserSubscriptionFromPlanTx，其中 GetDBTimestamp 需要

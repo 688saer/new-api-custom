@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { TFunction } from 'i18next'
+
 import type { WheelPrizeType } from '@/features/lucky-wheel'
 
 import type { WheelAdminPrize, WheelPrizeDraft } from '../types'
@@ -143,6 +145,25 @@ export function validatePrizeDraft(draft: WheelPrizeDraft): string | null {
 /** 库存的展示文案键：-1 表示不限量。 */
 export function stockLabel(stock: number): string {
   return stock < 0 ? 'Unlimited' : String(stock)
+}
+
+/**
+ * 删除奖品的确认文案：删除不受是否中过奖限制，已中奖的记录自带快照，
+ * 删除后仍可查看、发货与核销，文案需要把这一点讲清楚。
+ */
+export function prizeDeleteDescription(
+  prize: WheelAdminPrize,
+  t: TFunction
+): string {
+  if (prize.issued_count > 0) {
+    return t(
+      'This prize already produced {{total}} win records. They keep their own copy of the prize, so they stay readable and can still be delivered after deletion.',
+      { total: prize.issued_count }
+    )
+  }
+  return t(
+    'The prize is removed from the wheel together with its unused card keys.'
+  )
 }
 
 /** 参与概率折算的奖品字段。 */

@@ -355,14 +355,11 @@ func UpdateWheelPrizeChances(items []WheelPrizeChanceInput) ([]WheelPrize, error
 	return ListWheelPrizes(true)
 }
 
-// DeleteWheelPrize 删除奖品；已发放过的奖品不允许删除，请改为停用
+// DeleteWheelPrize 删除奖品。已经中奖的奖品同样可以删除：中奖记录保存了奖品快照，
+// 删除后记录仍可正常查看、发货与核销，所以这里不再按发放情况拦截。
 func DeleteWheelPrize(id int) error {
-	var issued int64
-	if err := DB.Model(&WheelWin{}).Where("prize_id = ?", id).Count(&issued).Error; err != nil {
+	if _, err := GetWheelPrizeById(id); err != nil {
 		return err
-	}
-	if issued > 0 {
-		return common.NewMessage("This prize has already been awarded; disable it instead of deleting")
 	}
 	return DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("prize_id = ?", id).Delete(&WheelPrizeCode{}).Error; err != nil {

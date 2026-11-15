@@ -45,7 +45,7 @@ import {
   updateWheelPrizeChances,
   updateWheelSettings,
 } from '../api'
-import { toPrizeDraft } from '../lib/prizes'
+import { prizeDeleteDescription, toPrizeDraft } from '../lib/prizes'
 import type {
   WheelAdminPrize,
   WheelOverview,
@@ -573,9 +573,7 @@ export function WheelConsole() {
           if (!open) setDeleteTarget(null)
         }}
         title={t('Delete prize')}
-        desc={t(
-          'Prizes that already produced win records cannot be deleted; disable them instead.'
-        )}
+        desc={deleteTarget ? prizeDeleteDescription(deleteTarget, t) : ''}
         confirmText={t('Delete')}
         destructive
         isLoading={deleteLoading}
