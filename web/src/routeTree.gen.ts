@@ -42,6 +42,7 @@ import { Route as AuthenticatedAnnouncementsIndexRouteImport } from './routes/_a
 import { Route as AuthenticatedCanvasIndexRouteImport } from './routes/_authenticated/canvas/index'
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
 import { Route as AuthenticatedChatChatIdRouteImport } from './routes/_authenticated/chat/$chatId'
+import { Route as AuthenticatedClaimCodesIndexRouteImport } from './routes/_authenticated/claim-codes/index'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedDashboardSectionRouteImport } from './routes/_authenticated/dashboard/$section'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
@@ -54,6 +55,7 @@ import { Route as AuthenticatedModelsIndexRouteImport } from './routes/_authenti
 import { Route as AuthenticatedModelsSectionRouteImport } from './routes/_authenticated/models/$section'
 import { Route as AuthenticatedPlaygroundIndexRouteImport } from './routes/_authenticated/playground/index'
 import { Route as AuthenticatedProfileIndexRouteImport } from './routes/_authenticated/profile/index'
+import { Route as AuthenticatedRedeemCenterIndexRouteImport } from './routes/_authenticated/redeem-center/index'
 import { Route as AuthenticatedRedemptionCodesIndexRouteImport } from './routes/_authenticated/redemption-codes/index'
 import { Route as AuthenticatedRewardsIndexRouteImport } from './routes/_authenticated/rewards/index'
 import { Route as AuthenticatedRewardsAdminRouteImport } from './routes/_authenticated/rewards/admin'
@@ -256,6 +258,12 @@ const AuthenticatedChatChatIdRoute = AuthenticatedChatChatIdRouteImport.update({
   path: '/chat/$chatId',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedClaimCodesIndexRoute =
+  AuthenticatedClaimCodesIndexRouteImport.update({
+    id: '/claim-codes/',
+    path: '/claim-codes/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardIndexRoute =
   AuthenticatedDashboardIndexRouteImport.update({
     id: '/dashboard/',
@@ -325,6 +333,12 @@ const AuthenticatedProfileIndexRoute =
   AuthenticatedProfileIndexRouteImport.update({
     id: '/profile/',
     path: '/profile/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedRedeemCenterIndexRoute =
+  AuthenticatedRedeemCenterIndexRouteImport.update({
+    id: '/redeem-center/',
+    path: '/redeem-center/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedRedemptionCodesIndexRoute =
@@ -562,6 +576,7 @@ export interface FileRoutesByFullPath {
   '/announcements/': typeof AuthenticatedAnnouncementsIndexRoute
   '/canvas/': typeof AuthenticatedCanvasIndexRoute
   '/channels/': typeof AuthenticatedChannelsIndexRoute
+  '/claim-codes/': typeof AuthenticatedClaimCodesIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/invoice-console/': typeof AuthenticatedInvoiceConsoleIndexRoute
   '/invoices/': typeof AuthenticatedInvoicesIndexRoute
@@ -571,6 +586,7 @@ export interface FileRoutesByFullPath {
   '/models/': typeof AuthenticatedModelsIndexRoute
   '/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/profile/': typeof AuthenticatedProfileIndexRoute
+  '/redeem-center/': typeof AuthenticatedRedeemCenterIndexRoute
   '/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/rewards/': typeof AuthenticatedRewardsIndexRoute
   '/security/': typeof AuthenticatedSecurityIndexRoute
@@ -639,6 +655,7 @@ export interface FileRoutesByTo {
   '/announcements': typeof AuthenticatedAnnouncementsIndexRoute
   '/canvas': typeof AuthenticatedCanvasIndexRoute
   '/channels': typeof AuthenticatedChannelsIndexRoute
+  '/claim-codes': typeof AuthenticatedClaimCodesIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/invoice-console': typeof AuthenticatedInvoiceConsoleIndexRoute
   '/invoices': typeof AuthenticatedInvoicesIndexRoute
@@ -648,6 +665,7 @@ export interface FileRoutesByTo {
   '/models': typeof AuthenticatedModelsIndexRoute
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
   '/profile': typeof AuthenticatedProfileIndexRoute
+  '/redeem-center': typeof AuthenticatedRedeemCenterIndexRoute
   '/redemption-codes': typeof AuthenticatedRedemptionCodesIndexRoute
   '/rewards': typeof AuthenticatedRewardsIndexRoute
   '/security': typeof AuthenticatedSecurityIndexRoute
@@ -720,6 +738,7 @@ export interface FileRoutesById {
   '/_authenticated/announcements/': typeof AuthenticatedAnnouncementsIndexRoute
   '/_authenticated/canvas/': typeof AuthenticatedCanvasIndexRoute
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
+  '/_authenticated/claim-codes/': typeof AuthenticatedClaimCodesIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/_authenticated/invoice-console/': typeof AuthenticatedInvoiceConsoleIndexRoute
   '/_authenticated/invoices/': typeof AuthenticatedInvoicesIndexRoute
@@ -729,6 +748,7 @@ export interface FileRoutesById {
   '/_authenticated/models/': typeof AuthenticatedModelsIndexRoute
   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/_authenticated/profile/': typeof AuthenticatedProfileIndexRoute
+  '/_authenticated/redeem-center/': typeof AuthenticatedRedeemCenterIndexRoute
   '/_authenticated/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/_authenticated/rewards/': typeof AuthenticatedRewardsIndexRoute
   '/_authenticated/security/': typeof AuthenticatedSecurityIndexRoute
@@ -800,6 +820,7 @@ export interface FileRouteTypes {
     | '/announcements/'
     | '/canvas/'
     | '/channels/'
+    | '/claim-codes/'
     | '/dashboard/'
     | '/invoice-console/'
     | '/invoices/'
@@ -809,6 +830,7 @@ export interface FileRouteTypes {
     | '/models/'
     | '/playground/'
     | '/profile/'
+    | '/redeem-center/'
     | '/redemption-codes/'
     | '/rewards/'
     | '/security/'
@@ -877,6 +899,7 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/canvas'
     | '/channels'
+    | '/claim-codes'
     | '/dashboard'
     | '/invoice-console'
     | '/invoices'
@@ -886,6 +909,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/playground'
     | '/profile'
+    | '/redeem-center'
     | '/redemption-codes'
     | '/rewards'
     | '/security'
@@ -957,6 +981,7 @@ export interface FileRouteTypes {
     | '/_authenticated/announcements/'
     | '/_authenticated/canvas/'
     | '/_authenticated/channels/'
+    | '/_authenticated/claim-codes/'
     | '/_authenticated/dashboard/'
     | '/_authenticated/invoice-console/'
     | '/_authenticated/invoices/'
@@ -966,6 +991,7 @@ export interface FileRouteTypes {
     | '/_authenticated/models/'
     | '/_authenticated/playground/'
     | '/_authenticated/profile/'
+    | '/_authenticated/redeem-center/'
     | '/_authenticated/redemption-codes/'
     | '/_authenticated/rewards/'
     | '/_authenticated/security/'
@@ -1253,6 +1279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatChatIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/claim-codes/': {
+      id: '/_authenticated/claim-codes/'
+      path: '/claim-codes'
+      fullPath: '/claim-codes/'
+      preLoaderRoute: typeof AuthenticatedClaimCodesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard/': {
       id: '/_authenticated/dashboard/'
       path: '/dashboard'
@@ -1335,6 +1368,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile/'
       preLoaderRoute: typeof AuthenticatedProfileIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/redeem-center/': {
+      id: '/_authenticated/redeem-center/'
+      path: '/redeem-center'
+      fullPath: '/redeem-center/'
+      preLoaderRoute: typeof AuthenticatedRedeemCenterIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/redemption-codes/': {
@@ -1674,6 +1714,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAnnouncementsIndexRoute: typeof AuthenticatedAnnouncementsIndexRoute
   AuthenticatedCanvasIndexRoute: typeof AuthenticatedCanvasIndexRoute
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
+  AuthenticatedClaimCodesIndexRoute: typeof AuthenticatedClaimCodesIndexRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
   AuthenticatedInvoiceConsoleIndexRoute: typeof AuthenticatedInvoiceConsoleIndexRoute
   AuthenticatedInvoicesIndexRoute: typeof AuthenticatedInvoicesIndexRoute
@@ -1683,6 +1724,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedModelsIndexRoute: typeof AuthenticatedModelsIndexRoute
   AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
   AuthenticatedProfileIndexRoute: typeof AuthenticatedProfileIndexRoute
+  AuthenticatedRedeemCenterIndexRoute: typeof AuthenticatedRedeemCenterIndexRoute
   AuthenticatedRedemptionCodesIndexRoute: typeof AuthenticatedRedemptionCodesIndexRoute
   AuthenticatedRewardsIndexRoute: typeof AuthenticatedRewardsIndexRoute
   AuthenticatedSecurityIndexRoute: typeof AuthenticatedSecurityIndexRoute
@@ -1713,6 +1755,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAnnouncementsIndexRoute: AuthenticatedAnnouncementsIndexRoute,
   AuthenticatedCanvasIndexRoute: AuthenticatedCanvasIndexRoute,
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
+  AuthenticatedClaimCodesIndexRoute: AuthenticatedClaimCodesIndexRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
   AuthenticatedInvoiceConsoleIndexRoute: AuthenticatedInvoiceConsoleIndexRoute,
   AuthenticatedInvoicesIndexRoute: AuthenticatedInvoicesIndexRoute,
@@ -1722,6 +1765,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedModelsIndexRoute: AuthenticatedModelsIndexRoute,
   AuthenticatedPlaygroundIndexRoute: AuthenticatedPlaygroundIndexRoute,
   AuthenticatedProfileIndexRoute: AuthenticatedProfileIndexRoute,
+  AuthenticatedRedeemCenterIndexRoute: AuthenticatedRedeemCenterIndexRoute,
   AuthenticatedRedemptionCodesIndexRoute:
     AuthenticatedRedemptionCodesIndexRoute,
   AuthenticatedRewardsIndexRoute: AuthenticatedRewardsIndexRoute,

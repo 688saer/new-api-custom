@@ -365,6 +365,26 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"GET /api/user/rewards/campaigns/:id/grants":  accessTokenScopeRule("redemption:read"),
 	"POST /api/user/rewards/campaigns/:id/revoke": accessTokenScopeRule("redemption:write"),
 
+	// A claim code issues a balance, a card key, a subscription or a physical
+	// prize, so redeeming one credits the wallet, and the console that manages
+	// the codes and their shipments stays in the redemption namespace.
+	"POST /api/user/claim-codes/redeem":             accessTokenScopeRule("wallet:write"),
+	"GET /api/user/claim-codes/records":             accessTokenScopeRule("usage:read"),
+	"PUT /api/user/claim-codes/records/:id/address": accessTokenScopeRule("profile:write"),
+	"GET /api/claim-codes":                          accessTokenScopeRule("redemption:read"),
+	"POST /api/claim-codes":                         accessTokenScopeRule("redemption:write"),
+	"GET /api/claim-codes/overview":                 accessTokenScopeRule("redemption:read"),
+	"GET /api/claim-codes/groups":                   accessTokenScopeRule("redemption:read"),
+	"GET /api/claim-codes/claims":                   accessTokenScopeRule("redemption:read"),
+	"POST /api/claim-codes/claims/:id/ship":         accessTokenScopeRule("redemption:write"),
+	"POST /api/claim-codes/claims/:id/deliver":      accessTokenScopeRule("redemption:write"),
+	"POST /api/claim-codes/claims/:id/cancel":       accessTokenScopeRule("redemption:write"),
+	"PUT /api/claim-codes/:id":                      accessTokenScopeRule("redemption:write"),
+	"DELETE /api/claim-codes/:id":                   accessTokenScopeRule("redemption:write"),
+	"GET /api/claim-codes/:id/cards":                accessTokenScopeRule("redemption:read"),
+	"POST /api/claim-codes/:id/cards":               accessTokenScopeRule("redemption:write"),
+	"DELETE /api/claim-codes/:id/cards/:cardId":     accessTokenScopeRule("redemption:write"),
+
 	// Support conversations are personal account content.
 	"GET /api/user/tickets":                      accessTokenScopeRule("profile:read"),
 	"POST /api/user/tickets":                     accessTokenScopeRule("profile:write"),

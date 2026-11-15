@@ -24,23 +24,25 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 
-export interface WheelAddressValues {
+export interface ShippingAddressValues {
   receiver_name: string
   receiver_phone: string
   receiver_address: string
 }
 
-interface WheelAddressFormProps {
-  initial?: Partial<WheelAddressValues>
+interface ShippingAddressFormProps {
+  /** 表单字段 id 前缀，同一页面出现多个表单时用于区分。 */
+  idPrefix: string
+  initial?: Partial<ShippingAddressValues>
   submitting: boolean
   /** 服务端或本地校验失败时的文案（已本地化）。 */
   error: string | null
   submitLabel: string
-  onSubmit: (values: WheelAddressValues) => void
+  onSubmit: (values: ShippingAddressValues) => void
 }
 
-/** 实物奖品收货信息表单，抽奖结果弹窗与中奖记录共用。 */
-export function WheelAddressForm(props: WheelAddressFormProps) {
+/** 实物奖品收货信息表单，抽奖结果、中奖记录与口令兑换共用。 */
+export function ShippingAddressForm(props: ShippingAddressFormProps) {
   const { t } = useTranslation()
   const [name, setName] = useState(props.initial?.receiver_name ?? '')
   const [phone, setPhone] = useState(props.initial?.receiver_phone ?? '')
@@ -61,16 +63,19 @@ export function WheelAddressForm(props: WheelAddressFormProps) {
     })
   }
 
+  const nameId = `${props.idPrefix}-receiver-name`
+  const phoneId = `${props.idPrefix}-receiver-phone`
+  const addressId = `${props.idPrefix}-receiver-address`
   const message = localError ?? props.error
 
   return (
     <form className='space-y-3' onSubmit={handleSubmit}>
       <div className='grid gap-1.5'>
-        <Label htmlFor='wheel-receiver-name' required>
+        <Label htmlFor={nameId} required>
           {t('Recipient name')}
         </Label>
         <Input
-          id='wheel-receiver-name'
+          id={nameId}
           value={name}
           maxLength={64}
           autoComplete='name'
@@ -78,11 +83,11 @@ export function WheelAddressForm(props: WheelAddressFormProps) {
         />
       </div>
       <div className='grid gap-1.5'>
-        <Label htmlFor='wheel-receiver-phone' required>
+        <Label htmlFor={phoneId} required>
           {t('Phone number')}
         </Label>
         <Input
-          id='wheel-receiver-phone'
+          id={phoneId}
           value={phone}
           maxLength={32}
           inputMode='tel'
@@ -91,11 +96,11 @@ export function WheelAddressForm(props: WheelAddressFormProps) {
         />
       </div>
       <div className='grid gap-1.5'>
-        <Label htmlFor='wheel-receiver-address' required>
+        <Label htmlFor={addressId} required>
           {t('Shipping address')}
         </Label>
         <Textarea
-          id='wheel-receiver-address'
+          id={addressId}
           value={address}
           maxLength={255}
           rows={3}

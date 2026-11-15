@@ -29,6 +29,7 @@ import {
   Gift,
   HandCoins,
   Key,
+  KeyRound,
   LayoutDashboard,
   Layers,
   LifeBuoy,
@@ -142,6 +143,11 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
             icon: Gift,
           },
           {
+            title: t('Redeem center'),
+            url: '/redeem-center',
+            icon: KeyRound,
+          },
+          {
             title: t('My rewards'),
             url: '/rewards',
             icon: HandCoins,
@@ -212,6 +218,12 @@ export function useSidebarData(badges: SidebarBadges = {}): SidebarData {
             title: t('Lucky wheel console'),
             url: '/wheel-console',
             icon: Dices,
+            requiredRole: ROLE.ADMIN,
+          },
+          {
+            title: t('Claim code console'),
+            url: '/claim-codes',
+            icon: KeyRound,
             requiredRole: ROLE.ADMIN,
           },
           {

@@ -395,6 +395,9 @@ func migrateDB() error {
 		&WheelPrizeCode{},
 		&WheelWin{},
 		&WheelDrawGrant{},
+		&ClaimCode{},
+		&ClaimCodeCard{},
+		&ClaimCodeClaim{},
 	)
 	if err != nil {
 		return err

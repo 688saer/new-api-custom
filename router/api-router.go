@@ -180,6 +180,11 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/welfare-chests/open", middleware.CriticalRateLimit(), controller.OpenWelfareChest)
 				selfRoute.GET("/welfare-chests/ranking", controller.GetWelfareChestsRanking)
 
+				// Claim code routes (user side)
+				selfRoute.POST("/claim-codes/redeem", middleware.CriticalRateLimit(), controller.RedeemClaimCode)
+				selfRoute.GET("/claim-codes/records", controller.GetMyClaimCodeClaims)
+				selfRoute.PUT("/claim-codes/records/:id/address", controller.SubmitMyClaimCodeAddress)
+
 				// Reward routes
 				selfRoute.GET("/rewards/pending", controller.GetMyRewardsPending)
 				selfRoute.GET("/rewards/history", controller.GetMyRewardsHistory)
@@ -441,6 +446,23 @@ func SetApiRouter(router *gin.Engine) {
 			wheelAdminRoute.GET("/draw-grants", controller.AdminListWheelDrawGrants)
 			wheelAdminRoute.PUT("/draw-grants", controller.AdminSaveWheelDrawGrant)
 			wheelAdminRoute.DELETE("/draw-grants/:userId", controller.AdminDeleteWheelDrawGrant)
+		}
+		claimCodeAdminRoute := apiRouter.Group("/claim-codes")
+		claimCodeAdminRoute.Use(middleware.AdminAuth())
+		{
+			claimCodeAdminRoute.GET("", controller.AdminListClaimCodes)
+			claimCodeAdminRoute.POST("", controller.AdminCreateClaimCodes)
+			claimCodeAdminRoute.GET("/overview", controller.AdminGetClaimCodeOverview)
+			claimCodeAdminRoute.GET("/groups", controller.AdminGetClaimCodeOptions)
+			claimCodeAdminRoute.GET("/claims", controller.AdminListClaimCodeClaims)
+			claimCodeAdminRoute.POST("/claims/:id/ship", controller.AdminShipClaimCodeClaim)
+			claimCodeAdminRoute.POST("/claims/:id/deliver", controller.AdminDeliverClaimCodeClaim)
+			claimCodeAdminRoute.POST("/claims/:id/cancel", controller.AdminCancelClaimCodeClaim)
+			claimCodeAdminRoute.PUT("/:id", controller.AdminUpdateClaimCode)
+			claimCodeAdminRoute.DELETE("/:id", controller.AdminDeleteClaimCode)
+			claimCodeAdminRoute.GET("/:id/cards", controller.AdminListClaimCodeCards)
+			claimCodeAdminRoute.POST("/:id/cards", controller.AdminAddClaimCodeCards)
+			claimCodeAdminRoute.DELETE("/:id/cards/:cardId", controller.AdminDeleteClaimCodeCard)
 		}
 		serviceStatusAdminRoute := apiRouter.Group("/service-status/admin")
 		serviceStatusAdminRoute.Use(middleware.AdminAuth())

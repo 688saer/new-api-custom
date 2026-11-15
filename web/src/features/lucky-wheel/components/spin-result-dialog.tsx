@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
 import { Dialog } from '@/components/dialog'
+import { ShippingAddressForm } from '@/components/shipping-address-form'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { formatQuota } from '@/lib/format'
@@ -29,19 +30,18 @@ import { formatQuota } from '@/lib/format'
 import { submitWheelAddress } from '../api'
 import { WHEEL_PRIZE_TYPE_LABEL_KEYS } from '../lib/wheel'
 import type { WheelSpinResult, WheelWin } from '../types'
-import { WheelAddressForm } from './wheel-address-form'
 
 interface SpinResultDialogProps {
   open: boolean
   result: WheelSpinResult | null
-  /** 兑换码奖品的有效期天数，0 表示长期有效。 */
+  /** 鍏戞崲鐮佸鍝佺殑鏈夋晥鏈熷ぉ鏁帮紝0 琛ㄧず闀挎湡鏈夋晥銆?*/
   redemptionExpireDays: number
   onOpenChange: (open: boolean) => void
-  /** 实物奖品收货信息提交成功后回调。 */
+  /** 瀹炵墿濂栧搧鏀惰揣淇℃伅鎻愪氦鎴愬姛鍚庡洖璋冦€?*/
   onAddressSubmitted: (win: WheelWin) => void
 }
 
-/** 抽奖结果弹窗：按奖品领取方式展示不同的到账形态。 */
+/** 鎶藉缁撴灉寮圭獥锛氭寜濂栧搧棰嗗彇鏂瑰紡灞曠ず涓嶅悓鐨勫埌璐﹀舰鎬併€?*/
 export function SpinResultDialog(props: SpinResultDialogProps) {
   const { t } = useTranslation()
   const [submitting, setSubmitting] = useState(false)
@@ -92,7 +92,7 @@ export function SpinResultDialog(props: SpinResultDialogProps) {
       return (
         <div className='grid justify-items-center gap-3 py-6 text-center'>
           <span aria-hidden='true' className='text-5xl'>
-            🍀
+            馃崁
           </span>
           <h3 className='text-lg font-semibold'>{t('Thanks for playing')}</h3>
           <p className='text-muted-foreground text-sm'>
@@ -176,7 +176,8 @@ export function SpinResultDialog(props: SpinResultDialogProps) {
               'You won a physical prize. Fill in the shipping address to claim it.'
             )}
           </p>
-          <WheelAddressForm
+          <ShippingAddressForm
+            idPrefix='wheel-result'
             submitting={submitting}
             error={addressError}
             submitLabel={t('Save shipping address')}
@@ -193,7 +194,7 @@ export function SpinResultDialog(props: SpinResultDialogProps) {
             {t('You won')}
           </p>
           <p className='mt-1 flex items-center justify-center gap-2 text-2xl font-black'>
-            <span aria-hidden='true'>{result.prize_icon || '🎁'}</span>
+            <span aria-hidden='true'>{result.prize_icon || '馃巵'}</span>
             <span>{result.prize_name}</span>
           </p>
           <div className='mt-2 flex flex-wrap items-center justify-center gap-2'>
@@ -212,7 +213,7 @@ export function SpinResultDialog(props: SpinResultDialogProps) {
                   amount: formatQuota(result.cost_quota),
                 })}
           </span>
-          <span aria-hidden='true'>·</span>
+          <span aria-hidden='true'>路</span>
           <span>
             {t('Account balance')} {formatQuota(result.quota)}
           </span>

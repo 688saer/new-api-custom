@@ -23,6 +23,7 @@ import { toast } from 'sonner'
 
 import { Dialog } from '@/components/dialog'
 import { SectionPageLayout } from '@/components/layout'
+import { ShippingAddressForm } from '@/components/shipping-address-form'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -46,7 +47,6 @@ import {
 } from '../lib/wheel'
 import type { WheelStatus, WheelSpinResult, WheelWin } from '../types'
 import { SpinResultDialog } from './spin-result-dialog'
-import { WheelAddressForm } from './wheel-address-form'
 import { WheelConfetti } from './wheel-confetti'
 import { WheelDisc } from './wheel-disc'
 import { WheelPublicWins } from './wheel-public-wins'
@@ -554,7 +554,8 @@ export function LuckyWheel() {
         contentClassName='sm:max-w-md'
         contentHeight='auto'
       >
-        <WheelAddressForm
+        <ShippingAddressForm
+          idPrefix='wheel-claim'
           submitting={claimSubmitting}
           error={claimError}
           submitLabel={t('Save shipping address')}
