@@ -142,7 +142,7 @@ export function DrawGrantDialog(props: DrawGrantDialogProps) {
         </div>
         <p className='text-muted-foreground text-xs'>
           {t(
-            'Draws are consumed in this order: free draws, permanent draws, then paid draws. Setting both to 0 removes the grant.'
+            'Draws are consumed in this order: free draws, granted permanent draws, initial permanent draws, then paid draws. Setting both to 0 removes the grant.'
           )}
         </p>
         {errorText != null && (

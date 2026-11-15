@@ -487,6 +487,10 @@ func AdminUpdateWheelSetting(c *gin.Context) {
 		common.ApiErrorMsg(c, "Free daily draws must be between 0 and 100")
 		return
 	}
+	if req.PermanentInitialDraws < 0 || req.PermanentInitialDraws > 1000 {
+		common.ApiErrorMsg(c, "Permanent initial draws must be between 0 and 1000")
+		return
+	}
 	if req.DailyDrawLimit < 0 || req.DailyDrawLimit > 1000 {
 		common.ApiErrorMsg(c, "Daily draw limit must be between 0 and 1000")
 		return

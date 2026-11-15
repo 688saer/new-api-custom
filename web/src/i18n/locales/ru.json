@@ -8658,6 +8658,13 @@
     "User not found": "Пользователь не найден",
     "You have no draw attempts left": "У вас не осталось попыток",
     "Permanent draw attempts cannot be negative": "Постоянные попытки не могут быть отрицательными",
-    "Daily free draw attempts cannot be negative": "Ежедневные бесплатные попытки не могут быть отрицательными"
+    "Daily free draw attempts cannot be negative": "Ежедневные бесплатные попытки не могут быть отрицательными",
+    "Permanent initial draws": "Начальные постоянные попытки",
+    "Every user starts with these permanent draws. They are used up and never refilled.": "Каждый пользователь получает эти постоянные попытки сразу. Они расходуются и не пополняются.",
+    "Permanent initial draws cannot be negative": "Начальные постоянные попытки не могут быть отрицательными",
+    "Granted permanent left": "Остаток выданных постоянных",
+    "Initial draws left": "Остаток начальных постоянных",
+    "Draws are consumed in this order: free draws, granted permanent draws, initial permanent draws, then paid draws. Setting both to 0 removes the grant.": "Попытки списываются в порядке: бесплатные, выданные постоянные, начальные постоянные, затем платные. Если указать 0 в обоих полях, выдача отменяется.",
+    "Permanent initial draws must be between 0 and 1000": "Начальные постоянные попытки должны быть от 0 до 1000"
   }
 }

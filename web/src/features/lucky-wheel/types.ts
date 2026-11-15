@@ -58,7 +58,13 @@ export interface WheelStatus {
   daily_free_draws: number
   /** 管理员额外发放的每日免费次数，与 daily_free_draws 叠加。 */
   grant_daily_free_draws: number
+  /** 每人初始拥有的永久抽奖次数。 */
+  permanent_initial_draws: number
+  /** 剩余的初始永久抽奖次数。 */
+  permanent_initial_left: number
   /** 管理员发放的永久抽奖次数余额。 */
+  grant_permanent_left: number
+  /** 剩余永久抽奖次数合计：初始剩余 + 发放剩余。 */
   permanent_draws_left: number
   daily_draw_limit: number
   remaining_draws: number
@@ -96,8 +102,12 @@ export interface WheelSpinResult {
   cost_display: string
   /** 本次抽奖的扣减来源。 */
   draw_source: 'free' | 'permanent' | 'quota'
-  /** 本次抽奖后的永久次数余额。 */
+  /** 本次抽奖后的永久次数余额合计。 */
   permanent_draws_left: number
+  /** 本次抽奖后剩余的初始永久次数。 */
+  initial_permanent_left: number
+  /** 本次抽奖后剩余的发放永久次数。 */
+  grant_permanent_left: number
   remaining_draws: number
   draws_used_today: number
   quota: number

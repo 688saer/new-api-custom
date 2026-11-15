@@ -8658,6 +8658,13 @@
     "User not found": "使用者不存在",
     "You have no draw attempts left": "你已沒有可用抽獎次數",
     "Permanent draw attempts cannot be negative": "永久次數不能為負數",
-    "Daily free draw attempts cannot be negative": "每日免費次數不能為負數"
+    "Daily free draw attempts cannot be negative": "每日免費次數不能為負數",
+    "Permanent initial draws": "永久初始抽獎次數",
+    "Every user starts with these permanent draws. They are used up and never refilled.": "每個使用者開局自帶的永久次數，用完後不再補充。",
+    "Permanent initial draws cannot be negative": "永久初始抽獎次數不能為負數",
+    "Granted permanent left": "已發放永久剩餘",
+    "Initial draws left": "初始永久剩餘",
+    "Draws are consumed in this order: free draws, granted permanent draws, initial permanent draws, then paid draws. Setting both to 0 removes the grant.": "扣減順序為：每日免費次數 → 已發放永久次數 → 初始永久次數 → 付費額度。兩個值都填 0 表示收回該使用者的發放。",
+    "Permanent initial draws must be between 0 and 1000": "永久初始抽獎次數必須在 0 到 1000 之間"
   }
 }

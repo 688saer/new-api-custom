@@ -69,6 +69,10 @@ export function SettingsPanel(props: SettingsPanelProps) {
       setLocalError(t('Free daily draws cannot be negative'))
       return
     }
+    if (draft.permanent_initial_draws < 0) {
+      setLocalError(t('Permanent initial draws cannot be negative'))
+      return
+    }
     if (draft.single_cost_quota < 0) {
       setLocalError(t('Draw cost cannot be negative'))
       return
@@ -156,6 +160,28 @@ export function SettingsPanel(props: SettingsPanelProps) {
                 patch({ daily_free_draws: Number(event.target.value) || 0 })
               }
             />
+          </div>
+          <div className='grid gap-1.5'>
+            <Label htmlFor='wheel-setting-initial'>
+              {t('Permanent initial draws')}
+            </Label>
+            <Input
+              id='wheel-setting-initial'
+              type='number'
+              min={0}
+              step={1}
+              value={draft.permanent_initial_draws}
+              onChange={(event) =>
+                patch({
+                  permanent_initial_draws: Number(event.target.value) || 0,
+                })
+              }
+            />
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'Every user starts with these permanent draws. They are used up and never refilled.'
+              )}
+            </p>
           </div>
           <div className='grid gap-1.5'>
             <Label htmlFor='wheel-setting-limit'>{t('Daily draw limit')}</Label>

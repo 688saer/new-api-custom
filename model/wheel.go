@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // ---------------------------------------------------------------------------
@@ -156,6 +157,9 @@ type WheelDrawGrant struct {
 	PermanentDraws int `json:"permanent_draws" gorm:"not null;default:0"`
 	// DailyFreeDraws 每日免费抽奖次数，在全局每日免费次数之上叠加
 	DailyFreeDraws int `json:"daily_free_draws" gorm:"not null;default:0"`
+	// InitialPermanentUsed 已经用掉的全局初始永久次数，
+	// 用来从「永久初始抽奖数」里扣减，即使没有发放记录也会写入
+	InitialPermanentUsed int `json:"initial_permanent_used" gorm:"not null;default:0"`
 
 	CreatedAt int64 `json:"created_at" gorm:"bigint"`
 	UpdatedAt int64 `json:"updated_at" gorm:"bigint"`
@@ -532,6 +536,12 @@ type WheelDrawGrantView struct {
 	Username       string `json:"username"`
 	PermanentDraws int    `json:"permanent_draws"`
 	DailyFreeDraws int    `json:"daily_free_draws"`
+	// InitialPermanentUsed 已用掉的全局初始永久次数
+	InitialPermanentUsed int `json:"initial_permanent_used"`
+	// InitialPermanentLeft 剩余的全局初始永久次数
+	InitialPermanentLeft int `json:"initial_permanent_left"`
+	// PermanentLeft 剩余永久次数合计：专属剩余 + 全局初始剩余
+	PermanentLeft int `json:"permanent_left"`
 	// FreeToday 今日免费次数总量：全局每日免费次数 + 用户专属每日免费次数
 	FreeToday     int   `json:"free_today"`
 	FreeUsedToday int   `json:"free_used_today"`
@@ -568,19 +578,28 @@ func wheelDrawGrantFreeToday(grant *WheelDrawGrant) int {
 	return total
 }
 
+// wheelInitialPermanentLeft 计算用户剩余的全局初始永久次数
+func wheelInitialPermanentLeft(used int) int {
+	return max(operation_setting.GetWheelSetting().PermanentInitialDraws-used, 0)
+}
+
 // buildWheelDrawGrantView 把发放记录转成列表项，今日已用次数按免费优先的扣减顺序推算
 func buildWheelDrawGrantView(grant *WheelDrawGrant, usedToday int) WheelDrawGrantView {
 	freeToday := wheelDrawGrantFreeToday(grant)
 	used := min(max(usedToday, 0), freeToday)
+	initialLeft := wheelInitialPermanentLeft(grant.InitialPermanentUsed)
 	return WheelDrawGrantView{
-		UserId:         grant.UserId,
-		PermanentDraws: grant.PermanentDraws,
-		DailyFreeDraws: grant.DailyFreeDraws,
-		FreeToday:      freeToday,
-		FreeUsedToday:  used,
-		FreeLeftToday:  freeToday - used,
-		CreatedAt:      grant.CreatedAt,
-		UpdatedAt:      grant.UpdatedAt,
+		UserId:               grant.UserId,
+		PermanentDraws:       grant.PermanentDraws,
+		DailyFreeDraws:       grant.DailyFreeDraws,
+		InitialPermanentUsed: grant.InitialPermanentUsed,
+		InitialPermanentLeft: initialLeft,
+		PermanentLeft:        grant.PermanentDraws + initialLeft,
+		FreeToday:            freeToday,
+		FreeUsedToday:        used,
+		FreeLeftToday:        freeToday - used,
+		CreatedAt:            grant.CreatedAt,
+		UpdatedAt:            grant.UpdatedAt,
 	}
 }
 
@@ -728,12 +747,25 @@ func SaveWheelDrawGrant(identifier string, permanentDraws int, dailyFreeDraws in
 	return &view, nil
 }
 
-// DeleteWheelDrawGrant 收回用户抽奖次数；已消耗的永久次数不受影响
+// DeleteWheelDrawGrant 收回用户抽奖次数；已消耗的永久次数不受影响。
+// 记录里还留着已用掉的初始永久次数时需要保留该行，否则直接删除。
 func DeleteWheelDrawGrant(userId int) error {
 	if userId <= 0 {
 		return common.NewMessage("Invalid user ID")
 	}
-	return DB.Where("user_id = ?", userId).Delete(&WheelDrawGrant{}).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		res := tx.Model(&WheelDrawGrant{}).Where("user_id = ?", userId).
+			Updates(map[string]any{
+				"permanent_draws":  0,
+				"daily_free_draws": 0,
+				"updated_at":       common.GetTimestamp(),
+			})
+		if res.Error != nil {
+			return res.Error
+		}
+		return tx.Where("user_id = ? AND initial_permanent_used = ?", userId, 0).
+			Delete(&WheelDrawGrant{}).Error
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -776,8 +808,12 @@ type WheelSpinResult struct {
 
 	// DrawSource 本次抽奖的扣减来源：free（今日免费）/ permanent（永久次数）/ quota（额度）
 	DrawSource string `json:"draw_source"`
-	// PermanentDrawsLeft 本次抽奖后剩余的永久次数
+	// PermanentDrawsLeft 本次抽奖后剩余的永久次数合计（专属剩余 + 全局初始剩余）
 	PermanentDrawsLeft int `json:"permanent_draws_left"`
+	// InitialPermanentLeft 本次抽奖后剩余的全局初始永久次数
+	InitialPermanentLeft int `json:"initial_permanent_left"`
+	// GrantPermanentLeft 本次抽奖后剩余的专属永久次数
+	GrantPermanentLeft int `json:"grant_permanent_left"`
 }
 
 // wheelPrizeAvailable 奖品是否还有库存
@@ -948,8 +984,9 @@ func consumeWheelPrizeTx(tx *gorm.DB, prize *WheelPrize, win *WheelWin, userId i
 
 // UserWheelSpin 执行一次大转盘抽奖
 //
-// 规则：每日前 DailyFreeDraws 次免费；此后每次消耗 SingleCostQuota；
-// DailyDrawLimit 大于 0 时限制每人每日总次数。
+// 规则：每日前 DailyFreeDraws 次免费，用户专属的每日免费次数叠加在其上；
+// 免费次数用完后先扣永久次数（专属发放优先，其次 PermanentInitialDraws），
+// 再按 SingleCostQuota 扣额度；DailyDrawLimit 大于 0 时限制每人每日总次数。
 func UserWheelSpin(userId int) (*WheelSpinResult, error) {
 	setting := operation_setting.GetWheelSetting()
 	if !setting.Enabled {
@@ -972,14 +1009,22 @@ func UserWheelSpin(userId int) (*WheelSpinResult, error) {
 		return nil, common.NewMessage("You have reached today's draw limit")
 	}
 
-	// 扣减顺序：今日免费次数（全局 + 专属）→ 永久次数 → 付费额度
+	// 扣减顺序：今日免费次数（全局 + 专属）→ 永久次数（专属发放优先，其次全局初始）→ 付费额度
 	grant, err := GetWheelDrawGrant(userId)
 	if err != nil {
 		return nil, err
 	}
 	freeLeft := wheelDrawGrantFreeToday(grant) - usedToday
 	isFree := freeLeft > 0
-	usePermanent := !isFree && grant != nil && grant.PermanentDraws > 0
+	grantPermanentLeft := 0
+	initialPermanentUsed := 0
+	if grant != nil {
+		grantPermanentLeft = grant.PermanentDraws
+		initialPermanentUsed = grant.InitialPermanentUsed
+	}
+	initialPermanentLeft := wheelInitialPermanentLeft(initialPermanentUsed)
+	usePermanent := !isFree && (grantPermanentLeft > 0 || initialPermanentLeft > 0)
+	useGrantPermanent := grantPermanentLeft > 0
 	cost := 0
 	if !isFree && !usePermanent {
 		cost = setting.SingleCostQuota
@@ -993,23 +1038,43 @@ func UserWheelSpin(userId int) (*WheelSpinResult, error) {
 	var finalQuota int
 	var win *WheelWin
 	var picked *WheelPrize
-	permanentLeft := 0
-	if grant != nil {
-		permanentLeft = grant.PermanentDraws
-	}
+	grantPermanentLeftAfter := grantPermanentLeft
+	initialPermanentLeftAfter := initialPermanentLeft
 
 	err = DB.Transaction(func(tx *gorm.DB) error {
 		if usePermanent {
-			res := tx.Model(&WheelDrawGrant{}).
-				Where("user_id = ? AND permanent_draws > 0", userId).
-				UpdateColumn("permanent_draws", gorm.Expr("permanent_draws - 1"))
-			if res.Error != nil {
-				return res.Error
+			if useGrantPermanent {
+				res := tx.Model(&WheelDrawGrant{}).
+					Where("user_id = ? AND permanent_draws > 0", userId).
+					UpdateColumn("permanent_draws", gorm.Expr("permanent_draws - 1"))
+				if res.Error != nil {
+					return res.Error
+				}
+				if res.RowsAffected == 0 {
+					return common.NewMessage("You have no draw attempts left")
+				}
+				grantPermanentLeftAfter--
+			} else {
+				// 初始次数按用户记账，没有发放记录时先补一行占用记录
+				if err := tx.Clauses(clause.OnConflict{DoNothing: true}).
+					Create(&WheelDrawGrant{
+						UserId:    userId,
+						CreatedAt: now,
+						UpdatedAt: now,
+					}).Error; err != nil {
+					return err
+				}
+				res := tx.Model(&WheelDrawGrant{}).
+					Where("user_id = ? AND initial_permanent_used < ?", userId, setting.PermanentInitialDraws).
+					UpdateColumn("initial_permanent_used", gorm.Expr("initial_permanent_used + 1"))
+				if res.Error != nil {
+					return res.Error
+				}
+				if res.RowsAffected == 0 {
+					return common.NewMessage("You have no draw attempts left")
+				}
+				initialPermanentLeftAfter--
 			}
-			if res.RowsAffected == 0 {
-				return common.NewMessage("You have no draw attempts left")
-			}
-			permanentLeft--
 		}
 		if cost > 0 {
 			res := tx.Model(&User{}).
@@ -1143,8 +1208,10 @@ func UserWheelSpin(userId int) (*WheelSpinResult, error) {
 		Quota:          finalQuota,
 		DrawDate:       drawDate,
 
-		DrawSource:         drawSource,
-		PermanentDrawsLeft: permanentLeft,
+		DrawSource:           drawSource,
+		PermanentDrawsLeft:   grantPermanentLeftAfter + initialPermanentLeftAfter,
+		InitialPermanentLeft: initialPermanentLeftAfter,
+		GrantPermanentLeft:   grantPermanentLeftAfter,
 	}, nil
 }
 
@@ -1291,10 +1358,13 @@ func GetWheelStatus(userId int) (map[string]any, error) {
 	}
 	permanentDraws := 0
 	grantDailyFreeDraws := 0
+	initialPermanentUsed := 0
 	if grant != nil {
 		permanentDraws = grant.PermanentDraws
 		grantDailyFreeDraws = grant.DailyFreeDraws
+		initialPermanentUsed = grant.InitialPermanentUsed
 	}
+	initialPermanentLeft := wheelInitialPermanentLeft(initialPermanentUsed)
 	limitReached := setting.DailyDrawLimit > 0 && usedToday >= setting.DailyDrawLimit
 
 	var todayWins int64
@@ -1315,29 +1385,32 @@ func GetWheelStatus(userId int) (map[string]any, error) {
 	}
 
 	return map[string]any{
-		"enabled":                setting.Enabled,
-		"title":                  setting.Title,
-		"subtitle":               setting.Subtitle,
-		"rules_text":             setting.RulesText,
-		"quota":                  user.Quota,
-		"quota_per_unit":         common.QuotaPerUnit,
-		"daily_free_draws":       setting.DailyFreeDraws,
-		"grant_daily_free_draws": grantDailyFreeDraws,
-		"permanent_draws_left":   permanentDraws,
-		"daily_draw_limit":       setting.DailyDrawLimit,
-		"remaining_draws":        remaining,
-		"draws_used_today":       usedToday,
-		"draw_date":              wheelToday(),
-		"single_cost":            setting.SingleCostQuota,
-		"single_cost_display":    wheelQuotaDisplay(setting.SingleCostQuota),
-		"can_spin":               setting.Enabled && len(views) > 0 && !limitReached,
-		"prizes":                 views,
-		"today_win_count":        todayWins,
-		"today_prize_quota":      todayQuota,
-		"today_prize_display":    wheelQuotaDisplay(int(todayQuota)),
-		"total_win_count":        totalWins,
-		"show_public_wins":       setting.ShowPublicWins,
-		"redemption_expire_days": setting.RedemptionExpireDays,
+		"enabled":                 setting.Enabled,
+		"title":                   setting.Title,
+		"subtitle":                setting.Subtitle,
+		"rules_text":              setting.RulesText,
+		"quota":                   user.Quota,
+		"quota_per_unit":          common.QuotaPerUnit,
+		"daily_free_draws":        setting.DailyFreeDraws,
+		"grant_daily_free_draws":  grantDailyFreeDraws,
+		"permanent_initial_draws": setting.PermanentInitialDraws,
+		"permanent_initial_left":  initialPermanentLeft,
+		"grant_permanent_left":    permanentDraws,
+		"permanent_draws_left":    permanentDraws + initialPermanentLeft,
+		"daily_draw_limit":        setting.DailyDrawLimit,
+		"remaining_draws":         remaining,
+		"draws_used_today":        usedToday,
+		"draw_date":               wheelToday(),
+		"single_cost":             setting.SingleCostQuota,
+		"single_cost_display":     wheelQuotaDisplay(setting.SingleCostQuota),
+		"can_spin":                setting.Enabled && len(views) > 0 && !limitReached,
+		"prizes":                  views,
+		"today_win_count":         todayWins,
+		"today_prize_quota":       todayQuota,
+		"today_prize_display":     wheelQuotaDisplay(int(todayQuota)),
+		"total_win_count":         totalWins,
+		"show_public_wins":        setting.ShowPublicWins,
+		"redemption_expire_days":  setting.RedemptionExpireDays,
 	}, nil
 }
 

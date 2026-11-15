@@ -8658,6 +8658,13 @@
     "User not found": "Utilisateur introuvable",
     "You have no draw attempts left": "Vous n'avez plus de tentative disponible",
     "Permanent draw attempts cannot be negative": "Les tentatives permanentes ne peuvent pas être négatives",
-    "Daily free draw attempts cannot be negative": "Les tentatives gratuites quotidiennes ne peuvent pas être négatives"
+    "Daily free draw attempts cannot be negative": "Les tentatives gratuites quotidiennes ne peuvent pas être négatives",
+    "Permanent initial draws": "Tentatives permanentes initiales",
+    "Every user starts with these permanent draws. They are used up and never refilled.": "Chaque utilisateur commence avec ces tentatives permanentes. Elles sont consommées et jamais rechargées.",
+    "Permanent initial draws cannot be negative": "Les tentatives permanentes initiales ne peuvent pas être négatives",
+    "Granted permanent left": "Permanentes attribuées restantes",
+    "Initial draws left": "Permanentes initiales restantes",
+    "Draws are consumed in this order: free draws, granted permanent draws, initial permanent draws, then paid draws. Setting both to 0 removes the grant.": "Les tentatives sont consommées dans cet ordre : gratuites, permanentes attribuées, permanentes initiales, puis payantes. Mettre les deux à 0 supprime l'attribution.",
+    "Permanent initial draws must be between 0 and 1000": "Les tentatives permanentes initiales doivent être comprises entre 0 et 1000"
   }
 }

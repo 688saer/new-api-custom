@@ -18,6 +18,8 @@ type WheelSetting struct {
 
 	// DailyFreeDraws 每日免费抽奖次数
 	DailyFreeDraws int `json:"daily_free_draws"`
+	// PermanentInitialDraws 每人初始拥有的永久抽奖次数，用完后不再补充
+	PermanentInitialDraws int `json:"permanent_initial_draws"`
 	// DailyDrawLimit 每人每日最多抽奖次数，0 表示不限
 	DailyDrawLimit int `json:"daily_draw_limit"`
 	// SingleCostQuota 免费次数用尽后单次抽奖消耗额度
@@ -33,16 +35,17 @@ type WheelSetting struct {
 }
 
 var wheelSetting = WheelSetting{
-	Enabled:              false,
-	Title:                "",
-	Subtitle:             "",
-	RulesText:            "",
-	DailyFreeDraws:       1,
-	DailyDrawLimit:       0,
-	SingleCostQuota:      500000, // 500k quota = $1.00
-	ShowPublicWins:       true,
-	PublicWinsLimit:      12,
-	RedemptionExpireDays: 30,
+	Enabled:               false,
+	Title:                 "",
+	Subtitle:              "",
+	RulesText:             "",
+	DailyFreeDraws:        1,
+	PermanentInitialDraws: 0,
+	DailyDrawLimit:        0,
+	SingleCostQuota:       500000, // 500k quota = $1.00
+	ShowPublicWins:        true,
+	PublicWinsLimit:       12,
+	RedemptionExpireDays:  30,
 }
 
 func init() {

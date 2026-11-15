@@ -8658,6 +8658,13 @@
     "User not found": "ユーザーが見つかりません",
     "You have no draw attempts left": "利用できる抽選回数がありません",
     "Permanent draw attempts cannot be negative": "永久回数は負の値にできません",
-    "Daily free draw attempts cannot be negative": "毎日の無料回数は負の値にできません"
+    "Daily free draw attempts cannot be negative": "毎日の無料回数は負の値にできません",
+    "Permanent initial draws": "初期永久回数",
+    "Every user starts with these permanent draws. They are used up and never refilled.": "すべてのユーザーが最初から持つ永久回数です。使い切ると補充されません。",
+    "Permanent initial draws cannot be negative": "初期永久回数は負の値にできません",
+    "Granted permanent left": "付与永久回数の残り",
+    "Initial draws left": "初期永久回数の残り",
+    "Draws are consumed in this order: free draws, granted permanent draws, initial permanent draws, then paid draws. Setting both to 0 removes the grant.": "回数は無料回数、付与された永久回数、初期永久回数、有料の順に消費されます。両方 0 にすると付与を取り消します。",
+    "Permanent initial draws must be between 0 and 1000": "初期永久回数は 0 〜 1000 の範囲で入力してください"
   }
 }

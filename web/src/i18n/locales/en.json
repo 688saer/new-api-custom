@@ -8658,6 +8658,13 @@
     "User not found": "User not found",
     "You have no draw attempts left": "You have no draw attempts left",
     "Permanent draw attempts cannot be negative": "Permanent draw attempts cannot be negative",
-    "Daily free draw attempts cannot be negative": "Daily free draw attempts cannot be negative"
+    "Daily free draw attempts cannot be negative": "Daily free draw attempts cannot be negative",
+    "Permanent initial draws": "Permanent initial draws",
+    "Every user starts with these permanent draws. They are used up and never refilled.": "Every user starts with these permanent draws. They are used up and never refilled.",
+    "Permanent initial draws cannot be negative": "Permanent initial draws cannot be negative",
+    "Granted permanent left": "Granted permanent left",
+    "Initial draws left": "Initial draws left",
+    "Draws are consumed in this order: free draws, granted permanent draws, initial permanent draws, then paid draws. Setting both to 0 removes the grant.": "Draws are consumed in this order: free draws, granted permanent draws, initial permanent draws, then paid draws. Setting both to 0 removes the grant.",
+    "Permanent initial draws must be between 0 and 1000": "Permanent initial draws must be between 0 and 1000"
   }
 }

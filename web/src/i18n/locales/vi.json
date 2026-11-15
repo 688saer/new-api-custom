@@ -8658,6 +8658,13 @@
     "User not found": "Không tìm thấy người dùng",
     "You have no draw attempts left": "Bạn đã hết lượt quay",
     "Permanent draw attempts cannot be negative": "Lượt vĩnh viễn không được là số âm",
-    "Daily free draw attempts cannot be negative": "Lượt miễn phí hằng ngày không được là số âm"
+    "Daily free draw attempts cannot be negative": "Lượt miễn phí hằng ngày không được là số âm",
+    "Permanent initial draws": "Lượt vĩnh viễn ban đầu",
+    "Every user starts with these permanent draws. They are used up and never refilled.": "Mỗi người dùng có sẵn số lượt vĩnh viễn này ngay từ đầu. Dùng hết sẽ không được bổ sung.",
+    "Permanent initial draws cannot be negative": "Lượt vĩnh viễn ban đầu không được là số âm",
+    "Granted permanent left": "Lượt vĩnh viễn đã cấp còn lại",
+    "Initial draws left": "Lượt vĩnh viễn ban đầu còn lại",
+    "Draws are consumed in this order: free draws, granted permanent draws, initial permanent draws, then paid draws. Setting both to 0 removes the grant.": "Lượt được trừ theo thứ tự: miễn phí, vĩnh viễn đã cấp, vĩnh viễn ban đầu, rồi trả phí. Đặt cả hai bằng 0 để thu hồi.",
+    "Permanent initial draws must be between 0 and 1000": "Lượt vĩnh viễn ban đầu phải nằm trong khoảng 0 đến 1000"
   }
 }

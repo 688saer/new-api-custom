@@ -130,6 +130,7 @@ export interface WheelSettings {
   subtitle: string
   rules_text: string
   daily_free_draws: number
+  permanent_initial_draws: number
   daily_draw_limit: number
   single_cost_quota: number
   show_public_wins: boolean
@@ -153,6 +154,12 @@ export interface WheelDrawGrant {
   username: string
   permanent_draws: number
   daily_free_draws: number
+  /** 已用掉的全局初始永久次数。 */
+  initial_permanent_used: number
+  /** 剩余的全局初始永久次数。 */
+  initial_permanent_left: number
+  /** 剩余永久次数合计：专属剩余 + 全局初始剩余。 */
+  permanent_left: number
   /** 今日免费次数总量：全局每日免费次数 + 用户专属每日免费次数。 */
   free_today: number
   free_used_today: number

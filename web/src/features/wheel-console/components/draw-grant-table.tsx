@@ -85,7 +85,8 @@ export function DrawGrantTable(props: DrawGrantTableProps) {
           <TableHeader>
             <TableRow>
               <TableHead>{t('User')}</TableHead>
-              <TableHead>{t('Permanent draws left')}</TableHead>
+              <TableHead>{t('Granted permanent left')}</TableHead>
+              <TableHead>{t('Initial draws left')}</TableHead>
               <TableHead>{t('Daily free draws')}</TableHead>
               <TableHead>{t('Free draws today')}</TableHead>
               <TableHead>{t('Updated at')}</TableHead>
@@ -111,6 +112,15 @@ export function DrawGrantTable(props: DrawGrantTableProps) {
                   >
                     <Ticket aria-hidden='true' className='size-3' />
                     {formatNumber(grant.permanent_draws)}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      grant.initial_permanent_left > 0 ? 'default' : 'outline'
+                    }
+                  >
+                    {formatNumber(grant.initial_permanent_left)}
                   </Badge>
                 </TableCell>
                 <TableCell>{formatNumber(grant.daily_free_draws)}</TableCell>

@@ -26,6 +26,7 @@ func setupWheelTestState(t *testing.T, freeDraws int, costQuota int) {
 	setting := operation_setting.GetWheelSetting()
 	setting.Enabled = true
 	setting.DailyFreeDraws = freeDraws
+	setting.PermanentInitialDraws = 0
 	setting.DailyDrawLimit = 0
 	setting.SingleCostQuota = costQuota
 	setting.RedemptionExpireDays = 30
@@ -608,4 +609,93 @@ func TestSaveWheelDrawGrantStacksDailyFreeDraws(t *testing.T) {
 	status, err = GetWheelStatus(user.Id)
 	require.NoError(t, err)
 	assert.Equal(t, 1, status["remaining_draws"])
+}
+
+// 永久初始抽奖数：每人开局自带的永久次数先用发放次数、再用初始次数，用完回到付费。
+func TestUserWheelSpinUsesInitialPermanentDraws(t *testing.T) {
+	setupWheelTestState(t, 1, 500000)
+	setting := operation_setting.GetWheelSetting()
+	setting.PermanentInitialDraws = 2
+
+	user := createWheelTestUser(t, 0)
+	createWheelTestPrize(t, WheelPrize{
+		Name:   "Thanks",
+		Type:   WheelPrizeTypeNone,
+		Weight: 1,
+		Stock:  WheelStockUnlimited,
+	})
+
+	status, err := GetWheelStatus(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 2, status["permanent_draws_left"])
+	assert.Equal(t, 2, status["permanent_initial_left"])
+	assert.Zero(t, status["grant_permanent_left"])
+
+	free, err := UserWheelSpin(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, WheelDrawSourceFree, free.DrawSource)
+
+	firstPermanent, err := UserWheelSpin(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, WheelDrawSourcePermanent, firstPermanent.DrawSource)
+	assert.Zero(t, firstPermanent.CostQuota)
+	assert.Equal(t, 1, firstPermanent.InitialPermanentLeft)
+	assert.Equal(t, 1, firstPermanent.PermanentDrawsLeft)
+
+	secondPermanent, err := UserWheelSpin(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, WheelDrawSourcePermanent, secondPermanent.DrawSource)
+	assert.Zero(t, secondPermanent.InitialPermanentLeft)
+	assert.Zero(t, secondPermanent.PermanentDrawsLeft)
+
+	_, err = UserWheelSpin(user.Id)
+	require.Error(t, err, "初始永久次数用完后，没有额度就抽不动")
+
+	state, err := GetWheelDrawGrant(user.Id)
+	require.NoError(t, err)
+	require.NotNil(t, state, "消耗初始次数后要留下记录")
+	assert.Equal(t, 2, state.InitialPermanentUsed)
+	assert.Zero(t, state.PermanentDraws)
+
+	// 提高全局初始次数后，剩余初始次数随之增加
+	setting.PermanentInitialDraws = 3
+	status, err = GetWheelStatus(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 1, status["permanent_initial_left"])
+
+	// 发放的永久次数优先于初始次数消耗
+	view, err := SaveWheelDrawGrant(user.Username, 1, 0)
+	require.NoError(t, err)
+	require.NotNil(t, view)
+	assert.Equal(t, 1, view.InitialPermanentLeft)
+	assert.Equal(t, 2, view.PermanentLeft)
+	status, err = GetWheelStatus(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 2, status["permanent_draws_left"])
+
+	granted, err := UserWheelSpin(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, WheelDrawSourcePermanent, granted.DrawSource)
+	assert.Zero(t, granted.GrantPermanentLeft)
+	assert.Equal(t, 1, granted.InitialPermanentLeft)
+	assert.Equal(t, 1, granted.PermanentDrawsLeft)
+
+	state, err = GetWheelDrawGrant(user.Id)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	assert.Equal(t, 2, state.InitialPermanentUsed, "发放次数优先，初始次数不应被提前消耗")
+
+	// 收回发放后记录仍然保留，已消耗的初始次数不会退回
+	cleared, err := SaveWheelDrawGrant(user.Username, 0, 0)
+	require.NoError(t, err)
+	assert.Nil(t, cleared)
+	state, err = GetWheelDrawGrant(user.Id)
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	assert.Equal(t, 2, state.InitialPermanentUsed)
+	assert.Zero(t, state.PermanentDraws)
+
+	status, err = GetWheelStatus(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 1, status["permanent_initial_left"])
 }
