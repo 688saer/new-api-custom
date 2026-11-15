@@ -512,25 +512,36 @@ func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preCons
 			return tryWallet()
 		}
 		session, apiErr := trySubscription()
-		if apiErr != nil {
-			// 套餐策略拒绝（模型不在白名单、token 额度用尽）必须让用户自己处理，
-			// 不能悄悄改扣钱包余额。
-			if errors.Is(apiErr, model.ErrSubscriptionModelNotAllowed) || errors.Is(apiErr, model.ErrSubscriptionTokenQuotaExhausted) {
-				return nil, apiErr
-			}
-			if apiErr.GetErrorCode() == types.ErrorCodeInsufficientUserQuota {
-				// 仅当用户的活跃订阅允许钱包回退时才回退到钱包，否则返回订阅额度不足错误
-				allowOverflow, overflowErr := model.UserActiveSubscriptionsAllowWalletOverflow(relayInfo.UserId)
-				if overflowErr != nil {
-					return nil, types.NewError(overflowErr, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
-				}
-				if allowOverflow {
-					return tryWallet()
-				}
-				return nil, apiErr
-			}
+		if apiErr == nil {
+			return session, nil
+		}
+		// token 额度用尽属于套餐策略：只能等额度重置或续费，不能改扣钱包余额。
+		if errors.Is(apiErr, model.ErrSubscriptionTokenQuotaExhausted) {
 			return nil, apiErr
 		}
-		return session, nil
+		// 模型不在白名单只说明"订阅额度不付这次请求"，不是"用户不能用这个模型"。
+		// 若在此处直接拒绝，用户一开通订阅，白名单以外的模型（其他分组的模型）就
+		// 整体不可用，所以改为按钱包余额结算这一次请求。allow_wallet_overflow 管的是
+		// 订阅额度用完后能不能继续用钱包，与模型范围无关，这里不参考它。
+		if errors.Is(apiErr, model.ErrSubscriptionModelNotAllowed) {
+			walletSession, walletErr := tryWallet()
+			if walletErr == nil {
+				return walletSession, nil
+			}
+			// 钱包也付不起时，白名单提示更能说明该改什么
+			return nil, apiErr
+		}
+		if apiErr.GetErrorCode() != types.ErrorCodeInsufficientUserQuota {
+			return nil, apiErr
+		}
+		// 订阅额度不足：仅当用户的活跃订阅允许钱包兜底时才回退到钱包
+		allowOverflow, overflowErr := model.UserActiveSubscriptionsAllowWalletOverflow(relayInfo.UserId)
+		if overflowErr != nil {
+			return nil, types.NewError(overflowErr, types.ErrorCodeQueryDataError, types.ErrOptionWithSkipRetry())
+		}
+		if !allowOverflow {
+			return nil, apiErr
+		}
+		return tryWallet()
 	}
 }

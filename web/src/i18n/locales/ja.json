@@ -8617,7 +8617,7 @@
     "{{value}} tokens": "{{value}} tokens",
     "This period's allowance is used up": "This period's allowance is used up",
     "Prompt and completion tokens added together. The allowance refills on the reset cycle above: with no reset it covers the whole card, with a daily or weekly cycle you get one allowance per cycle. Requests are rejected once this period is spent. 0 means no token cap.": "Prompt and completion tokens added together. The allowance refills on the reset cycle above: with no reset it covers the whole card, with a daily or weekly cycle you get one allowance per cycle. Requests are rejected once this period is spent. 0 means no token cap.",
-    "Leave empty to allow every model. Names outside this list are rejected before any quota is charged.": "Leave empty to allow every model. Names outside this list are rejected before any quota is charged.",
+    "Leave empty to allow every model. Calls outside this list are paid from the wallet balance instead of the plan.": "空欄にするとすべてのモデルを許可します。この一覧にないモデルはプランではなくウォレット残高から課金されます。",
     "This plan allows wallet balance after the token allowance is used up, so calls keep working. Turn that switch off to stop the user at the cap.": "This plan allows wallet balance after the token allowance is used up, so calls keep working. Turn that switch off to stop the user at the cap.",
     "Adds the purchased period to the card you already hold, so its validity grows and the allowance refills on its normal reset schedule.": "購入した期間はお持ちのカードに加算され、有効期間が延び、クォータは通常の周期でリセットされます。",
     "Spends one day of the purchase to refill the allowance immediately, so the card ends up one day shorter.": "Spends one day of the purchase to refill the allowance immediately, so the card ends up one day shorter.",

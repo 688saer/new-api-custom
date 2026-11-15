@@ -151,7 +151,7 @@ export function PlanTokenPolicyFields(props: Props) {
             </FormControl>
             <FormDescription>
               {t(
-                'Leave empty to allow every model. Names outside this list are rejected before any quota is charged.'
+                'Leave empty to allow every model. Calls outside this list are paid from the wallet balance instead of the plan.'
               )}
             </FormDescription>
             <FormMessage />
