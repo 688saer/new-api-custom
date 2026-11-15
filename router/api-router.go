@@ -438,6 +438,9 @@ func SetApiRouter(router *gin.Engine) {
 			wheelAdminRoute.POST("/records/:id/ship", controller.AdminShipWheelWin)
 			wheelAdminRoute.POST("/records/:id/deliver", controller.AdminDeliverWheelWin)
 			wheelAdminRoute.POST("/records/:id/cancel", controller.AdminCancelWheelWin)
+			wheelAdminRoute.GET("/draw-grants", controller.AdminListWheelDrawGrants)
+			wheelAdminRoute.PUT("/draw-grants", controller.AdminSaveWheelDrawGrant)
+			wheelAdminRoute.DELETE("/draw-grants/:userId", controller.AdminDeleteWheelDrawGrant)
 		}
 		serviceStatusAdminRoute := apiRouter.Group("/service-status/admin")
 		serviceStatusAdminRoute.Use(middleware.AdminAuth())

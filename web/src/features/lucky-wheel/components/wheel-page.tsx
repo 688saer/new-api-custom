@@ -245,7 +245,28 @@ export function LuckyWheel() {
     if ((status?.remaining_draws ?? 0) > 0) {
       return t('{{count}} free left', { count: status?.remaining_draws ?? 0 })
     }
+    if ((status?.permanent_draws_left ?? 0) > 0) {
+      return t('{{count}} permanent left', {
+        count: status?.permanent_draws_left ?? 0,
+      })
+    }
     return status ? formatQuota(status.single_cost) : '—'
+  }
+
+  const renderDrawHint = () => {
+    if ((status?.remaining_draws ?? 0) > 0) {
+      return t('You still have {{count}} free draws today', {
+        count: status?.remaining_draws ?? 0,
+      })
+    }
+    if ((status?.permanent_draws_left ?? 0) > 0) {
+      return t('You still have {{count}} permanent draws', {
+        count: status?.permanent_draws_left ?? 0,
+      })
+    }
+    return t('Each additional draw costs {{amount}}', {
+      amount: formatQuota(status?.single_cost ?? 0),
+    })
   }
 
   if (loading) {
@@ -337,6 +358,13 @@ export function LuckyWheel() {
                     label={t('Free draws left')}
                     value={String(status.remaining_draws)}
                   />
+                  {status.permanent_draws_left > 0 ? (
+                    <StatPill
+                      icon={<Ticket aria-hidden='true' className='size-3.5' />}
+                      label={t('Permanent draws left')}
+                      value={String(status.permanent_draws_left)}
+                    />
+                  ) : null}
                   <StatPill
                     icon={<Trophy aria-hidden='true' className='size-3.5' />}
                     label={t('Won today')}
@@ -370,13 +398,7 @@ export function LuckyWheel() {
                   />
                   <div className='mt-6 flex flex-col items-center gap-1 text-center'>
                     <p className='text-xs text-amber-100/80'>
-                      {status.remaining_draws > 0
-                        ? t('You still have {{count}} free draws today', {
-                            count: status.remaining_draws,
-                          })
-                        : t('Each additional draw costs {{amount}}', {
-                            amount: formatQuota(status.single_cost),
-                          })}
+                      {renderDrawHint()}
                     </p>
                     {status.daily_draw_limit > 0 ? (
                       <p className='text-[11px] text-amber-100/60'>

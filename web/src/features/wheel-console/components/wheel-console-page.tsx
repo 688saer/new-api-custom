@@ -34,20 +34,25 @@ import {
   adjustWheelPrizeStock,
   cancelWheelRecord,
   createWheelPrize,
+  deleteWheelDrawGrant,
   deleteWheelPrize,
   deliverWheelRecord,
   getWheelOverview,
   getWheelSettings,
+  listWheelDrawGrants,
   listWheelPrizes,
   listWheelRecords,
+  saveWheelDrawGrant,
   shipWheelRecord,
   updateWheelPrize,
   updateWheelPrizeChances,
   updateWheelSettings,
 } from '../api'
+import type { DrawGrantDraft } from '../lib/draw-grants'
 import { prizeDeleteDescription, toPrizeDraft } from '../lib/prizes'
 import type {
   WheelAdminPrize,
+  WheelDrawGrant,
   WheelOverview,
   WheelPrizeChance,
   WheelPrizeDraft,
@@ -55,6 +60,8 @@ import type {
   WheelSettings,
 } from '../types'
 import { CardKeyDialog } from './card-key-dialog'
+import { DrawGrantDialog } from './draw-grant-dialog'
+import { DrawGrantTable } from './draw-grant-table'
 import { OverviewPanel } from './overview-panel'
 import { PrizeChanceDialog } from './prize-chance-dialog'
 import { PrizeFormDialog } from './prize-form-dialog'
@@ -65,6 +72,7 @@ import { SettingsPanel } from './settings-panel'
 import { StockDialog } from './stock-dialog'
 
 const RECORD_PAGE_SIZE = 10
+const GRANT_PAGE_SIZE = 10
 
 export function WheelConsole() {
   const { t } = useTranslation()
@@ -122,6 +130,21 @@ export function WheelConsole() {
   } | null>(null)
   const [recordSubmitting, setRecordSubmitting] = useState(false)
   const [recordError, setRecordError] = useState<string | null>(null)
+
+  const [grants, setGrants] = useState<WheelDrawGrant[]>([])
+  const [grantsTotal, setGrantsTotal] = useState(0)
+  const [grantsLoading, setGrantsLoading] = useState(true)
+  const [grantsError, setGrantsError] = useState<string | null>(null)
+  const [grantKeywordInput, setGrantKeywordInput] = useState('')
+  const [grantQuery, setGrantQuery] = useState({ keyword: '', page: 1 })
+  const debouncedGrantKeyword = useDebounce(grantKeywordInput, 400)
+  const [grantDialogOpen, setGrantDialogOpen] = useState(false)
+  const [grantTarget, setGrantTarget] = useState<WheelDrawGrant | null>(null)
+  const [grantSubmitting, setGrantSubmitting] = useState(false)
+  const [grantDialogError, setGrantDialogError] = useState<string | null>(null)
+  const [grantRevokeTarget, setGrantRevokeTarget] =
+    useState<WheelDrawGrant | null>(null)
+  const [grantRevoking, setGrantRevoking] = useState(false)
 
   const loadOverview = useCallback(async () => {
     setOverviewLoading(true)
@@ -185,6 +208,30 @@ export function WheelConsole() {
     }
   }, [])
 
+  const loadGrants = useCallback(async () => {
+    setGrantsLoading(true)
+    setGrantsError(null)
+    try {
+      const res = await listWheelDrawGrants(
+        grantQuery.keyword,
+        grantQuery.page,
+        GRANT_PAGE_SIZE
+      )
+      if (!res.success || !res.data) {
+        setGrantsError(
+          res.reason || res.message || t('Failed to load draw attempts')
+        )
+        return
+      }
+      setGrants(res.data.items)
+      setGrantsTotal(res.data.total)
+    } catch {
+      setGrantsError(t('Failed to load draw attempts'))
+    } finally {
+      setGrantsLoading(false)
+    }
+  }, [grantQuery, t])
+
   useEffect(() => {
     void loadOverview()
     void loadPrizes()
@@ -202,6 +249,18 @@ export function WheelConsole() {
   useEffect(() => {
     void loadRecords()
   }, [loadRecords])
+
+  useEffect(() => {
+    setGrantQuery((prev) =>
+      prev.keyword === debouncedGrantKeyword
+        ? prev
+        : { keyword: debouncedGrantKeyword, page: 1 }
+    )
+  }, [debouncedGrantKeyword])
+
+  useEffect(() => {
+    void loadGrants()
+  }, [loadGrants])
 
   useEffect(() => {
     let cancelled = false
@@ -268,6 +327,54 @@ export function WheelConsole() {
       toast.error(t('Delete failed'))
     } finally {
       setDeleteLoading(false)
+    }
+  }
+
+  const handleSaveGrant = async (identifier: string, draft: DrawGrantDraft) => {
+    setGrantSubmitting(true)
+    setGrantDialogError(null)
+    try {
+      const res = await saveWheelDrawGrant(identifier, {
+        permanent_draws: draft.permanentDraws,
+        daily_free_draws: draft.dailyFreeDraws,
+      })
+      if (!res.success) {
+        setGrantDialogError(
+          res.reason || res.message || t('Failed to save draw attempts')
+        )
+        return
+      }
+      toast.success(
+        draft.permanentDraws === 0 && draft.dailyFreeDraws === 0
+          ? t('Draw attempts revoked')
+          : t('Draw attempts saved')
+      )
+      setGrantDialogOpen(false)
+      setGrantTarget(null)
+      void loadGrants()
+    } catch {
+      setGrantDialogError(t('Failed to save draw attempts'))
+    } finally {
+      setGrantSubmitting(false)
+    }
+  }
+
+  const handleRevokeGrant = async () => {
+    if (!grantRevokeTarget) return
+    setGrantRevoking(true)
+    try {
+      const res = await deleteWheelDrawGrant(grantRevokeTarget.user_id)
+      if (!res.success) {
+        toast.error(res.reason || res.message || t('Revoke failed'))
+        return
+      }
+      toast.success(t('Draw attempts revoked'))
+      setGrantRevokeTarget(null)
+      void loadGrants()
+    } catch {
+      toast.error(t('Revoke failed'))
+    } finally {
+      setGrantRevoking(false)
     }
   }
 
@@ -424,6 +531,7 @@ export function WheelConsole() {
               <TabsTrigger value='overview'>{t('Overview')}</TabsTrigger>
               <TabsTrigger value='prizes'>{t('Prizes')}</TabsTrigger>
               <TabsTrigger value='records'>{t('Win records')}</TabsTrigger>
+              <TabsTrigger value='draws'>{t('Draw attempts')}</TabsTrigger>
               <TabsTrigger value='settings'>{t('Settings')}</TabsTrigger>
             </TabsList>
 
@@ -487,6 +595,37 @@ export function WheelConsole() {
                       setRecordError(null)
                       setRecordAction({ action, win })
                     }}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value='draws' className='mt-4'>
+              <Card>
+                <CardContent className='py-4'>
+                  <DrawGrantTable
+                    grants={grants}
+                    total={grantsTotal}
+                    loading={grantsLoading}
+                    error={grantsError}
+                    keyword={grantKeywordInput}
+                    page={grantQuery.page}
+                    pageSize={GRANT_PAGE_SIZE}
+                    onKeywordChange={setGrantKeywordInput}
+                    onPageChange={(page) =>
+                      setGrantQuery((prev) => ({ ...prev, page }))
+                    }
+                    onCreate={() => {
+                      setGrantTarget(null)
+                      setGrantDialogError(null)
+                      setGrantDialogOpen(true)
+                    }}
+                    onEdit={(grant) => {
+                      setGrantTarget(grant)
+                      setGrantDialogError(null)
+                      setGrantDialogOpen(true)
+                    }}
+                    onRevoke={(grant) => setGrantRevokeTarget(grant)}
                   />
                 </CardContent>
               </Card>
@@ -565,6 +704,43 @@ export function WheelConsole() {
           }
         }}
         onSubmit={(payload) => void handleRecordAction(payload)}
+      />
+
+      <ConfirmDialog
+        open={grantRevokeTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setGrantRevokeTarget(null)
+        }}
+        title={t('Revoke draw attempts')}
+        desc={t(
+          'Draw attempts already granted to {{name}} will be removed. Permanent draws already used are not refunded.',
+          {
+            name:
+              grantRevokeTarget?.username ||
+              `#${grantRevokeTarget?.user_id ?? ''}`,
+          }
+        )}
+        confirmText={t('Revoke')}
+        destructive
+        isLoading={grantRevoking}
+        handleConfirm={() => void handleRevokeGrant()}
+      />
+
+      <DrawGrantDialog
+        open={grantDialogOpen}
+        grant={grantTarget}
+        submitting={grantSubmitting}
+        error={grantDialogError}
+        onOpenChange={(open) => {
+          setGrantDialogOpen(open)
+          if (!open) {
+            setGrantTarget(null)
+            setGrantDialogError(null)
+          }
+        }}
+        onSubmit={(identifier, draft) =>
+          void handleSaveGrant(identifier, draft)
+        }
       />
 
       <ConfirmDialog

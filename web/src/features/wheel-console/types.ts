@@ -146,3 +146,31 @@ export interface WheelRecordFilter {
   page: number
   pageSize: number
 }
+
+/** 用户专属抽奖次数：永久次数与每日免费次数互相独立。 */
+export interface WheelDrawGrant {
+  user_id: number
+  username: string
+  permanent_draws: number
+  daily_free_draws: number
+  /** 今日免费次数总量：全局每日免费次数 + 用户专属每日免费次数。 */
+  free_today: number
+  free_used_today: number
+  free_left_today: number
+  created_at: number
+  updated_at: number
+}
+
+/** 发放抽奖次数时提交的字段。 */
+export interface WheelDrawGrantDraft {
+  userId: number
+  permanentDraws: number
+  dailyFreeDraws: number
+}
+
+export interface WheelDrawGrantPage {
+  items: WheelDrawGrant[]
+  total: number
+  page: number
+  page_size: number
+}

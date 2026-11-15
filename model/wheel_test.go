@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -17,7 +18,7 @@ func setupWheelTestState(t *testing.T, freeDraws int, costQuota int) {
 	t.Helper()
 
 	truncateTables(t)
-	require.NoError(t, DB.AutoMigrate(&WheelPrize{}, &WheelPrizeCode{}, &WheelWin{}, &Redemption{}, &SubscriptionPlan{}))
+	require.NoError(t, DB.AutoMigrate(&WheelPrize{}, &WheelPrizeCode{}, &WheelWin{}, &WheelDrawGrant{}, &Redemption{}, &SubscriptionPlan{}))
 
 	oldUnit := common.QuotaPerUnit
 	common.QuotaPerUnit = 500000
@@ -34,7 +35,7 @@ func setupWheelTestState(t *testing.T, freeDraws int, costQuota int) {
 	t.Cleanup(func() {
 		*operation_setting.GetWheelSetting() = oldSetting
 		common.QuotaPerUnit = oldUnit
-		for _, table := range []string{"wheel_wins", "wheel_prizes", "wheel_prize_codes", "redemptions"} {
+		for _, table := range []string{"wheel_wins", "wheel_prizes", "wheel_prize_codes", "wheel_draw_grants", "redemptions"} {
 			DB.Exec("DELETE FROM " + table)
 		}
 	})
@@ -494,4 +495,117 @@ func TestUserWheelSpinNeverPicksZeroChancePrize(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, credit.Id, result.PrizeId)
 	}
+}
+
+// 发放次数：先花今日免费次数（全局 + 专属），再扣永久次数，最后才按额度付费。
+func TestUserWheelSpinUsesGrantedDraws(t *testing.T) {
+	setupWheelTestState(t, 1, 500000)
+	user := createWheelTestUser(t, 500000)
+	require.NoError(t, DB.Create(&WheelDrawGrant{
+		UserId:         user.Id,
+		PermanentDraws: 2,
+		DailyFreeDraws: 1,
+	}).Error)
+	createWheelTestPrize(t, WheelPrize{
+		Name:   "Thanks",
+		Type:   WheelPrizeTypeNone,
+		Weight: 1,
+		Stock:  WheelStockUnlimited,
+	})
+
+	// 全局 1 次 + 专属 1 次 = 今日 2 次免费
+	first, err := UserWheelSpin(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, WheelDrawSourceFree, first.DrawSource)
+	assert.Zero(t, first.CostQuota)
+	assert.Equal(t, 1, first.RemainingDraws)
+
+	second, err := UserWheelSpin(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, WheelDrawSourceFree, second.DrawSource)
+	assert.Zero(t, second.CostQuota)
+	assert.Zero(t, second.RemainingDraws)
+
+	third, err := UserWheelSpin(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, WheelDrawSourcePermanent, third.DrawSource)
+	assert.Zero(t, third.CostQuota)
+	assert.Equal(t, 1, third.PermanentDrawsLeft)
+
+	fourth, err := UserWheelSpin(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, WheelDrawSourcePermanent, fourth.DrawSource)
+	assert.Zero(t, fourth.PermanentDrawsLeft)
+
+	// 永久次数用完后回到付费
+	fifth, err := UserWheelSpin(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, WheelDrawSourceQuota, fifth.DrawSource)
+	assert.Equal(t, 500000, fifth.CostQuota)
+
+	grant, err := GetWheelDrawGrant(user.Id)
+	require.NoError(t, err)
+	require.NotNil(t, grant)
+	assert.Zero(t, grant.PermanentDraws)
+
+	var stored User
+	require.NoError(t, DB.First(&stored, "id = ?", user.Id).Error)
+	assert.Equal(t, 0, stored.Quota)
+}
+
+// 发放接口：每日免费次数与全局值叠加，两个值都设为 0 等于收回。
+func TestSaveWheelDrawGrantStacksDailyFreeDraws(t *testing.T) {
+	setupWheelTestState(t, 1, 0)
+	user := createWheelTestUser(t, 0)
+
+	status, err := GetWheelStatus(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 1, status["remaining_draws"])
+	assert.Equal(t, 0, status["permanent_draws_left"])
+
+	_, err = SaveWheelDrawGrant("ghost-user", 3, 2)
+	require.Error(t, err, "用户不存在时不能发放")
+
+	view, err := SaveWheelDrawGrant(user.Username, 3, 2)
+	require.NoError(t, err)
+	require.NotNil(t, view)
+	assert.Equal(t, 3, view.PermanentDraws)
+	assert.Equal(t, 2, view.DailyFreeDraws)
+	assert.Equal(t, 3, view.FreeToday)
+	assert.Equal(t, 3, view.FreeLeftToday)
+
+	status, err = GetWheelStatus(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 3, status["remaining_draws"])
+	assert.Equal(t, 3, status["permanent_draws_left"])
+	assert.Equal(t, 2, status["grant_daily_free_draws"])
+
+	items, total, err := ListWheelDrawGrants(user.Username, 1, 20)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	require.Len(t, items, 1)
+	assert.Equal(t, user.Id, items[0].UserId)
+	assert.Equal(t, user.Username, items[0].Username)
+
+	// 也可以用用户 ID 指定目标用户
+	byId, err := SaveWheelDrawGrant(strconv.Itoa(user.Id), 0, 1)
+	require.NoError(t, err)
+	require.NotNil(t, byId)
+	assert.Zero(t, byId.PermanentDraws)
+	assert.Equal(t, 1, byId.DailyFreeDraws)
+
+	_, err = SaveWheelDrawGrant(user.Username, -1, 0)
+	require.Error(t, err, "永久次数不能为负")
+
+	cleared, err := SaveWheelDrawGrant(user.Username, 0, 0)
+	require.NoError(t, err)
+	assert.Nil(t, cleared)
+
+	grant, err := GetWheelDrawGrant(user.Id)
+	require.NoError(t, err)
+	assert.Nil(t, grant)
+
+	status, err = GetWheelStatus(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 1, status["remaining_draws"])
 }

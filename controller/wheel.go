@@ -315,6 +315,62 @@ func AdminDeleteWheelPrizeCode(c *gin.Context) {
 	common.ApiSuccess(c, nil)
 }
 
+// AdminListWheelDrawGrants 抽奖次数发放列表（GET /api/wheel/draw-grants）
+func AdminListWheelDrawGrants(c *gin.Context) {
+	page, _ := strconv.Atoi(c.Query("page"))
+	pageSize, _ := strconv.Atoi(c.Query("page_size"))
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 20
+	}
+	items, total, err := model.ListWheelDrawGrants(strings.TrimSpace(c.Query("keyword")), page, pageSize)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{
+		"items":     items,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+
+// AdminSaveWheelDrawGrant 发放或修改用户抽奖次数（PUT /api/wheel/draw-grants）
+func AdminSaveWheelDrawGrant(c *gin.Context) {
+	var req struct {
+		User           string `json:"user"`
+		PermanentDraws int    `json:"permanent_draws"`
+		DailyFreeDraws int    `json:"daily_free_draws"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiErrorMsg(c, "Invalid request parameters")
+		return
+	}
+	grant, err := model.SaveWheelDrawGrant(req.User, req.PermanentDraws, req.DailyFreeDraws)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, grant)
+}
+
+// AdminDeleteWheelDrawGrant 收回用户抽奖次数（DELETE /api/wheel/draw-grants/:userId）
+func AdminDeleteWheelDrawGrant(c *gin.Context) {
+	userId, err := strconv.Atoi(c.Param("userId"))
+	if err != nil || userId <= 0 {
+		common.ApiErrorMsg(c, "Invalid user ID")
+		return
+	}
+	if err := model.DeleteWheelDrawGrant(userId); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, nil)
+}
+
 // AdminListWheelWins 中奖记录（GET /api/wheel/records）
 func AdminListWheelWins(c *gin.Context) {
 	page, _ := strconv.Atoi(c.Query("page"))

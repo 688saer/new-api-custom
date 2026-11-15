@@ -56,6 +56,10 @@ export interface WheelStatus {
   quota: number
   quota_per_unit: number
   daily_free_draws: number
+  /** 管理员额外发放的每日免费次数，与 daily_free_draws 叠加。 */
+  grant_daily_free_draws: number
+  /** 管理员发放的永久抽奖次数余额。 */
+  permanent_draws_left: number
   daily_draw_limit: number
   remaining_draws: number
   draws_used_today: number
@@ -90,6 +94,10 @@ export interface WheelSpinResult {
   is_free: boolean
   cost_quota: number
   cost_display: string
+  /** 本次抽奖的扣减来源。 */
+  draw_source: 'free' | 'permanent' | 'quota'
+  /** 本次抽奖后的永久次数余额。 */
+  permanent_draws_left: number
   remaining_draws: number
   draws_used_today: number
   quota: number

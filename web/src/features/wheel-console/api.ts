@@ -20,6 +20,8 @@ import { api } from '@/lib/api'
 
 import type {
   WheelAdminPrize,
+  WheelDrawGrant,
+  WheelDrawGrantPage,
   WheelOverview,
   WheelPrizeChance,
   WheelPrizeCodePage,
@@ -207,5 +209,46 @@ export async function updateWheelSettings(
   settings: WheelSettings
 ): Promise<ApiEnvelope<WheelSettings>> {
   const res = await api.put('/api/wheel/setting', settings, silentOptions)
+  return res.data
+}
+
+export async function listWheelDrawGrants(
+  keyword: string,
+  page: number,
+  pageSize: number
+): Promise<ApiEnvelope<WheelDrawGrantPage>> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  })
+  if (keyword.trim() !== '') {
+    params.set('keyword', keyword.trim())
+  }
+  const res = await api.get(
+    `/api/wheel/draw-grants?${params.toString()}`,
+    silentOptions
+  )
+  return res.data
+}
+
+export async function saveWheelDrawGrant(
+  user: string,
+  draft: { permanent_draws: number; daily_free_draws: number }
+): Promise<ApiEnvelope<WheelDrawGrant | null>> {
+  const res = await api.put(
+    '/api/wheel/draw-grants',
+    { user, ...draft },
+    silentOptions
+  )
+  return res.data
+}
+
+export async function deleteWheelDrawGrant(
+  userId: number
+): Promise<ApiEnvelope<null>> {
+  const res = await api.delete(
+    `/api/wheel/draw-grants/${userId}`,
+    silentOptions
+  )
   return res.data
 }
