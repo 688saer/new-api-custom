@@ -32,6 +32,7 @@ import {
   CLAIM_CODE_BATCH_LIMIT,
   CLAIM_CODE_STATUS_DISABLED,
   CLAIM_CODE_STATUS_ENABLED,
+  CLAIM_CODE_VALUE_LENGTH_LIMIT,
   CLAIM_TYPE_OPTIONS,
   createEmptyClaimCodeDraft,
   fromExpiredTimeInput,
@@ -103,6 +104,14 @@ function ClaimCodeForm(
     (option) => option.value === draft.type
   )?.hintKey
 
+  // 已有领取记录的口令不能再改口令值，否则用户手上的口令会失效
+  const claimedLocked = (props.code?.used_count ?? 0) > 0
+  let claimCodeValueHintKey: string | null = null
+  if (claimedLocked) {
+    claimCodeValueHintKey = 'A claimed code cannot change its value'
+  }
+  const customCode = draft.code.trim() !== ''
+
   let submitLabel = t('Create claim code')
   if (props.code) {
     submitLabel = t('Save changes')
@@ -115,6 +124,7 @@ function ClaimCodeForm(
     event.preventDefault()
     const payload: ClaimCodeDraft = {
       ...draft,
+      code: draft.code.trim(),
       name: draft.name.trim(),
       description: draft.description.trim(),
       group_limit: draft.group_limit.trim(),
@@ -167,6 +177,23 @@ function ClaimCodeForm(
       {typeHint != null ? (
         <p className='text-muted-foreground -mt-1 text-xs'>{t(typeHint)}</p>
       ) : null}
+
+      <div className='grid gap-1.5'>
+        <Label htmlFor='claim-code-value'>{t('Claim code value')}</Label>
+        <Input
+          id='claim-code-value'
+          value={draft.code}
+          maxLength={CLAIM_CODE_VALUE_LENGTH_LIMIT}
+          disabled={claimedLocked}
+          placeholder={t(
+            'Leave empty to generate a random code, or type your own'
+          )}
+          onChange={(event) => patch({ code: event.target.value })}
+        />
+        <p className='text-muted-foreground text-xs'>
+          {t(claimCodeValueHintKey ?? 'Any text works, including Chinese.')}
+        </p>
+      </div>
 
       {draft.type === 'quota' ? (
         <div className='grid gap-1.5'>
@@ -224,7 +251,8 @@ function ClaimCodeForm(
             min={1}
             max={CLAIM_CODE_BATCH_LIMIT}
             step={1}
-            value={draft.count}
+            disabled={customCode}
+            value={customCode ? 1 : draft.count}
             onChange={(event) =>
               patch({ count: Number(event.target.value) || 0 })
             }

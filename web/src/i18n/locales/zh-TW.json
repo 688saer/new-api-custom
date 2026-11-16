@@ -9150,5 +9150,13 @@
     "{{count}} in total": "共 {{count}} 條",
     "{{prize}} claimed by {{user}}": "{{user}} 領取了 {{prize}}",
     "{{used}} / {{total}} claimed": "已領 {{used}} / {{total}}",
-    "{{used}} claimed · unlimited": "已領 {{used}} 次 · 不限量"}
+    "{{used}} claimed · unlimited": "已領 {{used}} 次 · 不限量",
+    "Claim code value": "口令內容",
+    "Leave empty to generate a random code, or type your own": "留空則自動產生，也可以自己填寫",
+    "Any text works, including Chinese.": "可以使用任意文字，包括漢字。",
+    "A claimed code cannot change its value": "已經有人領取過的口令不能修改內容",
+    "Claim code value must be at most 64 characters": "口令內容最多 64 個字元",
+    "A custom claim code can only be created once at a time": "自訂口令一次只能建立一個",
+    "This claim code already exists": "這個口令已經存在了",
+    "Claim code value cannot be empty": "口令內容不能為空"}
 }

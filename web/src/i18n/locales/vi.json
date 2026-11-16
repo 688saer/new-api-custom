@@ -9150,5 +9150,13 @@
     "{{count}} in total": "Tổng cộng {{count}}",
     "{{prize}} claimed by {{user}}": "{{user}} đã nhận {{prize}}",
     "{{used}} / {{total}} claimed": "Đã nhận {{used}} / {{total}}",
-    "{{used}} claimed · unlimited": "Đã nhận {{used}} · không giới hạn"}
+    "{{used}} claimed · unlimited": "Đã nhận {{used}} · không giới hạn",
+    "Claim code value": "Nội dung mã đổi thưởng",
+    "Leave empty to generate a random code, or type your own": "Để trống để tự sinh mã, hoặc tự nhập mã của bạn",
+    "Any text works, including Chinese.": "Có thể dùng mọi ký tự, kể cả chữ Hán.",
+    "A claimed code cannot change its value": "Mã đã có người nhận không thể đổi nội dung",
+    "Claim code value must be at most 64 characters": "Nội dung mã tối đa 64 ký tự",
+    "A custom claim code can only be created once at a time": "Mỗi lần chỉ tạo được một mã tự nhập",
+    "This claim code already exists": "Mã này đã tồn tại",
+    "Claim code value cannot be empty": "Nội dung mã không được để trống"}
 }

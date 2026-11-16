@@ -9150,5 +9150,13 @@
     "{{count}} in total": "合計 {{count}} 件",
     "{{prize}} claimed by {{user}}": "{{user}} が {{prize}} を受け取りました",
     "{{used}} / {{total}} claimed": "{{used}} / {{total}} 受取済み",
-    "{{used}} claimed · unlimited": "{{used}} 件受取済み · 無制限"}
+    "{{used}} claimed · unlimited": "{{used}} 件受取済み · 無制限",
+    "Claim code value": "コードの文字列",
+    "Leave empty to generate a random code, or type your own": "空欄なら自動生成します。ご自身で入力することもできます",
+    "Any text works, including Chinese.": "漢字を含め、任意の文字を使えます。",
+    "A claimed code cannot change its value": "すでに受け取り済みのコードは文字列を変更できません",
+    "Claim code value must be at most 64 characters": "コードの文字列は 64 文字以内にしてください",
+    "A custom claim code can only be created once at a time": "カスタムコードは一度に 1 つだけ作成できます",
+    "This claim code already exists": "このコードはすでに存在します",
+    "Claim code value cannot be empty": "コードの文字列を入力してください"}
 }

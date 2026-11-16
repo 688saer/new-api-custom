@@ -137,6 +137,42 @@ describe('validateClaimCodeDraft', () => {
   })
 })
 
+describe('custom claim code values', () => {
+  it('starts with an empty value so the server generates the code', () => {
+    expect(createEmptyClaimCodeDraft().code).toBe('')
+  })
+
+  it('copies the existing value and keeps it in a draft', () => {
+    expect(toClaimCodeDraft({ ...baseRow, code: '新年礼物' }).code).toBe(
+      '新年礼物'
+    )
+  })
+
+  it('accepts a custom value on a single code', () => {
+    expect(
+      validateClaimCodeDraft(
+        draftWith({ name: 'Gift', quota: 500000, code: '新年礼物' })
+      )
+    ).toBeNull()
+  })
+
+  it('rejects a custom value longer than 64 characters', () => {
+    expect(
+      validateClaimCodeDraft(
+        draftWith({ name: 'Gift', quota: 500000, code: '令'.repeat(65) })
+      )
+    ).toBe('Claim code value must be at most 64 characters')
+  })
+
+  it('rejects a custom value when several codes are requested', () => {
+    expect(
+      validateClaimCodeDraft(
+        draftWith({ name: 'Gift', quota: 500000, code: 'GIFT', count: 3 })
+      )
+    ).toBe('A custom claim code can only be created once at a time')
+  })
+})
+
 describe('claim code helpers', () => {
   it('labels enabled and disabled codes', () => {
     expect(claimCodeStatusLabelKey(1)).toBe('Enabled')

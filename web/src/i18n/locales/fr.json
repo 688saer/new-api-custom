@@ -9150,5 +9150,13 @@
     "{{count}} in total": "{{count}} au total",
     "{{prize}} claimed by {{user}}": "{{prize}} réclamé par {{user}}",
     "{{used}} / {{total}} claimed": "{{used}} / {{total}} réclamés",
-    "{{used}} claimed · unlimited": "{{used}} réclamés · illimité"}
+    "{{used}} claimed · unlimited": "{{used}} réclamés · illimité",
+    "Claim code value": "Valeur du code",
+    "Leave empty to generate a random code, or type your own": "Laissez vide pour générer un code aléatoire, ou saisissez le vôtre",
+    "Any text works, including Chinese.": "Tout texte convient, y compris le chinois.",
+    "A claimed code cannot change its value": "Un code déjà utilisé ne peut pas changer de valeur",
+    "Claim code value must be at most 64 characters": "La valeur du code ne peut pas dépasser 64 caractères",
+    "A custom claim code can only be created once at a time": "Un code personnalisé ne peut être créé qu'un seul à la fois",
+    "This claim code already exists": "Ce code existe déjà",
+    "Claim code value cannot be empty": "La valeur du code ne peut pas être vide"}
 }

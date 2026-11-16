@@ -80,6 +80,8 @@ export interface ClaimCodeOverview {
 }
 
 export interface ClaimCodeDraft {
+  /** 后台自定义的口令值，留空则由服务端随机生成。 */
+  code: string
   name: string
   type: ClaimCodeType
   quota: number

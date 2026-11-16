@@ -23,6 +23,7 @@ import type { ClaimCodeDraft, ClaimCodeRow, ClaimCodeType } from '../types'
 export const CLAIM_CODE_BATCH_LIMIT = 200
 export const CLAIM_CODE_COUNT_LIMIT = 1000000
 export const CLAIM_CODE_PER_USER_LIMIT = 1000
+export const CLAIM_CODE_VALUE_LENGTH_LIMIT = 64
 export const CLAIM_CODE_STATUS_ENABLED = 1
 export const CLAIM_CODE_STATUS_DISABLED = 2
 
@@ -64,6 +65,7 @@ export const CLAIM_TYPE_OPTIONS: {
 
 export function createEmptyClaimCodeDraft(): ClaimCodeDraft {
   return {
+    code: '',
     name: '',
     type: 'quota',
     quota: 0,
@@ -80,6 +82,7 @@ export function createEmptyClaimCodeDraft(): ClaimCodeDraft {
 
 export function toClaimCodeDraft(row: ClaimCodeRow): ClaimCodeDraft {
   return {
+    code: row.code,
     name: row.name,
     type: row.type,
     quota: row.quota,
@@ -98,6 +101,12 @@ export function toClaimCodeDraft(row: ClaimCodeRow): ClaimCodeDraft {
 export function validateClaimCodeDraft(draft: ClaimCodeDraft): string | null {
   if (draft.name.trim() === '') {
     return 'Enter the claim code name'
+  }
+  if ([...draft.code.trim()].length > CLAIM_CODE_VALUE_LENGTH_LIMIT) {
+    return 'Claim code value must be at most 64 characters'
+  }
+  if (draft.code.trim() !== '' && draft.count !== 1) {
+    return 'A custom claim code can only be created once at a time'
   }
   if (draft.count < 1 || draft.count > CLAIM_CODE_BATCH_LIMIT) {
     return 'Generate between 1 and 200 claim codes at a time'

@@ -341,3 +341,95 @@ func TestClaimCodeCardPoolOnlyDeletesUnusedCards(t *testing.T) {
 	require.Len(t, usedCards, 1)
 	require.Error(t, DeleteClaimCodeCard(code.Id, usedCards[0].Id), "已发放的卡密不能删除")
 }
+
+// 自定义口令：后台填什么就兑什么，汉字与大小写混写都能匹配
+func TestCustomClaimCodeValues(t *testing.T) {
+	setupClaimCodeTestState(t)
+	alice := createClaimCodeTestUser(t, "alice", "default", 0)
+	bob := createClaimCodeTestUser(t, "bob", "default", 0)
+
+	code := createClaimCodeForTest(t, ClaimCode{
+		Code:         " 新年大礼包 ",
+		Name:         "New year gift",
+		Type:         ClaimCodeTypeQuota,
+		Quota:        500000,
+		TotalCount:   2,
+		PerUserLimit: 1,
+	})
+	assert.Equal(t, "新年大礼包", code.Code, "自定义口令去掉首尾空白后原样保存")
+
+	claim, err := RedeemClaimCode(alice.Id, " 新年大礼包 ")
+	require.NoError(t, err)
+	assert.Equal(t, 500000, claim.Quota)
+
+	_, err = CreateClaimCodes(ClaimCode{
+		Code: "新年大礼包", Name: "Duplicate", Type: ClaimCodeTypeQuota, Quota: 1000,
+	}, 1)
+	require.Error(t, err, "同一个自定义口令不能重复创建")
+	assert.Contains(t, err.Error(), "This claim code already exists")
+
+	_, err = CreateClaimCodes(ClaimCode{
+		Code: "GIFT2026", Name: "Batch with custom value", Type: ClaimCodeTypeQuota, Quota: 1000,
+	}, 3)
+	require.Error(t, err, "自定义口令一次只能创建一条")
+
+	_, err = CreateClaimCodes(ClaimCode{
+		Code: "bad\ncode", Name: "Control char", Type: ClaimCodeTypeQuota, Quota: 1000,
+	}, 1)
+	require.Error(t, err, "自定义口令不能包含控制字符")
+
+	_, err = CreateClaimCodes(ClaimCode{
+		Code: strings.Repeat("字", 65), Name: "Too long", Type: ClaimCodeTypeQuota, Quota: 1000,
+	}, 1)
+	require.Error(t, err, "自定义口令不能超过 64 个字符")
+
+	latin := createClaimCodeForTest(t, ClaimCode{
+		Code: "vip-2026", Name: "Latin code", Type: ClaimCodeTypeQuota, Quota: 100000,
+		TotalCount: 2, PerUserLimit: 1,
+	})
+	assert.Equal(t, "VIP-2026", latin.Code, "拉丁字母统一大写保存")
+
+	_, err = RedeemClaimCode(bob.Id, "vip-2026")
+	require.NoError(t, err, "用户按小写输入也能兑")
+
+	blank := createClaimCodeForTest(t, ClaimCode{
+		Name: "Generated", Type: ClaimCodeTypeQuota, Quota: 1000, TotalCount: 1, PerUserLimit: 1,
+	})
+	assert.Equal(t, 14, len(blank.Code), "留空仍然随机生成 XXXX-XXXX-XXXX")
+}
+
+// 口令值可以改，但已经有人领取后必须锁住，否则用户手上的口令会失效
+func TestUpdateClaimCodeValueOnlyBeforeFirstClaim(t *testing.T) {
+	setupClaimCodeTestState(t)
+	alice := createClaimCodeTestUser(t, "alice", "default", 0)
+
+	code := createClaimCodeForTest(t, ClaimCode{
+		Code: "旧口令", Name: "Rename me", Type: ClaimCodeTypeQuota, Quota: 500000,
+		TotalCount: 2, PerUserLimit: 1,
+	})
+
+	updated, err := UpdateClaimCode(code.Id, ClaimCode{
+		Code: "新口令", Name: "Renamed", Type: ClaimCodeTypeQuota, Quota: 500000,
+		TotalCount: 2, PerUserLimit: 1,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "新口令", updated.Code)
+
+	_, err = RedeemClaimCode(alice.Id, "旧口令")
+	require.Error(t, err, "旧口令已经改掉，不能再兑")
+
+	claim, err := RedeemClaimCode(alice.Id, "新口令")
+	require.NoError(t, err)
+	assert.Equal(t, "Renamed", claim.Name)
+
+	_, err = UpdateClaimCode(code.Id, ClaimCode{
+		Code: "又一版", Name: "Renamed", Type: ClaimCodeTypeQuota, Quota: 500000,
+		TotalCount: 2, PerUserLimit: 1,
+	})
+	require.Error(t, err, "已经有人领取的口令不能改口令值")
+	assert.Contains(t, err.Error(), "A claimed code cannot change its value")
+
+	kept, err := GetClaimCodeById(code.Id)
+	require.NoError(t, err)
+	assert.Equal(t, "新口令", kept.Code)
+}

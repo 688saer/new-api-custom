@@ -9150,5 +9150,13 @@
     "{{count}} in total": "{{count}} in total",
     "{{prize}} claimed by {{user}}": "{{prize}} claimed by {{user}}",
     "{{used}} / {{total}} claimed": "{{used}} / {{total}} claimed",
-    "{{used}} claimed · unlimited": "{{used}} claimed · unlimited"}
+    "{{used}} claimed · unlimited": "{{used}} claimed · unlimited",
+    "Claim code value": "Claim code value",
+    "Leave empty to generate a random code, or type your own": "Leave empty to generate a random code, or type your own",
+    "Any text works, including Chinese.": "Any text works, including Chinese.",
+    "A claimed code cannot change its value": "A claimed code cannot change its value",
+    "Claim code value must be at most 64 characters": "Claim code value must be at most 64 characters",
+    "A custom claim code can only be created once at a time": "A custom claim code can only be created once at a time",
+    "This claim code already exists": "This claim code already exists",
+    "Claim code value cannot be empty": "Claim code value cannot be empty"}
 }
