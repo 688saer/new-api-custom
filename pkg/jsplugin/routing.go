@@ -494,6 +494,20 @@ var reservedRouteNamespaces = []string{
 	"/usage-logs",
 	"/users",
 	"/wallet",
+	// 本系统自己的控制台页面
+	"/aff-withdrawals-console",
+	"/announcements",
+	"/canvas",
+	"/claim-codes",
+	"/invoice-console",
+	"/invoices",
+	"/lottery",
+	"/lucky-wheel",
+	"/redeem-center",
+	"/rewards",
+	"/tickets",
+	"/welfare-chests",
+	"/wheel-console",
 }
 
 func (g *RoutingGeneration) Get(key string) (*LoadedPlugin, bool) {
