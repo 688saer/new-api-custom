@@ -93,6 +93,7 @@ func SubmitMyClaimCodeAddress(c *gin.Context) {
 
 // claimCodeRequest 后台提交的口令字段
 type claimCodeRequest struct {
+	Code         string `json:"code"`
 	Name         string `json:"name"`
 	Type         string `json:"type"`
 	Quota        int    `json:"quota"`
@@ -109,6 +110,7 @@ type claimCodeRequest struct {
 // toClaimCode 把请求转成口令模型
 func (req claimCodeRequest) toClaimCode(adminId int) model.ClaimCode {
 	return model.ClaimCode{
+		Code:         req.Code,
 		Name:         req.Name,
 		Type:         req.Type,
 		Quota:        req.Quota,

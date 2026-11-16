@@ -73,7 +73,7 @@ type ChannelMeta struct {
 	ChannelOtherSettings dto.ChannelOtherSettings
 	UpstreamModelName    string
 	IsModelMapped        bool
-	SupportStreamOptions bool // 鏄惁鏀寔娴佸紡閫夐」
+	SupportStreamOptions bool // 是否支持流式选项
 }
 
 type TokenCountMeta struct {
@@ -86,8 +86,9 @@ type RelayInfo struct {
 	TokenKey          string
 	TokenGroup        string
 	UserId            int
-	UsingGroup        string // 浣跨敤鐨勫垎缁勶紝褰揳uto璺ㄥ垎缁勯噸璇曟椂锛屼細鍙樺姩
-	UserGroup         string // 鐢ㄦ埛鎵€鍦ㄥ垎缁?	TokenUnlimited    bool
+	UsingGroup        string // 使用的分组，当auto跨分组重试时，会变动
+	UserGroup         string // 用户所在分组
+	TokenUnlimited    bool
 	StartTime         time.Time
 	FirstResponseTime time.Time
 	isFirstResponse   bool
@@ -108,7 +109,7 @@ type RelayInfo struct {
 	RequestURLPath     string
 	RequestHeaders     map[string]string
 	ShouldIncludeUsage bool
-	DisablePing        bool // 鏄惁绂佹鍚戜笅娓稿彂閫佽嚜瀹氫箟 Ping
+	DisablePing        bool // 是否禁止向下游发送自定义 Ping
 	ClientWs           *websocket.Conn
 	TargetWs           *websocket.Conn
 	InputAudioFormat   string
@@ -131,10 +132,14 @@ type RelayInfo struct {
 	ClaudeToChatStreamState any
 	ChatToGeminiStreamState any
 	ReceivedResponseCount   int
-	FinalPreConsumedQuota   int // 鏈€缁堥娑堣€楃殑閰嶉
-	// ForcePreConsume 涓?true 鏃剁鐢?BillingSession 鐨勪俊浠婚搴︽梺璺紝
-	// 寮哄埗棰勬墸鍏ㄩ銆傜敤浜庡紓姝ヤ换鍔★紙瑙嗛/闊充箰鐢熸垚绛夛級锛屽洜涓鸿姹傝繑鍥炲悗浠诲姟浠嶅湪杩愯锛?	// 蹇呴』鍦ㄦ彁浜ゅ墠閿佸畾鍏ㄩ銆?	ForcePreConsume bool
-	// Billing 鏄璐逛細璇濓紝灏佽浜嗛鎵ｈ垂/缁撶畻/閫€娆剧殑缁熶竴鐢熷懡鍛ㄦ湡銆?	// 鍒濆鍏嶈垂缁勫彲涓?nil锛涜嫢 auto 閲嶈瘯鍒囨崲鍒颁粯璐圭粍锛屼細鍦ㄥ彂閫佸墠鍒涘缓銆?	Billing BillingSettler
+	FinalPreConsumedQuota   int // 最终预消耗的配额
+	// ForcePreConsume 为 true 时禁用 BillingSession 的信任额度旁路，
+	// 强制预扣全额。用于异步任务（视频/音乐生成等），因为请求返回后任务仍在运行，
+	// 必须在提交前锁定全额。
+	ForcePreConsume bool
+	// Billing 是计费会话，封装了预扣费/结算/退款的统一生命周期。
+	// 初始免费组可为 nil；若 auto 重试切换到付费组，会在发送前创建。
+	Billing BillingSettler
 	// BillingSource indicates whether this request is billed from wallet quota or subscription.
 	// "" or "wallet" => wallet; "subscription" => subscription
 	BillingSource string
@@ -198,7 +203,9 @@ type RelayInfo struct {
 	// RequestConversionChain records request format conversions in order, e.g.
 	// ["openai", "openai_responses"] or ["openai", "claude"].
 	RequestConversionChain []types.RelayFormat
-	// 鏈€缁堣姹傚埌涓婃父鐨勬牸寮忋€傚彲鐢?adaptor 鏄惧紡璁剧疆锛?	// 鑻ヤ负绌猴紝璋冪敤 GetFinalRequestRelayFormat 浼氬洖閫€鍒?RequestConversionChain 鐨勬渶鍚庝竴椤规垨 RelayFormat銆?	FinalRequestRelayFormat types.RelayFormat
+	// 最终请求到上游的格式。可由 adaptor 显式设置；
+	// 若为空，调用 GetFinalRequestRelayFormat 会回退到 RequestConversionChain 的最后一项或 RelayFormat。
+	FinalRequestRelayFormat types.RelayFormat
 
 	StreamStatus *StreamStatus
 	// VendorToolUsage reads the upstream's own billed tool counts from a raw
@@ -280,7 +287,7 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	info.RequestConversionChain = nil
 	info.InitRequestConversionChain()
 	// Per-attempt only. Do not clear StreamStatus, conversion diagnostics,
-	// LastError, or billing accumulators 鈥?those are request-scoped.
+	// LastError, or billing accumulators — those are request-scoped.
 	info.SendResponseCount = 0
 	info.ClaudeToChatStreamState = nil
 	info.ChatToGeminiStreamState = nil
@@ -365,7 +372,7 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	}
 
 	// reset some fields based on channel meta
-	// 閲嶇疆鏌愪簺瀛楁锛屼緥濡傛ā鍨嬪悕绉扮瓑
+	// 重置某些字段，例如模型名称等
 	if info.Request != nil {
 		info.Request.SetModelName(info.OriginModelName)
 	}
@@ -449,7 +456,7 @@ func (info *RelayInfo) ToString() string {
 	return b.String()
 }
 
-// 瀹氫箟鏀寔娴佸紡閫夐」鐨勯€氶亾绫诲瀷
+// 定义支持流式选项的通道类型
 var streamSupportedChannels = map[int]bool{
 	constant.ChannelTypeOpenAI:         true,
 	constant.ChannelTypeAnthropic:      true,
@@ -605,7 +612,8 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	//paramOverride := common.GetContextKeyStringMap(c, constant.ContextKeyChannelParamOverride)
 
 	tokenGroup := common.GetContextKeyString(c, constant.ContextKeyTokenGroup)
-	// 褰撲护鐗屽垎缁勪负绌烘椂锛岃〃绀轰娇鐢ㄧ敤鎴峰垎缁?	if tokenGroup == "" {
+	// 当令牌分组为空时，表示使用用户分组
+	if tokenGroup == "" {
 		tokenGroup = common.GetContextKeyString(c, constant.ContextKeyUserGroup)
 	}
 
@@ -857,7 +865,7 @@ func (info *RelayInfo) GetEstimatePromptTokens() int {
 }
 
 // ---------------------------------------------------------------------------
-// convmeta.Meta implementation 鈥?the view format converters see. Keep these
+// convmeta.Meta implementation — the view format converters see. Keep these
 // thin: they only expose protocol state, never billing/user fields.
 // ---------------------------------------------------------------------------
 
@@ -1034,7 +1042,9 @@ type OriginTaskRef struct {
 type TaskRelayInfo struct {
 	Action       string
 	OriginTaskID string
-	// PublicTaskID 鏄彁浜ゆ椂棰勭敓鎴愮殑 task_xxxx 鏍煎紡鍏紑 ID锛?	// 渚?DoResponse 鍦ㄨ繑鍥炵粰瀹㈡埛绔椂浣跨敤锛堥伩鍏嶆毚闇蹭笂娓哥湡瀹?ID锛夈€?	PublicTaskID string
+	// PublicTaskID 是提交时预生成的 task_xxxx 格式公开 ID，
+	// 供 DoResponse 在返回给客户端时使用（避免暴露上游真实 ID）。
+	PublicTaskID string
 
 	ConsumeQuota bool
 
@@ -1138,8 +1148,8 @@ type TaskInfo struct {
 	Url              string          `json:"url,omitempty"`
 	RemoteUrl        string          `json:"remote_url,omitempty"`
 	Progress         string          `json:"progress,omitempty"`
-	CompletionTokens int             `json:"completion_tokens,omitempty"` // 鐢ㄤ簬鎸夊€嶇巼璁¤垂
-	TotalTokens      int             `json:"total_tokens,omitempty"`      // 鐢ㄤ簬鎸夊€嶇巼璁¤垂
+	CompletionTokens int             `json:"completion_tokens,omitempty"` // 用于按倍率计费
+	TotalTokens      int             `json:"total_tokens,omitempty"`      // 用于按倍率计费
 	UsageFacts       map[string]any  `json:"usage_facts,omitempty"`
 	PluginState      json.RawMessage `json:"plugin_state,omitempty"`
 }
@@ -1195,10 +1205,14 @@ func SetJSONMember(doc *ojson.Doc, parent, key string, value any) error {
 	return doc.Set(path, value)
 }
 
-// RemoveDisabledFields 浠庤姹?JSON 鏁版嵁涓Щ闄ゆ笭閬撹缃腑绂佺敤鐨勫瓧娈?// service_tier: 鏈嶅姟灞傜骇瀛楁锛屽彲鑳藉鑷撮澶栬璐癸紙OpenAI銆丆laude銆丷esponses API 鏀寔锛?// inference_geo: Claude 鏁版嵁椹荤暀鎺ㄧ悊鍖哄煙瀛楁锛堜粎 Claude 鏀寔锛岄粯璁よ繃婊わ級
-// speed: Claude 鎺ㄧ悊閫熷害妯″紡瀛楁锛堜粎 Claude 鏀寔锛岄粯璁よ繃婊わ級
-// store: 鏁版嵁瀛樺偍鎺堟潈瀛楁锛屾秹鍙婄敤鎴烽殣绉侊紙浠?OpenAI銆丷esponses API 鏀寔锛岄粯璁ゅ厑璁搁€忎紶锛岀鐢ㄥ悗鍙兘瀵艰嚧 Codex 鏃犳硶浣跨敤锛?// safety_identifier: 瀹夊叏鏍囪瘑绗︼紝鐢ㄤ簬鍚?OpenAI 鎶ュ憡杩濊鐢ㄦ埛锛堜粎 OpenAI 鏀寔锛屾秹鍙婄敤鎴烽殣绉侊級
-// stream_options.include_obfuscation: 鍝嶅簲娴佹贩娣嗘帶鍒跺瓧娈碉紙浠?OpenAI Responses API 鏀寔锛?func RemoveDisabledFields(jsonData []byte, channelOtherSettings dto.ChannelOtherSettings, channelPassThroughEnabled bool) ([]byte, error) {
+// RemoveDisabledFields 从请求 JSON 数据中移除渠道设置中禁用的字段
+// service_tier: 服务层级字段，可能导致额外计费（OpenAI、Claude、Responses API 支持）
+// inference_geo: Claude 数据驻留推理区域字段（仅 Claude 支持，默认过滤）
+// speed: Claude 推理速度模式字段（仅 Claude 支持，默认过滤）
+// store: 数据存储授权字段，涉及用户隐私（仅 OpenAI、Responses API 支持，默认允许透传，禁用后可能导致 Codex 无法使用）
+// safety_identifier: 安全标识符，用于向 OpenAI 报告违规用户（仅 OpenAI 支持，涉及用户隐私）
+// stream_options.include_obfuscation: 响应流混淆控制字段（仅 OpenAI Responses API 支持）
+func RemoveDisabledFields(jsonData []byte, channelOtherSettings dto.ChannelOtherSettings, channelPassThroughEnabled bool) ([]byte, error) {
 	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelPassThroughEnabled {
 		return jsonData, nil
 	}
@@ -1214,27 +1228,32 @@ func SetJSONMember(doc *ojson.Doc, parent, key string, value any) error {
 	}
 
 	var disabled []string
-	// 榛樿绉婚櫎 service_tier锛岄櫎闈炴槑纭厑璁革紙閬垮厤棰濆璁¤垂椋庨櫓锛?	if !channelOtherSettings.AllowServiceTier {
+	// 默认移除 service_tier，除非明确允许（避免额外计费风险）
+	if !channelOtherSettings.AllowServiceTier {
 		disabled = append(disabled, "service_tier")
 	}
 
-	// 榛樿绉婚櫎 inference_geo锛岄櫎闈炴槑纭厑璁革紙閬垮厤鍦ㄦ湭鎺堟潈鎯呭喌涓嬮€忎紶鏁版嵁椹荤暀鍖哄煙锛?	if !channelOtherSettings.AllowInferenceGeo {
+	// 默认移除 inference_geo，除非明确允许（避免在未授权情况下透传数据驻留区域）
+	if !channelOtherSettings.AllowInferenceGeo {
 		disabled = append(disabled, "inference_geo")
 	}
 
-	// 榛樿绉婚櫎 speed锛岄櫎闈炴槑纭厑璁革紙閬垮厤鎰忓鍒囨崲 Claude 鎺ㄧ悊閫熷害妯″紡锛?	if !channelOtherSettings.AllowSpeed {
+	// 默认移除 speed，除非明确允许（避免意外切换 Claude 推理速度模式）
+	if !channelOtherSettings.AllowSpeed {
 		disabled = append(disabled, "speed")
 	}
 
-	// 榛樿鍏佽 store 閫忎紶锛岄櫎闈炴槑纭鐢紙绂佺敤鍙兘褰卞搷 Codex 浣跨敤锛?	if channelOtherSettings.DisableStore {
+	// 默认允许 store 透传，除非明确禁用（禁用可能影响 Codex 使用）
+	if channelOtherSettings.DisableStore {
 		disabled = append(disabled, "store")
 	}
 
-	// 榛樿绉婚櫎 safety_identifier锛岄櫎闈炴槑纭厑璁革紙淇濇姢鐢ㄦ埛闅愮锛岄伩鍏嶅悜 OpenAI 鎶ュ憡鐢ㄦ埛淇℃伅锛?	if !channelOtherSettings.AllowSafetyIdentifier {
+	// 默认移除 safety_identifier，除非明确允许（保护用户隐私，避免向 OpenAI 报告用户信息）
+	if !channelOtherSettings.AllowSafetyIdentifier {
 		disabled = append(disabled, "safety_identifier")
 	}
 
-	// 榛樿绉婚櫎 stream_options.include_obfuscation锛岄櫎闈炴槑纭厑璁革紙閬垮厤鍏抽棴鍝嶅簲娴佹贩娣嗕繚鎶わ級
+	// 默认移除 stream_options.include_obfuscation，除非明确允许（避免关闭响应流混淆保护）
 	removeObfuscation := !channelOtherSettings.AllowIncludeObfuscation && ojson.GetBytesNoCopy(jsonData, "stream_options").IsObject()
 	if removeObfuscation {
 		disabled = append(disabled, "stream_options.include_obfuscation")

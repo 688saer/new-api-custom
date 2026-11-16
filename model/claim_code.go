@@ -53,6 +53,8 @@ const (
 	ClaimCodePerUserLimit = 1000
 	// ClaimCodeCardBatchLimit 单次最多导入多少条卡密
 	ClaimCodeCardBatchLimit = 5000
+	// ClaimCodeValueLengthLimit 自定义口令的最大字符数，与 code 列的 varchar(64) 一致
+	ClaimCodeValueLengthLimit = 64
 )
 
 // 口令字符集：去掉容易混淆的 0/O/1/I，只保留大写字母与数字
@@ -147,9 +149,27 @@ func (ClaimCodeClaim) TableName() string {
 	return "claim_code_claims"
 }
 
-// normalizeClaimCode 收敛用户输入：去掉空白并统一大写（口令本身只含大写字母与数字）
+// normalizeClaimCode 收敛用户输入：去掉首尾空白并统一大写。口令可以是汉字、
+// 字母或数字，统一大写只影响拉丁字母，因此自定义口令同样不区分大小写。
 func normalizeClaimCode(raw string) string {
 	return strings.ToUpper(strings.TrimSpace(raw))
+}
+
+// normalizeCustomClaimCode 收敛并校验后台手工填写的口令值
+func normalizeCustomClaimCode(raw string) (string, error) {
+	value := normalizeClaimCode(raw)
+	if value == "" {
+		return "", common.NewMessage("Claim code value cannot be empty")
+	}
+	if len([]rune(value)) > ClaimCodeValueLengthLimit {
+		return "", common.NewMessage("Claim code value must be at most 64 characters")
+	}
+	for _, char := range value {
+		if char < 0x20 || char == 0x7f {
+			return "", common.NewMessage("Claim code value cannot contain control characters")
+		}
+	}
+	return value, nil
 }
 
 // claimCodeGroups 解析允许领取的分组列表
@@ -248,8 +268,23 @@ func NormalizeClaimCode(code *ClaimCode) error {
 	return nil
 }
 
-// CreateClaimCodes 按同一份配置生成 count 条独立口令
+// CreateClaimCodes 按同一份配置生成 count 条独立口令；code.Code 非空表示后台
+// 自定义了口令值，此时只能生成一条，否则会出现重复口令。
 func CreateClaimCodes(code ClaimCode, count int) ([]ClaimCode, error) {
+	custom := strings.TrimSpace(code.Code)
+	if custom != "" {
+		value, err := normalizeCustomClaimCode(custom)
+		if err != nil {
+			return nil, err
+		}
+		code.Code = value
+		if count > 1 {
+			return nil, common.NewMessage("A custom claim code can only be created once at a time")
+		}
+		count = 1
+	} else {
+		code.Code = ""
+	}
 	if err := NormalizeClaimCode(&code); err != nil {
 		return nil, err
 	}
@@ -265,12 +300,38 @@ func CreateClaimCodes(code ClaimCode, count int) ([]ClaimCode, error) {
 		item.UsedCount = 0
 		item.CreatedAt = now
 		item.UpdatedAt = now
+		if item.Code != "" {
+			item.Id = 0
+			if err := item.createWithCustomCode(); err != nil {
+				return created, err
+			}
+			created = append(created, item)
+			continue
+		}
 		if err := item.createWithGeneratedCode(); err != nil {
 			return created, err
 		}
 		created = append(created, item)
 	}
 	return created, nil
+}
+
+// createWithCustomCode 用后台填写的口令值入库，重复时直接报错而不是悄悄改写
+func (code *ClaimCode) createWithCustomCode() error {
+	err := DB.Create(code).Error
+	if err == nil {
+		return nil
+	}
+	if isDuplicateKeyError(err) {
+		return common.NewMessage("This claim code already exists")
+	}
+	return err
+}
+
+// isDuplicateKeyError 判断是否撞上了唯一索引
+func isDuplicateKeyError(err error) bool {
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "unique") || strings.Contains(message, "duplicate")
 }
 
 // createWithGeneratedCode 生成随机口令并入库；撞上已有口令时重新生成
@@ -285,8 +346,7 @@ func (code *ClaimCode) createWithGeneratedCode() error {
 		if err == nil {
 			return nil
 		}
-		message := strings.ToLower(err.Error())
-		if !strings.Contains(message, "unique") && !strings.Contains(message, "duplicate") {
+		if !isDuplicateKeyError(err) {
 			return err
 		}
 		code.Id = 0
@@ -294,7 +354,8 @@ func (code *ClaimCode) createWithGeneratedCode() error {
 	return common.NewMessage("Failed to generate a unique claim code, please retry")
 }
 
-// UpdateClaimCode 更新口令配置（口令值与已领取次数不可修改）
+// UpdateClaimCode 更新口令配置；口令值只有在还没有人领取时才能改，
+// 已领取的口令保留原值，避免用户手上的口令突然失效。
 func UpdateClaimCode(id int, patch ClaimCode) (*ClaimCode, error) {
 	if id <= 0 {
 		return nil, common.NewMessage("Invalid claim code ID")
@@ -305,6 +366,21 @@ func UpdateClaimCode(id int, patch ClaimCode) (*ClaimCode, error) {
 			return nil, common.NewMessage("Claim code not found")
 		}
 		return nil, err
+	}
+
+	codeChanged := false
+	if custom := strings.TrimSpace(patch.Code); custom != "" {
+		value, err := normalizeCustomClaimCode(custom)
+		if err != nil {
+			return nil, err
+		}
+		if value != existing.Code {
+			if existing.UsedCount > 0 {
+				return nil, common.NewMessage("A claimed code cannot change its value")
+			}
+			existing.Code = value
+			codeChanged = true
+		}
 	}
 
 	existing.Name = patch.Name
@@ -332,20 +408,27 @@ func UpdateClaimCode(id int, patch ClaimCode) (*ClaimCode, error) {
 	}
 
 	existing.UpdatedAt = common.GetTimestamp()
-	if err := DB.Model(&ClaimCode{}).Where("id = ?", id).Updates(map[string]any{
-		"name":            existing.Name,
-		"type":            existing.Type,
-		"description":     existing.Description,
-		"total_count":     existing.TotalCount,
-		"per_user_limit":  existing.PerUserLimit,
-		"group_limit":     existing.GroupLimit,
-		"expired_time":    existing.ExpiredTime,
-		"quota":           existing.Quota,
-		"plan_id":         existing.PlanId,
-		"plan_title":      existing.PlanTitle,
-		"status":          existing.Status,
-		"updated_at":      existing.UpdatedAt,
-	}).Error; err != nil {
+	updates := map[string]any{
+		"name":           existing.Name,
+		"type":           existing.Type,
+		"description":    existing.Description,
+		"total_count":    existing.TotalCount,
+		"per_user_limit": existing.PerUserLimit,
+		"group_limit":    existing.GroupLimit,
+		"expired_time":   existing.ExpiredTime,
+		"quota":          existing.Quota,
+		"plan_id":        existing.PlanId,
+		"plan_title":     existing.PlanTitle,
+		"status":         existing.Status,
+		"updated_at":     existing.UpdatedAt,
+	}
+	if codeChanged {
+		updates["code"] = existing.Code
+	}
+	if err := DB.Model(&ClaimCode{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+		if isDuplicateKeyError(err) {
+			return nil, common.NewMessage("This claim code already exists")
+		}
 		return nil, err
 	}
 	return existing, nil
