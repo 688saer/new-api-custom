@@ -158,7 +158,9 @@ export function WelfareApiPage() {
                     'The welfare API list is only visible to signed-in accounts.'
                   )}
                   action={
-                    <Button render={<Link to='/sign-in' />}>{t('Sign in')}</Button>
+                    <Button render={<Link to='/sign-in' />}>
+                      {t('Sign in')}
+                    </Button>
                   }
                 />
               ) : null}

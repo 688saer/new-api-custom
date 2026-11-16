@@ -24,8 +24,14 @@ import { useMascotDrag } from '../use-mascot-drag'
 const SIZE = { width: 148, height: 150 }
 
 function setViewport(width: number, height: number) {
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width })
-  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height })
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    value: width,
+  })
+  Object.defineProperty(window, 'innerHeight', {
+    configurable: true,
+    value: height,
+  })
 }
 
 /**
@@ -36,10 +42,18 @@ function setViewport(width: number, height: number) {
  */
 function makeElement() {
   const element = document.createElement('div')
-  Object.defineProperty(element, 'offsetWidth', { configurable: true, value: SIZE.width })
-  Object.defineProperty(element, 'offsetHeight', { configurable: true, value: SIZE.height })
+  Object.defineProperty(element, 'offsetWidth', {
+    configurable: true,
+    value: SIZE.width,
+  })
+  Object.defineProperty(element, 'offsetHeight', {
+    configurable: true,
+    value: SIZE.height,
+  })
   element.getBoundingClientRect = () => {
-    const match = /translate3d\(([-\d.]+)px,\s*([-\d.]+)px/.exec(element.style.transform)
+    const match = /translate3d\(([-\d.]+)px,\s*([-\d.]+)px/.exec(
+      element.style.transform
+    )
     const x = match ? Number(match[1]) : 0
     const y = match ? Number(match[2]) : 0
     return {
@@ -59,7 +73,9 @@ function makeElement() {
 }
 
 function transformOf(element: HTMLElement) {
-  const match = /translate3d\(([-\d.]+)px,\s*([-\d.]+)px/.exec(element.style.transform)
+  const match = /translate3d\(([-\d.]+)px,\s*([-\d.]+)px/.exec(
+    element.style.transform
+  )
   return { x: Number(match?.[1] ?? 0), y: Number(match?.[2] ?? 0) }
 }
 
@@ -77,7 +93,10 @@ describe('mascot drag docking', () => {
     renderHook(() => useMascotDrag({ elementRef: ref, dock: 'right' }))
 
     // 16px margin from the right and bottom edges.
-    expect(transformOf(element)).toEqual({ x: 1440 - SIZE.width - 16, y: 900 - SIZE.height - 16 })
+    expect(transformOf(element)).toEqual({
+      x: 1440 - SIZE.width - 16,
+      y: 900 - SIZE.height - 16,
+    })
   })
 
   it('parks against the left edge when the operator chose that corner', () => {
@@ -102,7 +121,10 @@ describe('mascot drag docking', () => {
     })
 
     // Clamped to the boundary, never stranded past the right or bottom edge.
-    expect(transformOf(element)).toEqual({ x: 500 - SIZE.width, y: 400 - SIZE.height })
+    expect(transformOf(element)).toEqual({
+      x: 500 - SIZE.width,
+      y: 400 - SIZE.height,
+    })
   })
 
   it('keeps a user-chosen position that still fits after a resize', () => {

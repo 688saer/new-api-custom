@@ -85,9 +85,7 @@ describe('WelfareChestCard', () => {
     renderCard({ box: lockedBox, weeklyConsumptionUsd: 5, canOpen: false })
 
     expect(
-      screen.getByText(
-        `Weekly consumption must reach ${formatCurrencyUSD(20)}`
-      )
+      screen.getByText(`Weekly consumption must reach ${formatCurrencyUSD(20)}`)
     ).toBeInTheDocument()
   })
 
@@ -96,9 +94,7 @@ describe('WelfareChestCard', () => {
 
     const button = screen.getByRole('button', { name: 'Claimed This Week' })
     expect(button).toBeDisabled()
-    expect(
-      screen.getByText(`+${formatCurrencyUSD(3)}`)
-    ).toBeInTheDocument()
+    expect(screen.getByText(`+${formatCurrencyUSD(3)}`)).toBeInTheDocument()
   })
 
   it('names the chest it will open so screen readers can tell the two apart', () => {

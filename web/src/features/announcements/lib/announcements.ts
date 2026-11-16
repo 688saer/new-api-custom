@@ -55,7 +55,7 @@ export function sortAnnouncements(
   items: readonly AnnouncementItem[]
 ): AnnouncementItem[] {
   const time = (item: AnnouncementItem) => {
-    const parsed = item.publishDate ? Date.parse(item.publishDate) : NaN
+    const parsed = item.publishDate ? Date.parse(item.publishDate) : Number.NaN
     return Number.isNaN(parsed) ? 0 : parsed
   }
   return [...items].sort((left, right) => time(right) - time(left))

@@ -23,19 +23,28 @@ import { resolvePublicAddress } from '../api-endpoints-card'
 describe('resolvePublicAddress', () => {
   it('keeps a configured public address', () => {
     expect(
-      resolvePublicAddress('https://api.example.com', 'https://console.example.com')
+      resolvePublicAddress(
+        'https://api.example.com',
+        'https://console.example.com'
+      )
     ).toBe('https://api.example.com')
   })
 
   it('falls back to the page origin when the configured address is loopback', () => {
     expect(
-      resolvePublicAddress('http://localhost:3000', 'https://console.example.com')
+      resolvePublicAddress(
+        'http://localhost:3000',
+        'https://console.example.com'
+      )
     ).toBe('https://console.example.com')
   })
 
   it('falls back for 127.0.0.1 and 0.0.0.0 as well', () => {
     expect(
-      resolvePublicAddress('http://127.0.0.1:3000', 'https://console.example.com')
+      resolvePublicAddress(
+        'http://127.0.0.1:3000',
+        'https://console.example.com'
+      )
     ).toBe('https://console.example.com')
     expect(
       resolvePublicAddress('http://0.0.0.0:3000', 'https://console.example.com')

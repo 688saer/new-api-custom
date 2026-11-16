@@ -42,7 +42,9 @@ describe('mascot drag physics', () => {
       { t: 1000, x: 20, y: 20 },
     ]
     // The window is 200ms, so anything before t=800 goes.
-    expect(trimTrail(trail, 1000).map((sample) => sample.t)).toEqual([900, 1000])
+    expect(trimTrail(trail, 1000).map((sample) => sample.t)).toEqual([
+      900, 1000,
+    ])
   })
 
   it('trimTrail leaves a fresh trail untouched', () => {
@@ -111,18 +113,18 @@ describe('mascot release velocity', () => {
 
 describe('mascot flight physics', () => {
   it('bounces off the right edge and reverses horizontal velocity', () => {
-    const next = flightStep(
-      { x: 995, y: 300, vx: 900, vy: 0 },
-      0.02,
-      bounds
-    )
+    const next = flightStep({ x: 995, y: 300, vx: 900, vy: 0 }, 0.02, bounds)
     expect(next.x).toBe(bounds.maxX)
     expect(next.vx).toBeLessThan(0)
     expect(next.bounced).toBe(true)
   })
 
   it('settles on the ground and reports atRest', () => {
-    const next = flightStep({ x: 500, y: bounds.maxY, vx: 2, vy: 0 }, 0.016, bounds)
+    const next = flightStep(
+      { x: 500, y: bounds.maxY, vx: 2, vy: 0 },
+      0.016,
+      bounds
+    )
     expect(next.atRest).toBe(true)
   })
 

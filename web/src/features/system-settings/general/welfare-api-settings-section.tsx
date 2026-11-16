@@ -288,9 +288,7 @@ export function WelfareApiSettingsSection(props: {
                     <SettingsSwitchContent>
                       <FormLabel>{t('Require sign-in to view')}</FormLabel>
                       <FormDescription>
-                        {t(
-                          'Only signed-in accounts can see the endpoint list'
-                        )}
+                        {t('Only signed-in accounts can see the endpoint list')}
                       </FormDescription>
                     </SettingsSwitchContent>
                     <FormControl>

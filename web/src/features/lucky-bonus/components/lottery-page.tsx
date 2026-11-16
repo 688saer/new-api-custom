@@ -124,9 +124,7 @@ export function LuckyLottery() {
       }
     } catch (err) {
       setRankingError(
-        err instanceof Error
-          ? err.message
-          : t("Failed to load today's ranking")
+        err instanceof Error ? err.message : t("Failed to load today's ranking")
       )
     } finally {
       setRankingLoading(false)
@@ -156,7 +154,10 @@ export function LuckyLottery() {
   const slots = useMemo(() => {
     const prizes = status?.prizes ?? []
     if (prizes.length === 0) return []
-    return Array.from({ length: SLOT_COUNT }, (_, i) => prizes[i % prizes.length])
+    return Array.from(
+      { length: SLOT_COUNT },
+      (_, i) => prizes[i % prizes.length]
+    )
   }, [status?.prizes])
 
   const stopSpin = useCallback(
@@ -171,12 +172,11 @@ export function LuckyLottery() {
         setDrawing(null)
         return
       }
-      const target = data.slot_indexes?.[data.slot_indexes.length - 1] ?? 0
+      const target = data.slot_indexes.at(-1) ?? 0
       const slotCount = SLOT_COUNT
       const prizeLen = status?.prizes.length ?? 1
       // 把奖池下标映射到可视槽位
-      const visualSlot =
-        prizeLen > 0 ? target % prizeLen : 0
+      const visualSlot = prizeLen > 0 ? target % prizeLen : 0
       const finalSlot =
         slotCount > 0 ? ((visualSlot % slotCount) + slotCount) % slotCount : 0
       setSpin({ running: false, activeSlot: finalSlot })
@@ -249,7 +249,8 @@ export function LuckyLottery() {
   )
 
   const canSingle = !!status?.can_single && !drawing && !spin.running
-  const canMulti = !!status?.enable_multi && !!status?.can_multi && !drawing && !spin.running
+  const canMulti =
+    !!status?.enable_multi && !!status?.can_multi && !drawing && !spin.running
 
   if (loading) {
     return (

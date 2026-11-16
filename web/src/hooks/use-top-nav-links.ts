@@ -95,7 +95,11 @@ export function useTopNavLinks(): TopNavLink[] {
 
   // Channel availability
   const serviceStatus = modules?.serviceStatus
-  if (serviceStatus && typeof serviceStatus === 'object' && serviceStatus.enabled) {
+  if (
+    serviceStatus &&
+    typeof serviceStatus === 'object' &&
+    serviceStatus.enabled
+  ) {
     const requiresAuth = serviceStatus.requireAuth && !isAuthed
     links.push({
       title: t('Channel availability'),

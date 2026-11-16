@@ -91,7 +91,8 @@ export function ServiceStatusUptimeBar(props: ServiceStatusUptimeBarProps) {
               {t(serviceStatusColorLabel(block.status))}
             </div>
             <div>
-              {t('Success rate')}: {formatServiceStatusPercent(block.success_rate)}
+              {t('Success rate')}:{' '}
+              {formatServiceStatusPercent(block.success_rate)}
             </div>
             <div>
               {t('Successful probes in this period')}: {block.success_count}/

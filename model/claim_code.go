@@ -471,10 +471,10 @@ type ClaimCodeFilter struct {
 type ClaimCodeView struct {
 	ClaimCode
 	// RemainingCount 剩余可领取次数，-1 表示不限
-	RemainingCount int   `json:"remaining_count"`
-	AvailableCards int64 `json:"available_cards"`
-	ClaimedUsers   int64 `json:"claimed_users"`
-	Expired        bool  `json:"expired"`
+	RemainingCount int    `json:"remaining_count"`
+	AvailableCards int64  `json:"available_cards"`
+	ClaimedUsers   int64  `json:"claimed_users"`
+	Expired        bool   `json:"expired"`
 	QuotaDisplay   string `json:"quota_display"`
 }
 
@@ -711,31 +711,31 @@ func DeleteClaimCodeCard(claimCodeId int, cardId int) error {
 
 // ClaimCodeClaimView 领取记录展示项
 type ClaimCodeClaimView struct {
-	Id             int    `json:"id"`
-	ClaimCodeId    int    `json:"claim_code_id"`
-	Code           string `json:"code"`
-	Name           string `json:"name"`
-	Type           string `json:"type"`
-	Status         string `json:"status"`
-	Description    string `json:"description"`
-	UserId         int    `json:"user_id"`
-	Username       string `json:"username"`
-	Quota          int    `json:"quota"`
-	QuotaDisplay   string `json:"quota_display"`
-	PlanId         int    `json:"plan_id"`
-	PlanTitle      string `json:"plan_title"`
-	CardContent    string `json:"card_content"`
-	SubscriptionId int    `json:"subscription_id"`
-	ReceiverName   string `json:"receiver_name"`
-	ReceiverPhone  string `json:"receiver_phone"`
+	Id              int    `json:"id"`
+	ClaimCodeId     int    `json:"claim_code_id"`
+	Code            string `json:"code"`
+	Name            string `json:"name"`
+	Type            string `json:"type"`
+	Status          string `json:"status"`
+	Description     string `json:"description"`
+	UserId          int    `json:"user_id"`
+	Username        string `json:"username"`
+	Quota           int    `json:"quota"`
+	QuotaDisplay    string `json:"quota_display"`
+	PlanId          int    `json:"plan_id"`
+	PlanTitle       string `json:"plan_title"`
+	CardContent     string `json:"card_content"`
+	SubscriptionId  int    `json:"subscription_id"`
+	ReceiverName    string `json:"receiver_name"`
+	ReceiverPhone   string `json:"receiver_phone"`
 	ReceiverAddress string `json:"receiver_address"`
-	TrackingNo     string `json:"tracking_no"`
-	Note           string `json:"note"`
-	NeedAddress    bool   `json:"need_address"`
-	CreatedAt      int64  `json:"created_at"`
-	UpdatedAt      int64  `json:"updated_at"`
-	ShippedAt      int64  `json:"shipped_at"`
-	DeliveredAt    int64  `json:"delivered_at"`
+	TrackingNo      string `json:"tracking_no"`
+	Note            string `json:"note"`
+	NeedAddress     bool   `json:"need_address"`
+	CreatedAt       int64  `json:"created_at"`
+	UpdatedAt       int64  `json:"updated_at"`
+	ShippedAt       int64  `json:"shipped_at"`
+	DeliveredAt     int64  `json:"delivered_at"`
 }
 
 // buildClaimCodeClaimView 把领取记录转成展示项
@@ -1111,14 +1111,14 @@ func CancelClaimCodeClaim(claimId int, note string) error {
 
 // GetClaimCodeOverview 后台口令概览
 type ClaimCodeOverview struct {
-	TotalCodes      int64 `json:"total_codes"`
-	ActiveCodes     int64 `json:"active_codes"`
-	TotalClaims     int64 `json:"total_claims"`
-	PendingShipment int64 `json:"pending_shipment"`
-	QuotaDistributed int64 `json:"quota_distributed"`
-	CardIssued      int64 `json:"card_issued"`
+	TotalCodes         int64 `json:"total_codes"`
+	ActiveCodes        int64 `json:"active_codes"`
+	TotalClaims        int64 `json:"total_claims"`
+	PendingShipment    int64 `json:"pending_shipment"`
+	QuotaDistributed   int64 `json:"quota_distributed"`
+	CardIssued         int64 `json:"card_issued"`
 	SubscriptionIssued int64 `json:"subscription_issued"`
-	PhysicalIssued  int64 `json:"physical_issued"`
+	PhysicalIssued     int64 `json:"physical_issued"`
 }
 
 // GetClaimCodeOverview 统计口令与领取情况

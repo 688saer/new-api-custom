@@ -122,7 +122,8 @@ export function dockOffset(
   size: { width: number; height: number },
   viewport: { width: number; height: number }
 ): { x: number; y: number } {
-  const x = dock === 'left' ? DOCK_MARGIN : viewport.width - size.width - DOCK_MARGIN
+  const x =
+    dock === 'left' ? DOCK_MARGIN : viewport.width - size.width - DOCK_MARGIN
   const y = viewport.height - size.height - DOCK_MARGIN
   return { x: Math.max(0, x), y: Math.max(0, y) }
 }
@@ -136,7 +137,12 @@ export function trimTrail(trail: DragSample[], now: number): DragSample[] {
 }
 
 /** One axis step of the over-damped drag spring. The caller adds `v * dt` to the position. */
-export function springStep(v: number, x: number, target: number, dt: number): number {
+export function springStep(
+  v: number,
+  x: number,
+  target: number,
+  dt: number
+): number {
   return v + ((target - x) * SPRING_K - v * SPRING_C) * dt
 }
 
@@ -161,13 +167,13 @@ export function estimateReleaseVelocity(
   now: number
 ): { vx: number; vy: number } | null {
   if (trail.length === 0) return null
-  const last = trail[trail.length - 1]
+  const last = trail.at(-1)
   if (now - last.t > RELEASE_STALE_MS) return null
   const window = trail.filter((sample) => now - sample.t <= RELEASE_WINDOW_MS)
   if (window.length < 2) return null
 
   const first = window[0]
-  const end = window[window.length - 1]
+  const end = window.at(-1)
   const spanMs = end.t - first.t
   if (spanMs < MIN_SPAN_MS) return null
 
@@ -194,15 +200,20 @@ export function estimateReleaseVelocity(
   }
 
   const peakSpeed =
-    segments.length > 0 ? Math.max(...segments.map((segment) => segment.speed)) : baseSpeed
+    segments.length > 0
+      ? Math.max(...segments.map((segment) => segment.speed))
+      : baseSpeed
 
   let accel = 0
   if (segments.length >= 2) {
-    const lastSegment = segments[segments.length - 1]
+    const lastSegment = segments.at(-1)
     const firstSegment = segments[0]
     accel =
       (lastSegment.speed - firstSegment.speed) /
-      Math.max((lastSegment.tEnd - firstSegment.tEnd) / 1000, MIN_SPAN_MS / 1000)
+      Math.max(
+        (lastSegment.tEnd - firstSegment.tEnd) / 1000,
+        MIN_SPAN_MS / 1000
+      )
   }
 
   const beforeClamp =
@@ -271,7 +282,10 @@ export function flightStep(
  * Compresses during the first 45% and springs back with a small overshoot, so
  * the character reads as soft rather than rigid.
  */
-export function squashScale(progress: number, depth: number = SQUASH_DEPTH): number {
+export function squashScale(
+  progress: number,
+  depth: number = SQUASH_DEPTH
+): number {
   const u = Math.min(Math.max(progress, 0), 1)
   if (u < 0.45) {
     const t = u / 0.45
@@ -289,6 +303,7 @@ export function squashScale(progress: number, depth: number = SQUASH_DEPTH): num
 export function landingSquash(impactSpeed: number): number {
   if (impactSpeed <= SQUASH_SOFT_SPEED) return SQUASH_DEPTH * 0.8
   if (impactSpeed >= SQUASH_HARD_SPEED) return SQUASH_DEPTH
-  const t = (impactSpeed - SQUASH_SOFT_SPEED) / (SQUASH_HARD_SPEED - SQUASH_SOFT_SPEED)
+  const t =
+    (impactSpeed - SQUASH_SOFT_SPEED) / (SQUASH_HARD_SPEED - SQUASH_SOFT_SPEED)
   return SQUASH_DEPTH * (0.8 + 0.2 * t)
 }

@@ -9158,5 +9158,6 @@
     "Claim code value must be at most 64 characters": "Значение кода не должно превышать 64 символа",
     "A custom claim code can only be created once at a time": "Свой код можно создать только по одному за раз",
     "This claim code already exists": "Такой код уже существует",
-    "Claim code value cannot be empty": "Значение кода не может быть пустым"}
+    "Claim code value cannot be empty": "Значение кода не может быть пустым"
+  }
 }

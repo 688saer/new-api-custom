@@ -28,5 +28,9 @@ export {
 } from './portraits'
 export type { MascotPortrait } from './portraits'
 export { SiteMascot } from './site-mascot'
-export { clipUrl, MASCOT_ASSET_BASE, randomClickClip } from './use-mascot-player'
+export {
+  clipUrl,
+  MASCOT_ASSET_BASE,
+  randomClickClip,
+} from './use-mascot-player'
 export { WhaleFigure } from './whale-figure'

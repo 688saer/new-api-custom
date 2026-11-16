@@ -19,6 +19,9 @@ For commercial licensing, please contact support@quantumnous.com
 export { ServiceStatusPage } from './components/service-status-page'
 export { ServiceStatusCard } from './components/service-status-card'
 export { ServiceStatusUptimeBar } from './components/service-status-uptime-bar'
-export { useServiceStatus, SERVICE_STATUS_QUERY_KEY } from './hooks/use-service-status'
+export {
+  useServiceStatus,
+  SERVICE_STATUS_QUERY_KEY,
+} from './hooks/use-service-status'
 export * from './lib/service-status'
 export * from './types'

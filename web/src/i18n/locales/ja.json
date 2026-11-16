@@ -9158,5 +9158,6 @@
     "Claim code value must be at most 64 characters": "コードの文字列は 64 文字以内にしてください",
     "A custom claim code can only be created once at a time": "カスタムコードは一度に 1 つだけ作成できます",
     "This claim code already exists": "このコードはすでに存在します",
-    "Claim code value cannot be empty": "コードの文字列を入力してください"}
+    "Claim code value cannot be empty": "コードの文字列を入力してください"
+  }
 }

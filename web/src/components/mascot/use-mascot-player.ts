@@ -91,7 +91,10 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
   const currentRef = useRef<string | null>(null)
   const generationRef = useRef(0)
   const mountedRef = useRef(true)
-  const blobUrlsRef = useRef<Record<'a' | 'b', string | null>>({ a: null, b: null })
+  const blobUrlsRef = useRef<Record<'a' | 'b', string | null>>({
+    a: null,
+    b: null,
+  })
   const chainTimerRef = useRef<number | null>(null)
   // Lets the pause/resume effect above reach `advanceChain`, which is declared
   // after it and therefore cannot be referenced directly.
@@ -139,7 +142,8 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
-      if (chainTimerRef.current !== null) window.clearTimeout(chainTimerRef.current)
+      if (chainTimerRef.current !== null)
+        {window.clearTimeout(chainTimerRef.current)}
       for (const slot of ['a', 'b'] as const) {
         const url = blobUrlsRef.current[slot]
         if (url) URL.revokeObjectURL(url)
@@ -186,7 +190,8 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
         if (once) {
           // Safety net: if `ended` never fires (decode hiccup, tab suspended),
           // fall back to the chain instead of freezing on one frame.
-          if (chainTimerRef.current !== null) window.clearTimeout(chainTimerRef.current)
+          if (chainTimerRef.current !== null)
+            {window.clearTimeout(chainTimerRef.current)}
           chainTimerRef.current = window.setTimeout(
             () => {
               if (currentRef.current === name) advanceChain()
@@ -201,7 +206,8 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
       target.playsInline = true
       target.onended = once
         ? () => {
-            if (!mountedRef.current || generationRef.current !== generation) return
+            if (!mountedRef.current || generationRef.current !== generation)
+              {return}
             setBusy(false)
             advanceChain()
           }
@@ -222,7 +228,8 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
         void target.play().catch(() => {
           // Autoplay can be refused (battery saver, strict policies). The poster
           // frame still shows, so the character is visible rather than blank.
-          if (mountedRef.current && generationRef.current === generation) setBusy(false)
+          if (mountedRef.current && generationRef.current === generation)
+            {setBusy(false)}
         })
       }
       target.addEventListener('loadeddata', onReady)
@@ -240,7 +247,8 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
         })
         .then((blob) => {
           window.clearTimeout(timer)
-          if (!mountedRef.current || generationRef.current !== generation) return
+          if (!mountedRef.current || generationRef.current !== generation)
+            {return}
           const previous = blobUrlsRef.current[slot]
           if (previous) URL.revokeObjectURL(previous)
           const url = URL.createObjectURL(blob)
@@ -251,10 +259,12 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
         .catch(() => {
           window.clearTimeout(timer)
           target.removeEventListener('loadeddata', onReady)
-          if (!mountedRef.current || generationRef.current !== generation) return
+          if (!mountedRef.current || generationRef.current !== generation)
+            {return}
           setBusy(false)
           window.setTimeout(() => {
-            if (mountedRef.current && currentRef.current === name) advanceChain()
+            if (mountedRef.current && currentRef.current === name)
+              {advanceChain()}
           }, 400)
         })
     },
@@ -290,10 +300,21 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
     advanceChain()
   }, [advanceChain, options.paused])
 
-  return { frontRef, backRef, frontIsA, facingRight, playOnce, playLoop, resumeChain, busy }
+  return {
+    frontRef,
+    backRef,
+    frontIsA,
+    facingRight,
+    playOnce,
+    playLoop,
+    resumeChain,
+    busy,
+  }
 }
 
 /** A random click response, exposed for the interaction layer. */
-export function randomClickClip(catalog: MascotCatalog = MASCOT_CATALOG): string {
+export function randomClickClip(
+  catalog: MascotCatalog = MASCOT_CATALOG
+): string {
   return pickOne(catalog.clicks)
 }

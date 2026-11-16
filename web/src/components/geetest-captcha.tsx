@@ -69,7 +69,7 @@ function loadGeeTestScript(): Promise<boolean> {
   if (geetestScriptPromise) return geetestScriptPromise
 
   geetestScriptPromise = new Promise<boolean>((resolve) => {
-    const existing = document.getElementById(SCRIPT_ID)
+    const existing = document.querySelector(`#${SCRIPT_ID}`)
     if (existing) {
       existing.addEventListener('load', () => resolve(true), { once: true })
       existing.addEventListener('error', () => resolve(false), { once: true })
@@ -89,7 +89,7 @@ function loadGeeTestScript(): Promise<boolean> {
 
 function discardGeeTestScript() {
   geetestScriptPromise = null
-  document.getElementById(SCRIPT_ID)?.remove()
+  document.querySelector(`#${SCRIPT_ID}`)?.remove()
 }
 
 type Phase = 'loading' | 'ready' | 'error'

@@ -1,3 +1,5 @@
+import { ServiceStatusSettingsSection } from '../general/service-status-settings-section'
+import type { ServiceStatusTargetValues } from '../general/service-status-target-dialog'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -17,10 +19,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { SystemInfoSection } from '../general/system-info-section'
-import { ServiceStatusSettingsSection } from '../general/service-status-settings-section'
-import type { ServiceStatusTargetValues } from '../general/service-status-target-dialog'
-import { WelfareApiSettingsSection } from '../general/welfare-api-settings-section'
 import type { WelfareApiEntryValues } from '../general/welfare-api-entry-dialog'
+import { WelfareApiSettingsSection } from '../general/welfare-api-settings-section'
 import {
   parseHeaderNavModules,
   parseSidebarModulesAdmin,
@@ -86,9 +86,7 @@ function parseWelfareApiEntries(raw: string): WelfareApiEntryValues[] {
  * blank or unparsable option yields an empty list so the operator starts from a
  * clean state instead of a broken form.
  */
-function parseServiceStatusTargets(
-  raw: string
-): ServiceStatusTargetValues[] {
+function parseServiceStatusTargets(raw: string): ServiceStatusTargetValues[] {
   if (!raw || raw.trim() === '') {
     return []
   }

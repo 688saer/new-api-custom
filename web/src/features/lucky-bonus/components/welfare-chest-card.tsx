@@ -73,7 +73,9 @@ export function WelfareChestCard(props: WelfareChestCardProps) {
       : 0
   const imageSrc = props.isOpened ? box?.opened_image : box?.closed_image
   const title =
-    props.chestKey === 'xiaoshuai_ge' ? t('Xiaoshuai Ge Chest') : t('Hei Dashuai Chest')
+    props.chestKey === 'xiaoshuai_ge'
+      ? t('Xiaoshuai Ge Chest')
+      : t('Hei Dashuai Chest')
   const roleName =
     props.chestKey === 'xiaoshuai_ge' ? t('Xiaoshuai Ge') : t('Hei Dashuai')
 

@@ -9158,5 +9158,6 @@
     "Claim code value must be at most 64 characters": "La valeur du code ne peut pas dépasser 64 caractères",
     "A custom claim code can only be created once at a time": "Un code personnalisé ne peut être créé qu'un seul à la fois",
     "This claim code already exists": "Ce code existe déjà",
-    "Claim code value cannot be empty": "La valeur du code ne peut pas être vide"}
+    "Claim code value cannot be empty": "La valeur du code ne peut pas être vide"
+  }
 }

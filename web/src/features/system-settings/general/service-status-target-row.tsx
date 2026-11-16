@@ -66,7 +66,7 @@ export function ServiceStatusTargetRow(props: {
           {status?.probed ? (
             <>
               {status.success ? (
-                <span className='text-emerald-600 dark:text-emerald-400 flex items-center gap-1'>
+                <span className='flex items-center gap-1 text-emerald-600 dark:text-emerald-400'>
                   <CheckCircle2 className='size-3.5' aria-hidden='true' />
                   {t('Probe succeeded')}
                 </span>

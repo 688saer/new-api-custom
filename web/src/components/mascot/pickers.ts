@@ -30,8 +30,13 @@ import type { MascotCatalog, MascotCategory, RollKind } from './catalog'
 export type Random = () => number
 
 /** Pick one entry uniformly, preferring anything other than `exclude`. */
-export function pickOne<T>(pool: readonly T[], exclude?: T, random: Random = Math.random): T {
-  const filtered = exclude === undefined ? pool : pool.filter((item) => item !== exclude)
+export function pickOne<T>(
+  pool: readonly T[],
+  exclude?: T,
+  random: Random = Math.random
+): T {
+  const filtered =
+    exclude === undefined ? pool : pool.filter((item) => item !== exclude)
   // A single-entry pool plus an exclusion empties the list; repeating is better
   // than returning nothing.
   const source = filtered.length > 0 ? filtered : pool
@@ -69,7 +74,9 @@ export function pickCategory(
 ): MascotCategory | null {
   const usable = categories.filter((category) => category.actions.length > 0)
   if (usable.length === 0) return null
-  const eligible = usable.filter((category) => !(category.noMirror && facingRight))
+  const eligible = usable.filter(
+    (category) => !(category.noMirror && facingRight)
+  )
   const pool = eligible.length > 0 ? eligible : usable
   const total = pool.reduce((sum, category) => sum + category.weight, 0) || 1
   let cursor = random() * total
@@ -77,7 +84,7 @@ export function pickCategory(
     cursor -= category.weight
     if (cursor <= 0) return category
   }
-  return pool[pool.length - 1]
+  return pool.at(-1)
 }
 
 /**

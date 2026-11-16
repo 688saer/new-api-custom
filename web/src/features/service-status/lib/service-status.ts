@@ -158,7 +158,10 @@ export function collapseServiceStatusCells(
   for (let start = 0; start < cells.length; start += groupSize) {
     const slice = cells.slice(start, start + groupSize)
     const probeCount = slice.reduce((sum, cell) => sum + cell.probe_count, 0)
-    const successCount = slice.reduce((sum, cell) => sum + cell.success_count, 0)
+    const successCount = slice.reduce(
+      (sum, cell) => sum + cell.success_count,
+      0
+    )
 
     let status: ServiceStatusColor = 'gray'
     if (probeCount > 0) {

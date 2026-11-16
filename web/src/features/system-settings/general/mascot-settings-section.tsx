@@ -94,7 +94,9 @@ export function MascotSettingsSection({
       name: defaultValues.name,
       greeting: defaultValues.greeting,
       placement:
-        defaultValues.placement === 'bottom-left' ? 'bottom-left' : 'bottom-right',
+        defaultValues.placement === 'bottom-left'
+          ? 'bottom-left'
+          : 'bottom-right',
       showOnAuthPages: defaultValues.showOnAuthPages,
       size: defaultValues.size,
     },
@@ -246,9 +248,7 @@ export function MascotSettingsSection({
                   />
                 </FormControl>
                 <FormDescription>
-                  {t(
-                    'Leave empty to use the built-in translated greeting.'
-                  )}
+                  {t('Leave empty to use the built-in translated greeting.')}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -315,9 +315,7 @@ export function MascotSettingsSection({
           {/* Live preview: the real idle clip at the configured size, so the
               operator judges the actual character instead of a stand-in. */}
           <div className='bg-muted/40 rounded-xl border p-4'>
-            <p className='text-muted-foreground mb-3 text-sm'>
-              {t('Preview')}
-            </p>
+            <p className='text-muted-foreground mb-3 text-sm'>{t('Preview')}</p>
             {enabled ? (
               <div className='flex items-center gap-4'>
                 <video

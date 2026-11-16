@@ -336,7 +336,9 @@ describe('subscription allowance refill', () => {
     expect(within(dialog).getByText(/card validity/)).toBeInTheDocument()
 
     await user.click(
-      within(dialog).getByRole('button', { name: /Refill now \(spends 1 days\)/ })
+      within(dialog).getByRole('button', {
+        name: /Refill now \(spends 1 days\)/,
+      })
     )
 
     await waitFor(() => {

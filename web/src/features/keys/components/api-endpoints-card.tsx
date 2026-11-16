@@ -127,7 +127,10 @@ export function ApiEndpointsCard() {
   return (
     <div className='bg-card min-w-0 overflow-hidden rounded-xl border shadow-xs'>
       <div className='flex flex-wrap items-center gap-2 border-b px-3 py-2.5'>
-        <Globe className='text-muted-foreground size-4 shrink-0' aria-hidden='true' />
+        <Globe
+          className='text-muted-foreground size-4 shrink-0'
+          aria-hidden='true'
+        />
         <span className='text-sm font-semibold'>{t('API Endpoints')}</span>
         <span className='text-muted-foreground ml-auto flex items-center gap-1 text-xs'>
           <ShieldCheck className='size-3.5' aria-hidden='true' />
@@ -144,7 +147,9 @@ export function ApiEndpointsCard() {
           addresses.map((address, index) => (
             <AddressRow
               key={address.url}
-              label={address.route || t('Address {{index}}', { index: index + 1 })}
+              label={
+                address.route || t('Address {{index}}', { index: index + 1 })
+              }
               url={address.url}
               badge={index === 0 ? t('Recommended') : undefined}
               description={address.description}

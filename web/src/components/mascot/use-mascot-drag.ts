@@ -192,7 +192,9 @@ export function useMascotDrag(options: DragOptions): DragHandlers {
     // any window event the code above would see. Watching the element itself
     // covers that case, and is the only signal that always fires.
     const observer =
-      typeof ResizeObserver === 'function' ? new ResizeObserver(keepVisible) : null
+      typeof ResizeObserver === 'function'
+        ? new ResizeObserver(keepVisible)
+        : null
     if (observer) {
       const element = callbacksRef.current.elementRef.current
       if (element) observer.observe(element)
@@ -225,7 +227,8 @@ export function useMascotDrag(options: DragOptions): DragHandlers {
         const next = flightStep(current, dt, box)
         current = { x: next.x, y: next.y, vx: next.vx, vy: next.vy }
         element.style.transform = `translate3d(${next.x}px, ${next.y}px, 0)`
-        if (next.bounced && Math.abs(current.vy) > 200) squash(landingSquash(Math.abs(current.vy)))
+        if (next.bounced && Math.abs(current.vy) > 200)
+          squash(landingSquash(Math.abs(current.vy)))
         if (next.atRest) {
           state.targetX = current.x
           state.targetY = current.y
@@ -263,7 +266,9 @@ export function useMascotDrag(options: DragOptions): DragHandlers {
       state.targetY = rect.top
       state.vx = 0
       state.vy = 0
-      state.trail = [{ t: performance.now(), x: event.clientX, y: event.clientY }]
+      state.trail = [
+        { t: performance.now(), x: event.clientX, y: event.clientY },
+      ]
       state.active = true
       state.moved = false
 
@@ -293,12 +298,21 @@ export function useMascotDrag(options: DragOptions): DragHandlers {
         callbacksRef.current.onDragStart?.()
         // Start the spring from wherever the character is now.
         const box = bounds()
-        state.targetX = Math.min(Math.max(state.originX + dx, box.minX), box.maxX)
-        state.targetY = Math.min(Math.max(state.originY + dy, box.minY), box.maxY)
+        state.targetX = Math.min(
+          Math.max(state.originX + dx, box.minX),
+          box.maxX
+        )
+        state.targetY = Math.min(
+          Math.max(state.originY + dy, box.minY),
+          box.maxY
+        )
       }
 
       state.trail = trimTrail(
-        [...state.trail, { t: performance.now(), x: event.clientX, y: event.clientY }],
+        [
+          ...state.trail,
+          { t: performance.now(), x: event.clientX, y: event.clientY },
+        ],
         performance.now()
       )
 

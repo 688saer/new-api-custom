@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrencyUSD } from '@/lib/format'
+
 import {
   getWelfareChestsRanking,
   getWelfareChestsStatus,
@@ -172,7 +173,6 @@ export function WelfareChests() {
     },
     [opening, t, resolveErrorText, loadStatus, loadRankings]
   )
-
 
   if (loading && !status) {
     return (

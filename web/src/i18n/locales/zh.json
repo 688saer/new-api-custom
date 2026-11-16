@@ -9158,5 +9158,6 @@
     "Claim code value must be at most 64 characters": "口令内容最多 64 个字符",
     "A custom claim code can only be created once at a time": "自定义口令一次只能创建一个",
     "This claim code already exists": "这个口令已经存在了",
-    "Claim code value cannot be empty": "口令内容不能为空"}
+    "Claim code value cannot be empty": "口令内容不能为空"
+  }
 }

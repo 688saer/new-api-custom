@@ -159,14 +159,14 @@ type RelayInfo struct {
 	SubscriptionAmountUsedAfterPreConsume int64
 	// SubscriptionUsageTokens is the prompt + completion token count of this
 	// request. Settlement charges it to the subscription's token allowance.
-	SubscriptionUsageTokens int64
-	IsClaudeBetaQuery                     bool // /v1/messages?beta=true
-	IsChannelTest                         bool // channel test request
-	RetryIndex                            int
-	LastError                             *types.NewAPIError
-	RuntimeHeadersOverride                map[string]any
-	UseRuntimeHeadersOverride             bool
-	ParamOverrideAudit                    []string
+	SubscriptionUsageTokens   int64
+	IsClaudeBetaQuery         bool // /v1/messages?beta=true
+	IsChannelTest             bool // channel test request
+	RetryIndex                int
+	LastError                 *types.NewAPIError
+	RuntimeHeadersOverride    map[string]any
+	UseRuntimeHeadersOverride bool
+	ParamOverrideAudit        []string
 	// RequestPluginSteps is the audit of the request plugin runs, every
 	// stage and attempt in order.
 	RequestPluginSteps []RequestPluginStep

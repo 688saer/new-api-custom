@@ -114,8 +114,18 @@ function serializeBox(
 }
 
 const BOX_META = [
-  { field: 'xiaoshuaiGe', key: 'xiaoshuai_ge', optionKey: 'welfare_chest_setting.xiaoshuai_ge', label: 'Xiaoshuai Ge Chest' },
-  { field: 'heiDashuai', key: 'hei_dashuai', optionKey: 'welfare_chest_setting.hei_dashuai', label: 'Hei Dashuai Chest' },
+  {
+    field: 'xiaoshuaiGe',
+    key: 'xiaoshuai_ge',
+    optionKey: 'welfare_chest_setting.xiaoshuai_ge',
+    label: 'Xiaoshuai Ge Chest',
+  },
+  {
+    field: 'heiDashuai',
+    key: 'hei_dashuai',
+    optionKey: 'welfare_chest_setting.hei_dashuai',
+    label: 'Hei Dashuai Chest',
+  },
 ] as const
 
 export function WelfareChestSettingsSection({
@@ -172,7 +182,10 @@ export function WelfareChestSettingsSection({
       )
     }
     if (values.maxQuotaLimit !== defaultValues.maxQuotaLimit) {
-      push('welfare_chest_setting.max_quota_limit', String(values.maxQuotaLimit))
+      push(
+        'welfare_chest_setting.max_quota_limit',
+        String(values.maxQuotaLimit)
+      )
     }
 
     for (const meta of BOX_META) {
@@ -185,7 +198,10 @@ export function WelfareChestSettingsSection({
         next.rewardMaxUsd !== prev.rewardMaxUsd ||
         next.medianUsd !== prev.medianUsd
       if (!changed) continue
-      push(meta.optionKey, serializeBox(rawByKey[meta.key] ?? '', meta.key, next))
+      push(
+        meta.optionKey,
+        serializeBox(rawByKey[meta.key] ?? '', meta.key, next)
+      )
     }
 
     if (updates.length === 0) {
@@ -314,11 +330,13 @@ export function WelfareChestSettingsSection({
                   <FormItem>
                     <FormLabel>{t('Quota cap after reward')}</FormLabel>
                     <FormControl>
-                      <Input type='number' min={0} {...safeNumberFieldProps(field)} />
+                      <Input
+                        type='number'
+                        min={0}
+                        {...safeNumberFieldProps(field)}
+                      />
                     </FormControl>
-                    <FormDescription>
-                      {t('0 means no cap')}
-                    </FormDescription>
+                    <FormDescription>{t('0 means no cap')}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -357,7 +375,12 @@ export function WelfareChestSettingsSection({
                             {t('Unlock Threshold (USD)')}
                           </FormLabel>
                           <FormControl>
-                            <Input type='number' min={0} step='0.01' {...safeNumberFieldProps(field)} />
+                            <Input
+                              type='number'
+                              min={0}
+                              step='0.01'
+                              {...safeNumberFieldProps(field)}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -372,7 +395,12 @@ export function WelfareChestSettingsSection({
                             {t('Reward Min (USD)')}
                           </FormLabel>
                           <FormControl>
-                            <Input type='number' min={0} step='0.01' {...safeNumberFieldProps(field)} />
+                            <Input
+                              type='number'
+                              min={0}
+                              step='0.01'
+                              {...safeNumberFieldProps(field)}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -387,7 +415,12 @@ export function WelfareChestSettingsSection({
                             {t('Reward Max (USD)')}
                           </FormLabel>
                           <FormControl>
-                            <Input type='number' min={0} step='0.01' {...safeNumberFieldProps(field)} />
+                            <Input
+                              type='number'
+                              min={0}
+                              step='0.01'
+                              {...safeNumberFieldProps(field)}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -402,7 +435,12 @@ export function WelfareChestSettingsSection({
                             {t('Median Reward (USD)')}
                           </FormLabel>
                           <FormControl>
-                            <Input type='number' min={0} step='0.01' {...safeNumberFieldProps(field)} />
+                            <Input
+                              type='number'
+                              min={0}
+                              step='0.01'
+                              {...safeNumberFieldProps(field)}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

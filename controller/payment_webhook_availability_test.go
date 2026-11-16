@@ -427,6 +427,13 @@ func newSubscriptionCallbackKeys(t *testing.T) subscriptionCallbackKeys {
 	}
 }
 
+// epayCallbackCase is one callback sent to every Epay callback endpoint.
+type epayCallbackCase struct {
+	name         string
+	params       map[string]string
+	validPending bool
+}
+
 // setupEpayCallbackTest configures an Epay gateway and leaves model.DB nil:
 // rejected callbacks and valid non-success events must never reach settlement,
 // so an accidental attempt to settle fails the test.

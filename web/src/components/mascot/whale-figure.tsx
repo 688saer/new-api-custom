@@ -60,9 +60,30 @@ export function WhaleFigure(props: WhaleFigureProps) {
 
       {/* Water spout: three droplets that fade in sequence. */}
       <g className='motion-safe:animate-[whale-spout_3.6s_ease-in-out_infinite]'>
-        <ellipse cx='60' cy='17' rx='3.2' ry='5' fill='var(--primary)' opacity='0.55' />
-        <ellipse cx='51' cy='21' rx='2.4' ry='3.6' fill='var(--primary)' opacity='0.42' />
-        <ellipse cx='69' cy='21' rx='2.4' ry='3.6' fill='var(--primary)' opacity='0.42' />
+        <ellipse
+          cx='60'
+          cy='17'
+          rx='3.2'
+          ry='5'
+          fill='var(--primary)'
+          opacity='0.55'
+        />
+        <ellipse
+          cx='51'
+          cy='21'
+          rx='2.4'
+          ry='3.6'
+          fill='var(--primary)'
+          opacity='0.42'
+        />
+        <ellipse
+          cx='69'
+          cy='21'
+          rx='2.4'
+          ry='3.6'
+          fill='var(--primary)'
+          opacity='0.42'
+        />
       </g>
 
       {/* Tail, behind the body. */}

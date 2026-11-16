@@ -9158,5 +9158,6 @@
     "Claim code value must be at most 64 characters": "Nội dung mã tối đa 64 ký tự",
     "A custom claim code can only be created once at a time": "Mỗi lần chỉ tạo được một mã tự nhập",
     "This claim code already exists": "Mã này đã tồn tại",
-    "Claim code value cannot be empty": "Nội dung mã không được để trống"}
+    "Claim code value cannot be empty": "Nội dung mã không được để trống"
+  }
 }

@@ -73,7 +73,7 @@ export function LotteryHero(props: LotteryHeroProps) {
     limit > 0 ? Math.min(100, ((limit - remaining) / limit) * 100) : 100
 
   return (
-    <Card className='from-primary/12 via-primary/5 overflow-hidden border-primary/25 bg-gradient-to-br to-transparent'>
+    <Card className='from-primary/12 via-primary/5 border-primary/25 overflow-hidden bg-gradient-to-br to-transparent'>
       <CardContent className='flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between'>
         <div className='flex min-w-0 items-center gap-3.5'>
           <IconBadge tone='primary' size='lg' className='sm:size-12'>

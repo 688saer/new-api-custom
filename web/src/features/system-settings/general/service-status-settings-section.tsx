@@ -36,8 +36,8 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { useTargetStatuses } from '@/features/service-status/hooks/use-target-statuses'
 import { Switch } from '@/components/ui/switch'
+import { useTargetStatuses } from '@/features/service-status/hooks/use-target-statuses'
 
 import {
   SettingsControlGroup,
@@ -48,12 +48,12 @@ import {
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
-import { ServiceStatusTargetRow } from './service-status-target-row'
 import {
   EMPTY_SERVICE_STATUS_TARGET,
   ServiceStatusTargetDialog,
   type ServiceStatusTargetValues,
 } from './service-status-target-dialog'
+import { ServiceStatusTargetRow } from './service-status-target-row'
 
 const schema = z.object({
   enabled: z.boolean(),

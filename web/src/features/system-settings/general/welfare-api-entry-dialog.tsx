@@ -78,7 +78,9 @@ export function WelfareApiEntryDialog(props: {
   const { t } = useTranslation()
 
   const form = useForm<WelfareApiEntryValues>({
-    resolver: zodResolver(entrySchema) as unknown as Resolver<WelfareApiEntryValues>,
+    resolver: zodResolver(
+      entrySchema
+    ) as unknown as Resolver<WelfareApiEntryValues>,
     defaultValues: props.initial ?? EMPTY_WELFARE_API_ENTRY,
   })
 
@@ -98,9 +100,7 @@ export function WelfareApiEntryDialog(props: {
       open={props.open}
       onOpenChange={props.onOpenChange}
       title={
-        props.initial
-          ? t('Edit welfare API entry')
-          : t('Add welfare API entry')
+        props.initial ? t('Edit welfare API entry') : t('Add welfare API entry')
       }
       description={t(
         'Only enabled entries are published on the public welfare API page.'
@@ -162,10 +162,7 @@ export function WelfareApiEntryDialog(props: {
               <FormItem>
                 <FormLabel>{t('Endpoint')}</FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder='https://api.example.com/v1'
-                    {...field}
-                  />
+                  <Input placeholder='https://api.example.com/v1' {...field} />
                 </FormControl>
                 <FormDescription>
                   {t('Base URL users copy into their client')}
@@ -182,7 +179,10 @@ export function WelfareApiEntryDialog(props: {
               <FormItem>
                 <FormLabel>{t('Model')}</FormLabel>
                 <FormControl>
-                  <Input placeholder='deepseek-chat, deepseek-reasoner' {...field} />
+                  <Input
+                    placeholder='deepseek-chat, deepseek-reasoner'
+                    {...field}
+                  />
                 </FormControl>
                 <FormDescription>
                   {t('Separate multiple models with commas')}

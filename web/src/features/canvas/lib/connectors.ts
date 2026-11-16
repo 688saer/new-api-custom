@@ -63,7 +63,8 @@ function curveBetween(
   const childCenterY = child.y + child.height / 2
 
   const sideways =
-    Math.abs(childCenterX - parentCenterX) > Math.abs(childCenterY - parentCenterY)
+    Math.abs(childCenterX - parentCenterX) >
+    Math.abs(childCenterY - parentCenterY)
 
   if (sideways) {
     const toRight = childCenterX >= parentCenterX

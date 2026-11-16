@@ -46,9 +46,7 @@ export function CanvasConnectorLayer(props: CanvasConnectorLayerProps) {
       {props.connectors.map((connector) => (
         <g
           key={connector.id}
-          className={cn(
-            connector.active ? 'text-primary' : 'text-primary/35'
-          )}
+          className={cn(connector.active ? 'text-primary' : 'text-primary/35')}
         >
           <path
             d={connector.d}

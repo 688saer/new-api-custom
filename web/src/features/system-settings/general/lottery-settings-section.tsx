@@ -120,8 +120,7 @@ export function LotterySettingsSection({
 
   async function onSubmit(values: Values) {
     const updates: Array<{ key: string; value: string }> = []
-    const push = (key: string, value: string) =>
-      updates.push({ key, value })
+    const push = (key: string, value: string) => updates.push({ key, value })
 
     if (values.enabled !== defaultValues.enabled) {
       push('lottery_setting.enabled', String(values.enabled))
@@ -193,9 +192,7 @@ export function LotterySettingsSection({
                 <SettingsSwitchContent>
                   <FormLabel>{t('Enable lucky draw feature')}</FormLabel>
                   <FormDescription>
-                    {t(
-                      'Allow users to spend quota on a weighted prize draw'
-                    )}
+                    {t('Allow users to spend quota on a weighted prize draw')}
                   </FormDescription>
                 </SettingsSwitchContent>
                 <FormControl>
@@ -219,7 +216,11 @@ export function LotterySettingsSection({
                     <FormItem>
                       <FormLabel>{t('Free draws per day')}</FormLabel>
                       <FormControl>
-                        <Input type='number' min={0} {...safeNumberFieldProps(field)} />
+                        <Input
+                          type='number'
+                          min={0}
+                          {...safeNumberFieldProps(field)}
+                        />
                       </FormControl>
                       <FormDescription>
                         {t('Free draws granted to every user each day')}
@@ -236,7 +237,11 @@ export function LotterySettingsSection({
                     <FormItem>
                       <FormLabel>{t('Single draw cost (quota)')}</FormLabel>
                       <FormControl>
-                        <Input type='number' min={0} {...safeNumberFieldProps(field)} />
+                        <Input
+                          type='number'
+                          min={0}
+                          {...safeNumberFieldProps(field)}
+                        />
                       </FormControl>
                       <FormDescription>
                         {t('Charged once the free draws are used up')}
@@ -326,7 +331,11 @@ export function LotterySettingsSection({
                     <FormItem>
                       <FormLabel>{t('Public win list size')}</FormLabel>
                       <FormControl>
-                        <Input type='number' min={0} {...safeNumberFieldProps(field)} />
+                        <Input
+                          type='number'
+                          min={0}
+                          {...safeNumberFieldProps(field)}
+                        />
                       </FormControl>
                       <FormDescription>
                         {t('How many recent wins are listed publicly')}
@@ -343,7 +352,11 @@ export function LotterySettingsSection({
                     <FormItem>
                       <FormLabel>{t('Minimum quota for public win')}</FormLabel>
                       <FormControl>
-                        <Input type='number' min={0} {...safeNumberFieldProps(field)} />
+                        <Input
+                          type='number'
+                          min={0}
+                          {...safeNumberFieldProps(field)}
+                        />
                       </FormControl>
                       <FormDescription>
                         {t('Prizes below this amount stay out of the list')}
@@ -390,7 +403,11 @@ export function LotterySettingsSection({
                               {t('Quota')}
                             </FormLabel>
                             <FormControl>
-                              <Input type='number' min={0} {...safeNumberFieldProps(field)} />
+                              <Input
+                                type='number'
+                                min={0}
+                                {...safeNumberFieldProps(field)}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -405,7 +422,12 @@ export function LotterySettingsSection({
                               {t('Weight')}
                             </FormLabel>
                             <FormControl>
-                              <Input type='number' min={0} step='0.1' {...safeNumberFieldProps(field)} />
+                              <Input
+                                type='number'
+                                min={0}
+                                step='0.1'
+                                {...safeNumberFieldProps(field)}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

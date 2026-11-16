@@ -64,11 +64,7 @@ describe('canvas track lines', () => {
       imageNode({ id: 'b', x: 376, y: 0, parentId: 'a' }),
     ]
 
-    const [connector] = buildConnectors(
-      nodes,
-      { a: SIZE, b: SIZE },
-      []
-    )
+    const [connector] = buildConnectors(nodes, { a: SIZE, b: SIZE }, [])
 
     // Leaves the source's right edge at its vertical centre and enters the
     // derived picture's left edge at the same height.
@@ -82,11 +78,7 @@ describe('canvas track lines', () => {
       imageNode({ id: 'b', x: 0, y: 400, parentId: 'a' }),
     ]
 
-    const [connector] = buildConnectors(
-      nodes,
-      { a: SIZE, b: SIZE },
-      []
-    )
+    const [connector] = buildConnectors(nodes, { a: SIZE, b: SIZE }, [])
 
     expect(connector).toMatchObject({ x1: 160, y1: 350, x2: 160, y2: 400 })
     expect(connector.d).toBe('M 160 350 C 160 390, 160 360, 160 400')

@@ -56,10 +56,17 @@ export function portraitUrl(id: string): string {
 export const GREETING_PORTRAIT = MASCOT_PORTRAITS[0]
 
 /** A cheerful portrait for a click, excluding the greeting one so it reads as a reaction. */
-export function randomReactionPortrait(random: () => number = Math.random): MascotPortrait {
-  const reactions = MASCOT_PORTRAITS.filter((portrait) => portrait.id !== GREETING_PORTRAIT.id)
+export function randomReactionPortrait(
+  random: () => number = Math.random
+): MascotPortrait {
+  const reactions = MASCOT_PORTRAITS.filter(
+    (portrait) => portrait.id !== GREETING_PORTRAIT.id
+  )
   // Clamp the index: an RNG that returns exactly 1 would otherwise read past the
   // end and hand back undefined.
-  const index = Math.min(Math.floor(random() * reactions.length), reactions.length - 1)
+  const index = Math.min(
+    Math.floor(random() * reactions.length),
+    reactions.length - 1
+  )
   return reactions[index]
 }

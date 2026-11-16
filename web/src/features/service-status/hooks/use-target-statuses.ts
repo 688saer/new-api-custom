@@ -50,7 +50,9 @@ export function useTargetStatuses() {
   }, [query.data])
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: [SERVICE_STATUS_TARGET_STATUS_KEY] })
+    queryClient.invalidateQueries({
+      queryKey: [SERVICE_STATUS_TARGET_STATUS_KEY],
+    })
   }
 
   const probeOne = useMutation({

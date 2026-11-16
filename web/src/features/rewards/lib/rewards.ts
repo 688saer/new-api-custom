@@ -98,7 +98,7 @@ export function resolveTicketCopy(copy: RewardTicketCopy): RewardTicketCopy {
 
 /** 票根文字按字符竖排，空白字符不占位。 */
 export function splitStubText(text: string): string[] {
-  return Array.from(text).filter((character) => character.trim() !== '')
+  return [...text].filter((character) => character.trim() !== '')
 }
 
 /** 券的领取状态：可领、未到开始时间、已过期、已失效。 */

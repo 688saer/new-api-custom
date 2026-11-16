@@ -185,7 +185,9 @@ export const MASCOT_CATALOG: MascotCatalog = {
 }
 
 /** Every distinct clip name the catalogue references. */
-export function allClipNames(catalog: MascotCatalog = MASCOT_CATALOG): string[] {
+export function allClipNames(
+  catalog: MascotCatalog = MASCOT_CATALOG
+): string[] {
   const names = new Set<string>([
     ...catalog.idle,
     ...catalog.turn,

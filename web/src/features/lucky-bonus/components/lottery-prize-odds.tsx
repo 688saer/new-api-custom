@@ -46,7 +46,8 @@ export function LotteryPrizeOdds(props: LotteryPrizeOddsProps) {
     return props.prizes
       .map((tier) => ({
         ...tier,
-        chance: totalWeight > 0 ? (Math.max(0, tier.weight) / totalWeight) * 100 : 0,
+        chance:
+          totalWeight > 0 ? (Math.max(0, tier.weight) / totalWeight) * 100 : 0,
       }))
       .sort((a, b) => b.quota - a.quota)
   }, [props.prizes])
@@ -71,7 +72,9 @@ export function LotteryPrizeOdds(props: LotteryPrizeOddsProps) {
                   tier.quota === 0 && 'text-muted-foreground font-medium'
                 )}
               >
-                {tier.quota === 0 ? t('No prize') : formatCurrencyUSD(tier.quota)}
+                {tier.quota === 0
+                  ? t('No prize')
+                  : formatCurrencyUSD(tier.quota)}
               </span>
               <span className='bg-muted h-1.5 flex-1 overflow-hidden rounded-full'>
                 <span

@@ -99,11 +99,15 @@ interface ServiceStatusTargetDialogProps {
 }
 
 /** Add or edit one probe target published on the availability page. */
-export function ServiceStatusTargetDialog(props: ServiceStatusTargetDialogProps) {
+export function ServiceStatusTargetDialog(
+  props: ServiceStatusTargetDialogProps
+) {
   const { t } = useTranslation()
 
   const form = useForm<ServiceStatusTargetValues>({
-    resolver: zodResolver(entrySchema) as unknown as Resolver<ServiceStatusTargetValues>,
+    resolver: zodResolver(
+      entrySchema
+    ) as unknown as Resolver<ServiceStatusTargetValues>,
     defaultValues: props.initial,
   })
 

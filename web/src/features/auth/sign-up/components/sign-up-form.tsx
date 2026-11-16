@@ -25,8 +25,8 @@ import { toast } from 'sonner'
 import type { z } from 'zod'
 
 import { Dialog } from '@/components/dialog'
-import { PasswordInput } from '@/components/password-input'
 import { GeeTestCaptcha } from '@/components/geetest-captcha'
+import { PasswordInput } from '@/components/password-input'
 import {
   PasswordConfirmationStatus,
   PasswordStrength,
@@ -49,8 +49,8 @@ import { OAuthProviders } from '@/features/auth/components/oauth-providers'
 import { registerFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useEmailVerification } from '@/features/auth/hooks/use-email-verification'
-import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
 import { useGeetest } from '@/features/auth/hooks/use-geetest'
+import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
 import {
   getAffiliateCode,
   saveAffiliateCode,

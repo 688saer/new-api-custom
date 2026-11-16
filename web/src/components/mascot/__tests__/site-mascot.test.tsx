@@ -128,7 +128,9 @@ describe('site mascot', () => {
 
     await user.click(screen.getByRole('button', { name: /泡泡/ }))
 
-    expect(screen.getByTestId('site-mascot-bubble').className).toContain('right-0')
+    expect(screen.getByTestId('site-mascot-bubble').className).toContain(
+      'right-0'
+    )
   })
 
   it('reacts to a click with a portrait that is not the greeting one', async () => {
@@ -191,7 +193,8 @@ describe('site mascot', () => {
         get matches() {
           return reduceMotion
         },
-        addEventListener: (_event: string, handler: () => void) => listeners.push(handler),
+        addEventListener: (_event: string, handler: () => void) =>
+          listeners.push(handler),
         removeEventListener: vi.fn(),
       })
     )

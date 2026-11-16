@@ -31,9 +31,8 @@ import {
   portraitUrl,
   randomReactionPortrait,
 } from './portraits'
-import { randomClickClip } from './use-mascot-player'
 import { useMascotDrag } from './use-mascot-drag'
-import { useMascotPlayer } from './use-mascot-player'
+import { randomClickClip,useMascotPlayer } from './use-mascot-player'
 
 /** Marks that the greeting has already been shown on this device. */
 const GREETED_STORAGE_KEY = 'mascot_greeted'
@@ -60,7 +59,9 @@ function writeFlag(key: string): void {
 
 /** Respect the OS-level motion preference before loading any video. */
 function prefersReducedMotion(): boolean {
-  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+  return (
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+  )
 }
 
 /**
@@ -81,7 +82,9 @@ export function SiteMascot() {
   const [greeted, setGreeted] = useState(() => readFlag(GREETED_STORAGE_KEY))
   const [bubbleOpen, setBubbleOpen] = useState(false)
   const [portrait, setPortrait] = useState<MascotPortrait>(GREETING_PORTRAIT)
-  const [motionAllowed, setMotionAllowed] = useState(() => !prefersReducedMotion())
+  const [motionAllowed, setMotionAllowed] = useState(
+    () => !prefersReducedMotion()
+  )
 
   const stageRef = useRef<HTMLDivElement | null>(null)
   const wrapperRef = useRef<HTMLDivElement | null>(null)
@@ -91,7 +94,8 @@ export function SiteMascot() {
   const greeting =
     status?.mascot_greeting?.trim() ||
     t("Hi! I'm {{name}}. Need a hand with your API keys?", { name })
-  const placement = status?.mascot_placement === 'bottom-left' ? 'left' : 'right'
+  const placement =
+    status?.mascot_placement === 'bottom-left' ? 'left' : 'right'
   const size =
     typeof status?.mascot_size === 'number' && status.mascot_size > 0
       ? status.mascot_size
@@ -196,8 +200,8 @@ export function SiteMascot() {
           transformOrigin: 'center bottom',
           // The squash animation writes these; keeping them on the wrapper means
           // the videos never need to be re-laid-out.
-          ['--mascot-squash-x' as string]: '1',
-          ['--mascot-squash-y' as string]: '1',
+          '--mascot-squash-x': '1',
+          '--mascot-squash-y': '1',
         }}
         onPointerDown={drag.onPointerDown}
       >

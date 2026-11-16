@@ -51,25 +51,42 @@ describe('mascot pickers', () => {
   it('pickCategory skips mirrored-text categories while facing right', () => {
     // The text category sits last; with the RNG near 1 it is the natural pick,
     // so an empty result for it proves the filter ran.
-    const facingRight = pickCategory(MASCOT_CATALOG.categories, true, () => 0.999)
+    const facingRight = pickCategory(
+      MASCOT_CATALOG.categories,
+      true,
+      () => 0.999
+    )
     expect(facingRight?.id).not.toBe('文字')
 
-    const facingLeft = pickCategory(MASCOT_CATALOG.categories, false, () => 0.999)
+    const facingLeft = pickCategory(
+      MASCOT_CATALOG.categories,
+      false,
+      () => 0.999
+    )
     expect(facingLeft?.id).toBe('文字')
   })
 
   it('nextChainStep returns a play-once step for actions and a looping one for idle', () => {
-    const idle = nextChainStep(MASCOT_CATALOG, { facingRight: false, random: () => 0 })
+    const idle = nextChainStep(MASCOT_CATALOG, {
+      facingRight: false,
+      random: () => 0,
+    })
     expect(idle.kind).toBe('idle')
     expect(idle.once).toBe(false)
 
-    const action = nextChainStep(MASCOT_CATALOG, { facingRight: false, random: () => 0.9 })
+    const action = nextChainStep(MASCOT_CATALOG, {
+      facingRight: false,
+      random: () => 0.9,
+    })
     expect(action.kind).toBe('action')
     expect(action.once).toBe(true)
   })
 
   it('nextChainStep marks the turn clip as flipping the facing direction', () => {
-    const step = nextChainStep(MASCOT_CATALOG, { facingRight: false, random: () => 0.12 })
+    const step = nextChainStep(MASCOT_CATALOG, {
+      facingRight: false,
+      random: () => 0.12,
+    })
     expect(step.kind).toBe('turn')
     expect(step.flips).toBe(true)
   })
@@ -77,12 +94,16 @@ describe('mascot pickers', () => {
 
 describe('mascot clip files', () => {
   it('resolves every clip the catalogue references', () => {
-    const missing = allClipNames().filter((name) => !(name in MASCOT_CLIP_FILES))
+    const missing = allClipNames().filter(
+      (name) => !(name in MASCOT_CLIP_FILES)
+    )
     expect(missing).toEqual([])
   })
 
   it('uses ASCII slugs so no layer has to encode a non-ASCII path', () => {
-    const nonAscii = Object.values(MASCOT_CLIP_FILES).filter((slug) => !/^[\w-]+$/.test(slug))
+    const nonAscii = Object.values(MASCOT_CLIP_FILES).filter(
+      (slug) => !/^[\w-]+$/.test(slug)
+    )
     expect(nonAscii).toEqual([])
   })
 
