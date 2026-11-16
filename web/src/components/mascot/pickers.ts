@@ -84,7 +84,7 @@ export function pickCategory(
     cursor -= category.weight
     if (cursor <= 0) return category
   }
-  return pool.at(-1)
+  return pool[pool.length - 1]
 }
 
 /**

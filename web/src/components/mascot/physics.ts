@@ -167,13 +167,13 @@ export function estimateReleaseVelocity(
   now: number
 ): { vx: number; vy: number } | null {
   if (trail.length === 0) return null
-  const last = trail.at(-1)
+  const last = trail[trail.length - 1]
   if (now - last.t > RELEASE_STALE_MS) return null
   const window = trail.filter((sample) => now - sample.t <= RELEASE_WINDOW_MS)
   if (window.length < 2) return null
 
   const first = window[0]
-  const end = window.at(-1)
+  const end = window[window.length - 1]
   const spanMs = end.t - first.t
   if (spanMs < MIN_SPAN_MS) return null
 
@@ -206,7 +206,7 @@ export function estimateReleaseVelocity(
 
   let accel = 0
   if (segments.length >= 2) {
-    const lastSegment = segments.at(-1)
+    const lastSegment = segments[segments.length - 1]
     const firstSegment = segments[0]
     accel =
       (lastSegment.speed - firstSegment.speed) /

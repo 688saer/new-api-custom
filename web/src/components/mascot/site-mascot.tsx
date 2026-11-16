@@ -32,7 +32,8 @@ import {
   randomReactionPortrait,
 } from './portraits'
 import { useMascotDrag } from './use-mascot-drag'
-import { randomClickClip,useMascotPlayer } from './use-mascot-player'
+import { randomClickClip } from './use-mascot-player'
+import { useMascotPlayer } from './use-mascot-player'
 
 /** Marks that the greeting has already been shown on this device. */
 const GREETED_STORAGE_KEY = 'mascot_greeted'
@@ -200,8 +201,8 @@ export function SiteMascot() {
           transformOrigin: 'center bottom',
           // The squash animation writes these; keeping them on the wrapper means
           // the videos never need to be re-laid-out.
-          '--mascot-squash-x': '1',
-          '--mascot-squash-y': '1',
+          ['--mascot-squash-x' as string]: '1',
+          ['--mascot-squash-y' as string]: '1',
         }}
         onPointerDown={drag.onPointerDown}
       >

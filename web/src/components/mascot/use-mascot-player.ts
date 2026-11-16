@@ -143,7 +143,7 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
     return () => {
       mountedRef.current = false
       if (chainTimerRef.current !== null)
-        {window.clearTimeout(chainTimerRef.current)}
+        window.clearTimeout(chainTimerRef.current)
       for (const slot of ['a', 'b'] as const) {
         const url = blobUrlsRef.current[slot]
         if (url) URL.revokeObjectURL(url)
@@ -191,7 +191,7 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
           // Safety net: if `ended` never fires (decode hiccup, tab suspended),
           // fall back to the chain instead of freezing on one frame.
           if (chainTimerRef.current !== null)
-            {window.clearTimeout(chainTimerRef.current)}
+            window.clearTimeout(chainTimerRef.current)
           chainTimerRef.current = window.setTimeout(
             () => {
               if (currentRef.current === name) advanceChain()
@@ -207,7 +207,7 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
       target.onended = once
         ? () => {
             if (!mountedRef.current || generationRef.current !== generation)
-              {return}
+              return
             setBusy(false)
             advanceChain()
           }
@@ -229,7 +229,7 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
           // Autoplay can be refused (battery saver, strict policies). The poster
           // frame still shows, so the character is visible rather than blank.
           if (mountedRef.current && generationRef.current === generation)
-            {setBusy(false)}
+            setBusy(false)
         })
       }
       target.addEventListener('loadeddata', onReady)
@@ -248,7 +248,7 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
         .then((blob) => {
           window.clearTimeout(timer)
           if (!mountedRef.current || generationRef.current !== generation)
-            {return}
+            return
           const previous = blobUrlsRef.current[slot]
           if (previous) URL.revokeObjectURL(previous)
           const url = URL.createObjectURL(blob)
@@ -260,11 +260,11 @@ export function useMascotPlayer(options: PlayerOptions): MascotPlayer {
           window.clearTimeout(timer)
           target.removeEventListener('loadeddata', onReady)
           if (!mountedRef.current || generationRef.current !== generation)
-            {return}
+            return
           setBusy(false)
           window.setTimeout(() => {
             if (mountedRef.current && currentRef.current === name)
-              {advanceChain()}
+              advanceChain()
           }, 400)
         })
     },

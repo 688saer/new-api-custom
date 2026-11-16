@@ -20,7 +20,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 
-import { type RewardStyle, type RewardTicketCopy,REWARD_STYLES } from '../types'
+import type { RewardStyle, RewardTicketCopy } from '../types'
+import { REWARD_STYLES } from '../types'
 
 const STYLE_LABEL_KEYS: Record<RewardStyle, string> = {
   aurora: 'Aurora',

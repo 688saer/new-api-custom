@@ -61,7 +61,7 @@ export function AnnouncementListItem(props: AnnouncementListItemProps) {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const publishDate = props.announcement.publishDate
-  const parsed = publishDate ? Date.parse(publishDate) : Number.NaN
+  const parsed = publishDate ? Date.parse(publishDate) : NaN
 
   return (
     <button

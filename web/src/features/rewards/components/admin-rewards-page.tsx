@@ -81,9 +81,9 @@ export function AdminRewardsPage() {
         if (seq !== campaignSeq.current) return
         if (res.success && res.data) setCampaigns(res.data)
         else
-          {toast.error(
+          toast.error(
             res.reason || t('Request failed, please try again later.')
-          )}
+          )
       } catch {
         toast.error(t('Request failed, please try again later.'))
       } finally {

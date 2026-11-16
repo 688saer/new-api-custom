@@ -172,7 +172,7 @@ export function LuckyLottery() {
         setDrawing(null)
         return
       }
-      const target = data.slot_indexes.at(-1) ?? 0
+      const target = data.slot_indexes?.[data.slot_indexes.length - 1] ?? 0
       const slotCount = SLOT_COUNT
       const prizeLen = status?.prizes.length ?? 1
       // 把奖池下标映射到可视槽位
