@@ -214,6 +214,56 @@ export interface AdminSubscriptionQuery {
 }
 
 // ============================================================================
+// Operator board: enabled API keys per user
+// ============================================================================
+
+/** One enabled API key. The value is masked; the board never shows a secret. */
+export interface AdminEnabledApiKey {
+  id: number
+  name: string
+  masked_key: string
+  group: string
+  remain_quota: number
+  used_quota: number
+  unlimited_quota: boolean
+  /** -1 means the key never expires. */
+  expired_time: number
+  created_time: number
+  accessed_time: number
+  model_limits_enabled: boolean
+  model_limits: string
+}
+
+/** One user with the keys they can call with. */
+export interface AdminEnabledApiKeyUser {
+  user_id: number
+  username: string
+  display_name: string
+  email: string
+  user_group: string
+  user_status: number
+  /** Every enabled key the user owns, even when only some are listed. */
+  key_count: number
+  keys: AdminEnabledApiKey[]
+}
+
+export interface AdminEnabledApiKeyPage {
+  items: AdminEnabledApiKeyUser[]
+  /** Users on every page of the filtered set. */
+  total: number
+  /** Enabled keys held by those users. */
+  key_total: number
+  page: number
+  page_size: number
+}
+
+export interface AdminEnabledApiKeyQuery {
+  keyword?: string
+  page: number
+  pageSize: number
+}
+
+// ============================================================================
 // Self Subscription Data (user-facing)
 // ============================================================================
 

@@ -9158,6 +9158,16 @@
     "Claim code value must be at most 64 characters": "Claim code value must be at most 64 characters",
     "A custom claim code can only be created once at a time": "A custom claim code can only be created once at a time",
     "This claim code already exists": "This claim code already exists",
-    "Claim code value cannot be empty": "Claim code value cannot be empty"
+    "Claim code value cannot be empty": "Claim code value cannot be empty",
+    "API Keys by User": "API Keys by User",
+    "Enabled keys": "Enabled keys",
+    "Users with keys": "Users with keys",
+    "Usable": "Usable",
+    "Not usable": "Not usable",
+    "Usable now": "Usable now",
+    "No user has an enabled API key yet": "No user has an enabled API key yet",
+    "A user appears here once they keep at least one API key enabled": "A user appears here once they keep at least one API key enabled",
+    "Search user, key name, or ID...": "Search user, key name, or ID...",
+    "Showing the newest {{shown}} of {{total}} keys": "Showing the newest {{shown}} of {{total}} keys"
   }
 }

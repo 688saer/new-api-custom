@@ -9158,6 +9158,16 @@
     "Claim code value must be at most 64 characters": "Nội dung mã tối đa 64 ký tự",
     "A custom claim code can only be created once at a time": "Mỗi lần chỉ tạo được một mã tự nhập",
     "This claim code already exists": "Mã này đã tồn tại",
-    "Claim code value cannot be empty": "Nội dung mã không được để trống"
+    "Claim code value cannot be empty": "Nội dung mã không được để trống",
+    "API Keys by User": "Khóa API theo người dùng",
+    "Enabled keys": "Khóa đã bật",
+    "Users with keys": "Người dùng có khóa",
+    "Usable": "Dùng được",
+    "Not usable": "Không dùng được",
+    "Usable now": "Hiện dùng được",
+    "No user has an enabled API key yet": "Chưa có người dùng nào bật khóa API",
+    "A user appears here once they keep at least one API key enabled": "Người dùng sẽ xuất hiện ở đây khi còn ít nhất một khóa API đang bật",
+    "Search user, key name, or ID...": "Tìm người dùng, tên khóa hoặc ID...",
+    "Showing the newest {{shown}} of {{total}} keys": "Đang hiển thị {{shown}} khóa mới nhất trong tổng số {{total}}"
   }
 }

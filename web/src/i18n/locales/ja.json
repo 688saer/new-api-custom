@@ -9158,6 +9158,16 @@
     "Claim code value must be at most 64 characters": "コードの文字列は 64 文字以内にしてください",
     "A custom claim code can only be created once at a time": "カスタムコードは一度に 1 つだけ作成できます",
     "This claim code already exists": "このコードはすでに存在します",
-    "Claim code value cannot be empty": "コードの文字列を入力してください"
+    "Claim code value cannot be empty": "コードの文字列を入力してください",
+    "API Keys by User": "ユーザー別 API キー",
+    "Enabled keys": "有効なキー",
+    "Users with keys": "キーを持つユーザー",
+    "Usable": "利用可能",
+    "Not usable": "利用不可",
+    "Usable now": "現在利用可能",
+    "No user has an enabled API key yet": "有効な API キーを持つユーザーはまだいません",
+    "A user appears here once they keep at least one API key enabled": "API キーを 1 つ以上有効にしているユーザーがここに表示されます",
+    "Search user, key name, or ID...": "ユーザー、キー名、ID を検索...",
+    "Showing the newest {{shown}} of {{total}} keys": "最新 {{shown}} 件を表示（全 {{total}} 件）"
   }
 }

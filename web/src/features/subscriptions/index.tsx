@@ -25,6 +25,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 import { AllSubscriptionsPanel } from './components/all-subscriptions-panel'
+import { ApiKeyBoardPanel } from './components/api-key-board-panel'
 import { SubscriptionsDialogs } from './components/subscriptions-dialogs'
 import { SubscriptionsPrimaryButtons } from './components/subscriptions-primary-buttons'
 import {
@@ -33,7 +34,7 @@ import {
 } from './components/subscriptions-provider'
 import { SubscriptionsTable } from './components/subscriptions-table'
 
-const SUBSCRIPTIONS_SECTIONS = ['plans', 'cards'] as const
+const SUBSCRIPTIONS_SECTIONS = ['plans', 'cards', 'api-keys'] as const
 
 type SubscriptionsSection = (typeof SUBSCRIPTIONS_SECTIONS)[number]
 
@@ -78,6 +79,9 @@ function SubscriptionsContent() {
                 <TabsTrigger value='cards'>
                   {t('All Subscriptions')}
                 </TabsTrigger>
+                <TabsTrigger value='api-keys'>
+                  {t('API Keys by User')}
+                </TabsTrigger>
               </TabsList>
             </Tabs>
 
@@ -96,11 +100,19 @@ function SubscriptionsContent() {
                   <SubscriptionsTable />
                 </div>
               </>
-            ) : (
+            ) : null}
+
+            {section === 'cards' ? (
               <div className='min-h-0 flex-1'>
                 <AllSubscriptionsPanel />
               </div>
-            )}
+            ) : null}
+
+            {section === 'api-keys' ? (
+              <div className='min-h-0 flex-1'>
+                <ApiKeyBoardPanel />
+              </div>
+            ) : null}
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

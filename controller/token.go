@@ -228,6 +228,25 @@ func GetTokenStatus(c *gin.Context) {
 	})
 }
 
+// AdminListEnabledApiKeys lists every user's enabled API keys for the operator
+// board on the subscription console. Keys are masked; the board shows what a
+// user can call with, not a usable secret.
+func AdminListEnabledApiKeys(c *gin.Context) {
+	page, _ := strconv.Atoi(c.Query("page"))
+	pageSize, _ := strconv.Atoi(c.Query("page_size"))
+
+	result, err := model.ListAdminEnabledApiKeys(model.AdminEnabledApiKeyFilter{
+		Keyword:  c.Query("keyword"),
+		Page:     page,
+		PageSize: pageSize,
+	})
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, result)
+}
+
 func GetTokenUsage(c *gin.Context) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {

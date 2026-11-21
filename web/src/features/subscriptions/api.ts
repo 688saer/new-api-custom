@@ -32,6 +32,8 @@ import type {
   SelfSubscriptionData,
   AdminSubscriptionPage,
   AdminSubscriptionQuery,
+  AdminEnabledApiKeyPage,
+  AdminEnabledApiKeyQuery,
 } from './types'
 
 // ============================================================================
@@ -99,6 +101,22 @@ export async function listAllUserSubscriptions(
       status: query.status || undefined,
       plan_id: query.planId || undefined,
       expiring_days: query.expiringDays || undefined,
+      page: query.page,
+      page_size: query.pageSize,
+    },
+  })
+  return res.data
+}
+
+/**
+ * Every user's enabled API keys for the operator board, paged by user.
+ */
+export async function listAdminEnabledApiKeys(
+  query: AdminEnabledApiKeyQuery
+): Promise<ApiResponse<AdminEnabledApiKeyPage>> {
+  const res = await api.get('/api/subscription/admin/api-keys', {
+    params: {
+      keyword: query.keyword || undefined,
       page: query.page,
       page_size: query.pageSize,
     },

@@ -9158,6 +9158,16 @@
     "Claim code value must be at most 64 characters": "口令内容最多 64 个字符",
     "A custom claim code can only be created once at a time": "自定义口令一次只能创建一个",
     "This claim code already exists": "这个口令已经存在了",
-    "Claim code value cannot be empty": "口令内容不能为空"
+    "Claim code value cannot be empty": "口令内容不能为空",
+    "API Keys by User": "按用户查看 API 密钥",
+    "Enabled keys": "已启用密钥",
+    "Users with keys": "持有密钥的用户",
+    "Usable": "可用",
+    "Not usable": "不可用",
+    "Usable now": "当前可用",
+    "No user has an enabled API key yet": "暂无用户启用 API 密钥",
+    "A user appears here once they keep at least one API key enabled": "用户只要保留至少一个已启用的 API 密钥，就会显示在这里",
+    "Search user, key name, or ID...": "搜索用户、密钥名称或 ID...",
+    "Showing the newest {{shown}} of {{total}} keys": "仅显示最新 {{shown}} 个，共 {{total}} 个密钥"
   }
 }

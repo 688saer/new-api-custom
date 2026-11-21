@@ -283,6 +283,9 @@ func SetApiRouter(router *gin.Engine) {
 			subscriptionAdminRoute.POST("/users/:id/subscriptions/reset", controller.AdminResetUserSubscriptionsByPlan)
 			subscriptionAdminRoute.POST("/user_subscriptions/:id/invalidate", controller.AdminInvalidateUserSubscription)
 			subscriptionAdminRoute.DELETE("/user_subscriptions/:id", controller.AdminDeleteUserSubscription)
+
+			// Each user's enabled API keys, for the board on the subscription console.
+			subscriptionAdminRoute.GET("/api-keys", controller.AdminListEnabledApiKeys)
 		}
 
 		// Invoice management (admin console)
