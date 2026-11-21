@@ -67,7 +67,9 @@ function keyIsUsable(key: AdminEnabledApiKey, nowSeconds: number): boolean {
 function KeyQuotaCell(props: { apiKey: AdminEnabledApiKey }) {
   const { t } = useTranslation()
   if (props.apiKey.unlimited_quota) {
-    return <span className='text-muted-foreground text-xs'>{t('Unlimited')}</span>
+    return (
+      <span className='text-muted-foreground text-xs'>{t('Unlimited')}</span>
+    )
   }
   return (
     <div className='flex flex-col'>
@@ -344,7 +346,10 @@ export function ApiKeyBoardPanel() {
             {t('Enabled keys')}: {keyTotal}
           </span>
           {isFetching ? (
-            <ChevronDown aria-hidden='true' className='size-3.5 animate-pulse' />
+            <ChevronDown
+              aria-hidden='true'
+              className='size-3.5 animate-pulse'
+            />
           ) : null}
         </div>
       </div>

@@ -109,6 +109,7 @@ describe('security sidebar visibility', () => {
       'Lucky Draw',
       'Lucky Wheel',
       'Welfare Chests',
+      'Redeem center',
       'My rewards',
       'My Tickets',
       'Channel availability',
