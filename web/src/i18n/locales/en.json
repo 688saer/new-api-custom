@@ -9168,6 +9168,14 @@
     "No user has an enabled API key yet": "No user has an enabled API key yet",
     "A user appears here once they keep at least one API key enabled": "A user appears here once they keep at least one API key enabled",
     "Search user, key name, or ID...": "Search user, key name, or ID...",
-    "Showing the newest {{shown}} of {{total}} keys": "Showing the newest {{shown}} of {{total}} keys"
+    "Showing the newest {{shown}} of {{total}} keys": "Showing the newest {{shown}} of {{total}} keys",
+    "Copy key information": "Copy key information",
+    "Copy all key information of this user": "Copy all key information of this user",
+    "Key information copied": "Key information copied",
+    "Copy all": "Copy all",
+    "Reveal": "Reveal",
+    "Verify to reveal an API key": "Verify to reveal an API key",
+    "Confirm your identity before revealing the key {{name}} of user {{username}}.": "Confirm your identity before revealing the key {{name}} of user {{username}}.",
+    "Full API key copied": "Full API key copied"
   }
 }

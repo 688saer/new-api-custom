@@ -124,6 +124,26 @@ export async function listAdminEnabledApiKeys(
   return res.data
 }
 
+/**
+ * Reveals one user's full API key. The server requires a fresh step-up proof
+ * bound to that key, so the caller must pass the token it just obtained.
+ */
+export async function revealAdminApiKey(
+  id: number,
+  proofToken: string
+): Promise<ApiResponse<{ id: number; key: string }>> {
+  const res = await api.post(
+    `/api/subscription/admin/api-keys/${id}/reveal`,
+    undefined,
+    {
+      headers: { 'X-Security-Proof': proofToken },
+      singleUseAuthorization: true,
+      disableDuplicate: true,
+    }
+  )
+  return res.data
+}
+
 export async function createUserSubscription(
   userId: number,
   data: CreateUserSubscriptionRequest

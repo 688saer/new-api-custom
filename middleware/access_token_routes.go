@@ -154,6 +154,8 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"POST /api/subscription/admin/user_subscriptions/:id/invalidate": accessTokenScopeRule("billing:write"),
 	"DELETE /api/subscription/admin/user_subscriptions/:id":          accessTokenScopeRule("billing:write"),
 	"GET /api/subscription/admin/api-keys":                           accessTokenScopeRule("billing:read"),
+	// Revealing another user's secret is a browser-only, step-up action.
+	"POST /api/subscription/admin/api-keys/:id/reveal": accessTokenSessionRule,
 
 	// router/api-router.go: /api/option
 	"GET /api/option/":                                           accessTokenScopeRule("option:read"),

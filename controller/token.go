@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
 )
 
 type tokenAutoGroupsInput struct {
@@ -245,6 +247,42 @@ func AdminListEnabledApiKeys(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, result)
+}
+
+// AdminGetUserApiKey reveals one user's full API key to an operator. It runs
+// behind a step-up proof that binds the owner and the key, so a proof for one
+// key never unlocks another, and it records who saw which key.
+func AdminGetUserApiKey(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		common.ApiErrorT(c, "Invalid ID")
+		return
+	}
+	token, err := model.GetTokenById(id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		common.ApiErrorT(c, "API key does not exist")
+		return
+	}
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	authorization := requireAdminUserProof(c, service.VerificationScopeAdminUserApiKeyRead, service.AdminUserApiKeyContext{
+		UserID: token.UserId,
+		KeyID:  token.Id,
+	})
+	if authorization == nil {
+		return
+	}
+	recordManageAuditFor(c, token.UserId, "token.admin_key_view", map[string]any{
+		"id":      token.Id,
+		"name":    token.Name,
+		"user_id": token.UserId,
+	})
+	common.ApiSuccessT(c, "Fetched successfully", map[string]any{
+		"id":  token.Id,
+		"key": token.GetFullKey(),
+	})
 }
 
 func GetTokenUsage(c *gin.Context) {

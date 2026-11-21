@@ -286,6 +286,12 @@ func SetApiRouter(router *gin.Engine) {
 
 			// Each user's enabled API keys, for the board on the subscription console.
 			subscriptionAdminRoute.GET("/api-keys", controller.AdminListEnabledApiKeys)
+			// Revealing one key needs a fresh step-up proof bound to that key.
+			subscriptionAdminRoute.POST("/api-keys/:id/reveal",
+				middleware.CriticalRateLimit(),
+				middleware.DisableCache(),
+				controller.AdminGetUserApiKey,
+			)
 		}
 
 		// Invoice management (admin console)

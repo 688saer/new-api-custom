@@ -17,11 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { ChevronDown, KeyRound, Search, UserRound } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { KeyRound, Search, UserRound } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { BadgeCell } from '@/components/data-table'
+import { CopyButton } from '@/components/copy-button'
+import { StaticDataTable } from '@/components/data-table'
 import { EmptyState } from '@/components/empty-state'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
@@ -32,36 +33,36 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion'
 import { Button } from '@/components/ui/button'
+import { IconBadge } from '@/components/ui/icon-badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+  SecureVerificationDialog,
+  useSecureVerification,
+} from '@/features/auth/secure-verification'
 import { useDebounce } from '@/hooks'
 import { formatQuota, formatTimestamp } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
-import { cn } from '@/lib/utils'
 
-import { listAdminEnabledApiKeys } from '../api'
+import { listAdminEnabledApiKeys, revealAdminApiKey } from '../api'
+import {
+  formatKeyInfo,
+  formatUserKeysInfo,
+  isKeyUsable,
+  maskedKeyText,
+} from '../lib/api-key-board'
 import type { AdminEnabledApiKey, AdminEnabledApiKeyUser } from '../types'
 
 const PAGE_SIZE = 10
 
-// Stable placeholders so the loading skeleton keeps the same keys across renders.
 const SKELETON_ROWS = ['first', 'second', 'third', 'fourth']
 
-/** Whether a key can still serve requests: enabled, within its expiry, funded. */
-function keyIsUsable(key: AdminEnabledApiKey, nowSeconds: number): boolean {
-  if (key.expired_time !== -1 && key.expired_time <= nowSeconds) {
-    return false
-  }
-  if (key.unlimited_quota) return true
-  return key.remain_quota > 0
+type SummaryTile = {
+  key: string
+  label: string
+  value: string
+  icon: typeof KeyRound
+  tone: 'primary' | 'success' | 'info'
 }
 
 function KeyQuotaCell(props: { apiKey: AdminEnabledApiKey }) {
@@ -72,12 +73,10 @@ function KeyQuotaCell(props: { apiKey: AdminEnabledApiKey }) {
     )
   }
   return (
-    <div className='flex flex-col'>
-      <span className='text-xs tabular-nums'>
-        {formatQuota(props.apiKey.remain_quota)}
-      </span>
-      <span className='text-muted-foreground text-xs tabular-nums'>
-        {t('Used amount')} {formatQuota(props.apiKey.used_quota)}
+    <div className='flex flex-col items-end tabular-nums'>
+      <span className='text-xs'>{formatQuota(props.apiKey.remain_quota)}</span>
+      <span className='text-muted-foreground text-xs'>
+        {t('Used')} {formatQuota(props.apiKey.used_quota)}
       </span>
     </div>
   )
@@ -98,17 +97,18 @@ function KeyExpiryCell(props: { apiKey: AdminEnabledApiKey; now: number }) {
   const isPast = props.apiKey.expired_time <= props.now
   return (
     <span
-      className={cn(
-        'text-xs tabular-nums',
-        isPast ? 'text-destructive' : 'text-muted-foreground'
-      )}
+      className={
+        isPast
+          ? 'text-destructive text-xs tabular-nums'
+          : 'text-muted-foreground text-xs tabular-nums'
+      }
     >
       {formatTimestamp(props.apiKey.expired_time)}
     </span>
   )
 }
 
-function KeyModelCell(props: { apiKey: AdminEnabledApiKey }) {
+function KeyModelsCell(props: { apiKey: AdminEnabledApiKey }) {
   const { t } = useTranslation()
   const models = props.apiKey.model_limits_enabled
     ? (props.apiKey.model_limits || '').split(',').filter(Boolean)
@@ -119,121 +119,14 @@ function KeyModelCell(props: { apiKey: AdminEnabledApiKey }) {
     )
   }
   return (
-    <BadgeCell>
-      <StatusBadge
-        label={t('{{count}} models', { count: models.length })}
-        variant='neutral'
-        copyable={false}
-      />
-    </BadgeCell>
+    <StatusBadge
+      label={t('{{count}} models', { count: models.length })}
+      variant='neutral'
+      copyable={false}
+    />
   )
 }
 
-function UserKeysTable(props: { user: AdminEnabledApiKeyUser; now: number }) {
-  const { t } = useTranslation()
-  return (
-    <div className='overflow-x-auto'>
-      <Table>
-        <TableHeader>
-          <TableRow className='hover:bg-transparent'>
-            <TableHead>{t('Name')}</TableHead>
-            <TableHead>{t('Key')}</TableHead>
-            <TableHead>{t('Status')}</TableHead>
-            <TableHead>{t('Quota')}</TableHead>
-            <TableHead>{t('Group')}</TableHead>
-            <TableHead>{t('Models')}</TableHead>
-            <TableHead>{t('Expires')}</TableHead>
-            <TableHead>{t('Last Used')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {props.user.keys.map((key) => (
-            <TableRow key={key.id}>
-              <TableCell className='font-medium'>{key.name || '-'}</TableCell>
-              <TableCell className='text-muted-foreground font-mono text-xs'>
-                {`sk-${key.masked_key}`}
-              </TableCell>
-              <TableCell>
-                {keyIsUsable(key, props.now) ? (
-                  <StatusBadge
-                    label={t('Usable')}
-                    variant='success'
-                    copyable={false}
-                  />
-                ) : (
-                  <StatusBadge
-                    label={t('Not usable')}
-                    variant='neutral'
-                    copyable={false}
-                  />
-                )}
-              </TableCell>
-              <TableCell>
-                <KeyQuotaCell apiKey={key} />
-              </TableCell>
-              <TableCell>
-                {key.group ? (
-                  <GroupBadge group={key.group} />
-                ) : (
-                  <span className='text-muted-foreground'>-</span>
-                )}
-              </TableCell>
-              <TableCell>
-                <KeyModelCell apiKey={key} />
-              </TableCell>
-              <TableCell>
-                <KeyExpiryCell apiKey={key} now={props.now} />
-              </TableCell>
-              <TableCell className='text-muted-foreground text-xs'>
-                {key.accessed_time > 0
-                  ? formatTimestamp(key.accessed_time)
-                  : t('Never used')}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  )
-}
-
-function UserSummary(props: { user: AdminEnabledApiKeyUser; now: number }) {
-  const { t } = useTranslation()
-  const usableCount = props.user.keys.filter((key) =>
-    keyIsUsable(key, props.now)
-  ).length
-  return (
-    <div className='flex min-w-0 flex-1 flex-col gap-1'>
-      <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
-        <span className='truncate text-sm font-semibold'>
-          {props.user.display_name || props.user.username}
-        </span>
-        <span className='text-muted-foreground truncate text-xs'>
-          {props.user.username} · #{props.user.user_id}
-        </span>
-        {props.user.user_group ? (
-          <GroupBadge group={props.user.user_group} />
-        ) : null}
-      </div>
-      <div className='text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs'>
-        <span className='tabular-nums'>
-          {t('Enabled keys')}: {props.user.key_count}
-        </span>
-        <span className='text-success tabular-nums'>
-          {t('Usable now')}: {usableCount}
-        </span>
-        {props.user.email ? (
-          <span className='truncate'>{props.user.email}</span>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
-/**
- * Every user's enabled API keys, one collapsible group per user. Keys are
- * masked: the board answers what a user can call with, not how to call.
- */
 export function ApiKeyBoardPanel() {
   const { t } = useTranslation()
   // One reading of the clock per mount keeps "usable now" stable while the
@@ -242,6 +135,9 @@ export function ApiKeyBoardPanel() {
   const [keyword, setKeyword] = useState('')
   const debouncedKeyword = useDebounce(keyword, 400)
   const [page, setPage] = useState(1)
+  const [revealed, setRevealed] = useState<Record<number, string>>({})
+  const [revealingId, setRevealingId] = useState<number | null>(null)
+  const verification = useSecureVerification()
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: [
@@ -259,7 +155,9 @@ export function ApiKeyBoardPanel() {
     placeholderData: (previous) => previous,
   })
 
-  const users = data?.data?.items || []
+  // The page payload is the single source of rows; a stable fallback keeps the
+  // derived counts below from recomputing on every render.
+  const users = useMemo(() => data?.data?.items ?? [], [data])
   const total = data?.data?.total || 0
   const keyTotal = data?.data?.key_total || 0
   const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1)
@@ -270,6 +168,204 @@ export function ApiKeyBoardPanel() {
     setKeyword(value)
     setPage(1)
   }, [])
+
+  const usableTotal = useMemo(
+    () =>
+      users.reduce(
+        (count, user) =>
+          count +
+          user.keys.filter((key) => isKeyUsable(key, nowSeconds)).length,
+        0
+      ),
+    [users, nowSeconds]
+  )
+
+  const tiles = useMemo((): SummaryTile[] => {
+    return [
+      {
+        key: 'users',
+        label: t('Users with keys'),
+        value: String(total),
+        icon: UserRound,
+        tone: 'primary',
+      },
+      {
+        key: 'keys',
+        label: t('Enabled keys'),
+        value: String(keyTotal),
+        icon: KeyRound,
+        tone: 'info',
+      },
+      {
+        key: 'usable',
+        label: t('Usable now'),
+        value: String(usableTotal),
+        icon: KeyRound,
+        tone: 'success',
+      },
+    ]
+  }, [total, keyTotal, usableTotal, t])
+
+  /** Reveals one key behind a step-up proof, then shows the full value. */
+  const handleReveal = useCallback(
+    async (apiKey: AdminEnabledApiKey, userId: number, username: string) => {
+      const proof = await verification.requestVerification({
+        scope: 'admin.user.api_key.read',
+        context: { user_id: userId, key_id: apiKey.id },
+        title: t('Verify to reveal an API key'),
+        description: t(
+          'Confirm your identity before revealing the key {{name}} of user {{username}}.',
+          { name: apiKey.name || `#${apiKey.id}`, username }
+        ),
+      })
+      if (!proof) return
+      setRevealingId(apiKey.id)
+      try {
+        const result = requireServerSuccess(
+          await revealAdminApiKey(apiKey.id, proof.proof_token)
+        )
+        const fullKey = result.data?.key
+        if (!fullKey) return
+        setRevealed((previous) => ({ ...previous, [apiKey.id]: fullKey }))
+      } finally {
+        setRevealingId(null)
+      }
+    },
+    [verification, t]
+  )
+
+  const renderKeysTable = (user: AdminEnabledApiKeyUser) => {
+    return (
+      <StaticDataTable
+        data={user.keys}
+        getRowKey={(key) => key.id}
+        containerProps={{ 'aria-label': t('Enabled keys') }}
+        columns={[
+          {
+            id: 'name',
+            header: t('Name'),
+            cell: (key) => (
+              <span className='text-sm font-medium'>{key.name || '-'}</span>
+            ),
+          },
+          {
+            id: 'key',
+            header: t('Key'),
+            cell: (key) => {
+              const fullKey = revealed[key.id]
+              return (
+                <div className='flex min-w-0 items-center gap-1'>
+                  <code className='text-muted-foreground truncate font-mono text-xs'>
+                    {fullKey ?? maskedKeyText(key)}
+                  </code>
+                  {fullKey ? (
+                    <CopyButton
+                      value={fullKey}
+                      size='icon'
+                      className='size-7'
+                      iconClassName='size-3.5'
+                      tooltip={t('Copy to clipboard')}
+                      successTooltip={t('Copied!')}
+                      aria-label={t('Full API key copied')}
+                    />
+                  ) : (
+                    <Button
+                      variant='ghost'
+                      size='sm'
+                      className='h-7 px-2 text-xs'
+                      disabled={revealingId === key.id}
+                      onClick={() => {
+                        void handleReveal(key, user.user_id, user.username)
+                      }}
+                    >
+                      {t('Reveal')}
+                    </Button>
+                  )}
+                </div>
+              )
+            },
+          },
+          {
+            id: 'status',
+            header: t('Status'),
+            cell: (key) =>
+              isKeyUsable(key, nowSeconds) ? (
+                <StatusBadge
+                  label={t('Usable')}
+                  variant='success'
+                  copyable={false}
+                />
+              ) : (
+                <StatusBadge
+                  label={t('Not usable')}
+                  variant='neutral'
+                  copyable={false}
+                />
+              ),
+          },
+          {
+            id: 'quota',
+            header: t('Quota'),
+            className: 'text-right',
+            cellClassName: 'text-right',
+            cell: (key) => <KeyQuotaCell apiKey={key} />,
+          },
+          {
+            id: 'group',
+            header: t('Group'),
+            cell: (key) =>
+              key.group ? (
+                <GroupBadge group={key.group} />
+              ) : (
+                <span className='text-muted-foreground'>-</span>
+              ),
+          },
+          {
+            id: 'models',
+            header: t('Models'),
+            cell: (key) => <KeyModelsCell apiKey={key} />,
+          },
+          {
+            id: 'expires',
+            header: t('Expires'),
+            cell: (key) => <KeyExpiryCell apiKey={key} now={nowSeconds} />,
+          },
+          {
+            id: 'accessed',
+            header: t('Last Used'),
+            cell: (key) => (
+              <span className='text-muted-foreground text-xs tabular-nums'>
+                {key.accessed_time > 0
+                  ? formatTimestamp(key.accessed_time)
+                  : t('Never used')}
+              </span>
+            ),
+          },
+          {
+            id: 'copy',
+            header: t('Actions'),
+            className: 'text-right',
+            cellClassName: 'text-right',
+            cell: (key) => (
+              <CopyButton
+                value={formatKeyInfo(key, {
+                  t,
+                  nowSeconds,
+                  keyValue: revealed[key.id],
+                })}
+                size='icon'
+                className='size-7'
+                iconClassName='size-3.5'
+                tooltip={t('Copy key information')}
+                successTooltip={t('Key information copied')}
+                aria-label={t('Copy key information')}
+              />
+            ),
+          },
+        ]}
+      />
+    )
+  }
 
   const renderBody = () => {
     if (isLoading && users.length === 0) {
@@ -302,19 +398,60 @@ export function ApiKeyBoardPanel() {
                   aria-hidden='true'
                   className='text-muted-foreground size-4 shrink-0'
                 />
-                <UserSummary user={user} now={nowSeconds} />
+                <div className='flex min-w-0 flex-1 flex-col gap-1'>
+                  <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+                    <span className='truncate text-sm font-semibold'>
+                      {user.display_name || user.username}
+                    </span>
+                    <span className='text-muted-foreground truncate text-xs'>
+                      {user.username} · #{user.user_id}
+                    </span>
+                    {user.user_group ? (
+                      <GroupBadge group={user.user_group} />
+                    ) : null}
+                  </div>
+                  <div className='text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs'>
+                    <span className='tabular-nums'>
+                      {t('Enabled keys')}: {user.key_count}
+                    </span>
+                    <span className='text-success tabular-nums'>
+                      {t('Usable now')}:{' '}
+                      {
+                        user.keys.filter((key) => isKeyUsable(key, nowSeconds))
+                          .length
+                      }
+                    </span>
+                    {user.email ? (
+                      <span className='truncate'>{user.email}</span>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             </AccordionTrigger>
             <AccordionContent className='pt-2'>
-              <UserKeysTable user={user} now={nowSeconds} />
-              {user.keys.length < user.key_count ? (
-                <p className='text-muted-foreground mt-2 text-xs'>
-                  {t('Showing the newest {{shown}} of {{total}} keys', {
-                    shown: user.keys.length,
-                    total: user.key_count,
-                  })}
+              {renderKeysTable(user)}
+              <div className='mt-2 flex flex-wrap items-center justify-between gap-2'>
+                <p className='text-muted-foreground text-xs'>
+                  {user.keys.length < user.key_count
+                    ? t('Showing the newest {{shown}} of {{total}} keys', {
+                        shown: user.keys.length,
+                        total: user.key_count,
+                      })
+                    : null}
                 </p>
-              ) : null}
+                <CopyButton
+                  value={formatUserKeysInfo(user, { t, nowSeconds })}
+                  variant='outline'
+                  size='sm'
+                  className='h-7 px-2 text-xs'
+                  iconClassName='size-3.5'
+                  tooltip={t('Copy all key information of this user')}
+                  successTooltip={t('Key information copied')}
+                  aria-label={t('Copy all key information of this user')}
+                >
+                  {t('Copy all')}
+                </CopyButton>
+              </div>
             </AccordionContent>
           </AccordionItem>
         ))}
@@ -324,6 +461,27 @@ export function ApiKeyBoardPanel() {
 
   return (
     <div className='flex h-full min-h-0 flex-col gap-3'>
+      <div className='grid grid-cols-1 gap-2 sm:grid-cols-3'>
+        {tiles.map((tile) => (
+          <div
+            key={tile.key}
+            className='flex min-w-0 items-center gap-3 rounded-lg border px-3 py-2.5'
+          >
+            <IconBadge tone={tile.tone} size='sm'>
+              <tile.icon />
+            </IconBadge>
+            <div className='min-w-0'>
+              <p className='text-muted-foreground truncate text-xs'>
+                {tile.label}
+              </p>
+              <p className='truncate text-lg font-semibold tabular-nums'>
+                {isLoading && total === 0 ? '-' : tile.value}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
         <div className='relative w-full max-w-sm'>
           <Search
@@ -338,51 +496,38 @@ export function ApiKeyBoardPanel() {
             onChange={(event) => handleKeywordChange(event.target.value)}
           />
         </div>
-        <div className='text-muted-foreground ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-xs tabular-nums'>
-          <span>
-            {t('Users with keys')}: {total}
-          </span>
-          <span>
-            {t('Enabled keys')}: {keyTotal}
-          </span>
-          {isFetching ? (
-            <ChevronDown
-              aria-hidden='true'
-              className='size-3.5 animate-pulse'
-            />
-          ) : null}
+        <div className='text-muted-foreground ml-auto text-xs tabular-nums'>
+          {t('Page {{page}} of {{total}}', { page, total: totalPages })}
+          {isFetching ? <span className='ms-2'>{t('Loading...')}</span> : null}
         </div>
       </div>
 
       <div className='min-h-0 flex-1 overflow-y-auto'>{renderBody()}</div>
 
       {total > PAGE_SIZE ? (
-        <div className='flex items-center justify-between'>
-          <p className='text-muted-foreground text-xs'>
-            {t('Page {{page}} of {{total}}', { page, total: totalPages })}
-          </p>
-          <div className='flex gap-2'>
-            <Button
-              variant='outline'
-              size='sm'
-              disabled={page <= 1}
-              onClick={() => setPage((previous) => Math.max(1, previous - 1))}
-            >
-              {t('Previous')}
-            </Button>
-            <Button
-              variant='outline'
-              size='sm'
-              disabled={page >= totalPages}
-              onClick={() =>
-                setPage((previous) => Math.min(totalPages, previous + 1))
-              }
-            >
-              {t('Next')}
-            </Button>
-          </div>
+        <div className='flex items-center justify-end gap-2'>
+          <Button
+            variant='outline'
+            size='sm'
+            disabled={page <= 1}
+            onClick={() => setPage((previous) => Math.max(1, previous - 1))}
+          >
+            {t('Previous')}
+          </Button>
+          <Button
+            variant='outline'
+            size='sm'
+            disabled={page >= totalPages}
+            onClick={() =>
+              setPage((previous) => Math.min(totalPages, previous + 1))
+            }
+          >
+            {t('Next')}
+          </Button>
         </div>
       ) : null}
+
+      <SecureVerificationDialog {...verification.dialogProps} />
     </div>
   )
 }

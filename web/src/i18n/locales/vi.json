@@ -9168,6 +9168,14 @@
     "No user has an enabled API key yet": "Chưa có người dùng nào bật khóa API",
     "A user appears here once they keep at least one API key enabled": "Người dùng sẽ xuất hiện ở đây khi còn ít nhất một khóa API đang bật",
     "Search user, key name, or ID...": "Tìm người dùng, tên khóa hoặc ID...",
-    "Showing the newest {{shown}} of {{total}} keys": "Đang hiển thị {{shown}} khóa mới nhất trong tổng số {{total}}"
+    "Showing the newest {{shown}} of {{total}} keys": "Đang hiển thị {{shown}} khóa mới nhất trong tổng số {{total}}",
+    "Copy key information": "Sao chép thông tin khóa",
+    "Copy all key information of this user": "Sao chép toàn bộ thông tin khóa của người dùng này",
+    "Key information copied": "Đã sao chép thông tin khóa",
+    "Copy all": "Sao chép tất cả",
+    "Reveal": "Hiển thị",
+    "Verify to reveal an API key": "Xác minh danh tính để hiển thị khóa API",
+    "Confirm your identity before revealing the key {{name}} of user {{username}}.": "Xác minh danh tính trước khi hiển thị khóa {{name}} của người dùng {{username}}.",
+    "Full API key copied": "Đã sao chép khóa API đầy đủ"
   }
 }

@@ -9168,6 +9168,14 @@
     "No user has an enabled API key yet": "Aucun utilisateur n'a encore de clé API activée",
     "A user appears here once they keep at least one API key enabled": "Un utilisateur apparaît ici dès qu'il conserve au moins une clé API activée",
     "Search user, key name, or ID...": "Rechercher un utilisateur, un nom de clé ou un ID...",
-    "Showing the newest {{shown}} of {{total}} keys": "Affichage des {{shown}} clés les plus récentes sur {{total}}"
+    "Showing the newest {{shown}} of {{total}} keys": "Affichage des {{shown}} clés les plus récentes sur {{total}}",
+    "Copy key information": "Copier les informations de la clé",
+    "Copy all key information of this user": "Copier toutes les informations de clé de cet utilisateur",
+    "Key information copied": "Informations de clé copiées",
+    "Copy all": "Tout copier",
+    "Reveal": "Afficher",
+    "Verify to reveal an API key": "Vérifiez votre identité pour afficher une clé API",
+    "Confirm your identity before revealing the key {{name}} of user {{username}}.": "Confirmez votre identité avant d'afficher la clé {{name}} de l'utilisateur {{username}}.",
+    "Full API key copied": "Clé API complète copiée"
   }
 }

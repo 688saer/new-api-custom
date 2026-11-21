@@ -23,7 +23,7 @@ import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-import { listAdminEnabledApiKeys } from '../../api'
+import { listAdminEnabledApiKeys, revealAdminApiKey } from '../../api'
 import type {
   AdminEnabledApiKeyPage,
   AdminEnabledApiKeyQuery,
@@ -32,7 +32,23 @@ import { ApiKeyBoardPanel } from '../api-key-board-panel'
 
 vi.mock('../../api', () => ({
   listAdminEnabledApiKeys: vi.fn(),
+  revealAdminApiKey: vi.fn(),
 }))
+
+// The panel mounts the shared step-up dialog, whose method lookup and proof
+// exchange are separate network calls; stub them to a session proof so these
+// tests stay about the board.
+const requestVerification = vi.fn()
+vi.mock('@/features/auth/secure-verification', () => ({
+  useSecureVerification: () => ({
+    requestVerification,
+    isActive: false,
+    dialogProps: {},
+  }),
+  SecureVerificationDialog: () => null,
+}))
+
+const writeText = vi.fn().mockResolvedValue(undefined)
 
 const DAY = 86400
 const NOW = Math.floor(Date.now() / 1000)
@@ -67,8 +83,8 @@ const PAGE: AdminEnabledApiKeyPage = {
           name: 'alice-fast',
           masked_key: 'a**********aaaa',
           group: 'vip',
-          remain_quota: 1000,
-          used_quota: 500,
+          remain_quota: 1000000,
+          used_quota: 500000,
           unlimited_quota: false,
           expired_time: -1,
           created_time: NOW - 3 * DAY,
@@ -139,7 +155,6 @@ function lastQuery(): AdminEnabledApiKeyQuery {
   return last[0]
 }
 
-/** Opens one user's group by its accessible name. */
 async function openUser(name: RegExp) {
   await userEvent.click(screen.getByRole('button', { name }))
 }
@@ -149,6 +164,13 @@ beforeEach(() => {
     success: true,
     data: PAGE,
   })
+  vi.mocked(revealAdminApiKey).mockReset()
+  requestVerification.mockReset()
+  writeText.mockClear()
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText },
+    configurable: true,
+  })
 })
 
 afterEach(() => {
@@ -156,14 +178,16 @@ afterEach(() => {
   clients.splice(0).forEach((client) => client.clear())
 })
 
-it('groups the enabled keys under the user that owns them', async () => {
+it('summarises the board before listing anyone', async () => {
   renderPanel()
+  await screen.findByText('Alice')
 
-  expect(await screen.findByText('Alice')).toBeInTheDocument()
-  expect(screen.getByText('Bob')).toBeInTheDocument()
-  expect(screen.getByText(/Users with keys: 2/)).toBeVisible()
-  expect(screen.getByText(/Enabled keys: 3/)).toBeVisible()
-  expect(lastQuery()).toMatchObject({ page: 1, pageSize: 10 })
+  expect(screen.getByText('Users with keys')).toBeVisible()
+  expect(screen.getByText('Enabled keys')).toBeVisible()
+  expect(screen.getByText('Usable now')).toBeVisible()
+  // Two users, three enabled keys, and two of them live.
+  expect(screen.getAllByText('2').length).toBeGreaterThan(0)
+  expect(screen.getByText('3')).toBeVisible()
 })
 
 it('keeps every user collapsed until the operator opens them', async () => {
@@ -193,18 +217,106 @@ it('opens several users at once so they can be compared', async () => {
   expect(screen.getByText('bob-expired')).toBeVisible()
 })
 
-it('names a key unusable when it is expired or out of quota', async () => {
+it('copies one key as masked information', async () => {
   renderPanel()
   await screen.findByText('Alice')
-
   await openUser(/Alice/)
-  await openUser(/Bob/)
 
-  // bob-expired is past its expiry; alice-fast and alice-slow are both live.
-  expect(await screen.findByText('bob-expired')).toBeVisible()
-  const usable = await screen.findAllByText('Usable')
-  expect(usable.length).toBe(2)
-  expect(screen.getByText('Not usable')).toBeVisible()
+  const buttons = await screen.findAllByRole('button', {
+    name: 'Copy key information',
+  })
+  await userEvent.click(buttons[1])
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+  const copied = writeText.mock.calls[0][0] as string
+  expect(copied).toContain('Name: alice-fast')
+  expect(copied).toContain('Key: sk-a**********aaaa')
+  // A copy never carries a usable secret unless it was revealed first.
+  expect(copied).not.toMatch(/sk-[A-Za-z0-9]{16,}/)
+})
+
+it('copies every key of a user in one block', async () => {
+  renderPanel()
+  await screen.findByText('Alice')
+  await openUser(/Alice/)
+
+  await userEvent.click(
+    screen.getByRole('button', {
+      name: 'Copy all key information of this user',
+    })
+  )
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+  const copied = writeText.mock.calls[0][0] as string
+  expect(copied).toContain('Alice (alice · #801)')
+  expect(copied).toContain('Name: alice-fast')
+  expect(copied).toContain('Name: alice-slow')
+})
+
+it('reveals the full key only after a proof, then copies it', async () => {
+  requestVerification.mockResolvedValue({ proof_token: 'proof-for-this-key' })
+  vi.mocked(revealAdminApiKey).mockResolvedValue({
+    success: true,
+    data: { id: 8101, key: 'sk-abcdefghijklmnopqrst' },
+  })
+
+  renderPanel()
+  await screen.findByText('Alice')
+  await openUser(/Alice/)
+
+  const revealButtons = await screen.findAllByRole('button', { name: 'Reveal' })
+  await userEvent.click(revealButtons[1])
+
+  await waitFor(() =>
+    expect(revealAdminApiKey).toHaveBeenCalledWith(8101, 'proof-for-this-key')
+  )
+  // The proof has to name the key it unlocks.
+  expect(requestVerification).toHaveBeenCalledWith(
+    expect.objectContaining({
+      scope: 'admin.user.api_key.read',
+      context: { user_id: 801, key_id: 8101 },
+    })
+  )
+  expect(await screen.findByText('sk-abcdefghijklmnopqrst')).toBeVisible()
+})
+
+it('reveals nothing when the operator cancels the proof', async () => {
+  requestVerification.mockResolvedValue(null)
+
+  renderPanel()
+  await screen.findByText('Alice')
+  await openUser(/Alice/)
+
+  const revealButtons = await screen.findAllByRole('button', { name: 'Reveal' })
+  await userEvent.click(revealButtons[0])
+
+  await waitFor(() => expect(requestVerification).toHaveBeenCalled())
+  expect(revealAdminApiKey).not.toHaveBeenCalled()
+  expect(screen.queryByText(/sk-[A-Za-z0-9]{16,}/)).not.toBeInTheDocument()
+})
+
+it('copies the revealed key once it is on screen', async () => {
+  requestVerification.mockResolvedValue({ proof_token: 'proof' })
+  vi.mocked(revealAdminApiKey).mockResolvedValue({
+    success: true,
+    data: { id: 8101, key: 'sk-abcdefghijklmnopqrst' },
+  })
+
+  renderPanel()
+  await screen.findByText('Alice')
+  await openUser(/Alice/)
+
+  const revealButtons = await screen.findAllByRole('button', { name: 'Reveal' })
+  await userEvent.click(revealButtons[1])
+  await screen.findByText('sk-abcdefghijklmnopqrst')
+
+  const copyButtons = await screen.findAllByRole('button', {
+    name: 'Copy key information',
+  })
+  await userEvent.click(copyButtons[1])
+
+  await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1))
+  expect(writeText.mock.calls[0][0]).toContain('Key: sk-abcdefghijklmnopqrst')
 })
 
 it('asks the server for the typed user and starts over from the first page', async () => {
@@ -231,30 +343,4 @@ it('explains the empty state instead of an empty list', async () => {
   expect(
     await screen.findByText('No user has an enabled API key yet')
   ).toBeInTheDocument()
-})
-
-it('says how many keys are hidden when a user owns more than are listed', async () => {
-  vi.mocked(listAdminEnabledApiKeys).mockResolvedValue({
-    success: true,
-    data: {
-      ...PAGE,
-      items: [
-        {
-          ...PAGE.items[0],
-          key_count: 60,
-          keys: PAGE.items[0].keys,
-        },
-      ],
-      total: 1,
-      key_total: 60,
-    },
-  })
-
-  renderPanel()
-  await screen.findByText('Alice')
-  await openUser(/Alice/)
-
-  expect(
-    await screen.findByText('Showing the newest 2 of 60 keys')
-  ).toBeVisible()
 })

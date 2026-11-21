@@ -9168,6 +9168,14 @@
     "No user has an enabled API key yet": "有効な API キーを持つユーザーはまだいません",
     "A user appears here once they keep at least one API key enabled": "API キーを 1 つ以上有効にしているユーザーがここに表示されます",
     "Search user, key name, or ID...": "ユーザー、キー名、ID を検索...",
-    "Showing the newest {{shown}} of {{total}} keys": "最新 {{shown}} 件を表示（全 {{total}} 件）"
+    "Showing the newest {{shown}} of {{total}} keys": "最新 {{shown}} 件を表示（全 {{total}} 件）",
+    "Copy key information": "キー情報をコピー",
+    "Copy all key information of this user": "このユーザーのすべてのキー情報をコピー",
+    "Key information copied": "キー情報をコピーしました",
+    "Copy all": "すべてコピー",
+    "Reveal": "表示",
+    "Verify to reveal an API key": "API キーを表示するには本人確認が必要です",
+    "Confirm your identity before revealing the key {{name}} of user {{username}}.": "ユーザー {{username}} のキー {{name}} を表示する前に本人確認を行ってください。",
+    "Full API key copied": "完全な API キーをコピーしました"
   }
 }

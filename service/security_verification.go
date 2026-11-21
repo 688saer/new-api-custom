@@ -45,7 +45,10 @@ const (
 	VerificationScopeAdminUserPasskeyReset = "admin.user.passkey.reset"
 	VerificationScopeAdminUserTwoFADisable = "admin.user.2fa.disable"
 	VerificationScopeAdminUserBindingClear = "admin.user.binding.clear"
-	verificationScopeAdminUserPrefix       = "admin.user."
+	// Administrative API key disclosure binds the key into the proof, so a
+	// proof issued for one key cannot be replayed against another.
+	VerificationScopeAdminUserApiKeyRead = "admin.user.api_key.read"
+	verificationScopeAdminUserPrefix     = "admin.user."
 )
 
 // adminUserManageActions are the ManageUser actions that change a user's
@@ -97,6 +100,13 @@ type AdminUserBindingContext struct {
 	UserID      int    `json:"user_id"`
 	BindingType string `json:"binding_type,omitempty"`
 	ProviderID  int    `json:"provider_id,omitempty"`
+}
+
+// AdminUserApiKeyContext names the key an operator asked to reveal, together
+// with its owner, so the proof covers both.
+type AdminUserApiKeyContext struct {
+	UserID int `json:"user_id"`
+	KeyID  int `json:"key_id"`
 }
 
 type AdminUserCreateContext struct {
@@ -226,6 +236,13 @@ func BindVerificationOperation(operation VerificationOperation) (VerificationBin
 			return VerificationBinding{}, ErrVerificationContextInvalid
 		}
 		normalized = context
+	case VerificationScopeAdminUserApiKeyRead:
+		var context AdminUserApiKeyContext
+		if len(fields) != 2 || common.Unmarshal(fields["user_id"], &context.UserID) != nil || common.Unmarshal(fields["key_id"], &context.KeyID) != nil ||
+			context.UserID <= 0 || context.KeyID <= 0 {
+			return VerificationBinding{}, ErrVerificationContextInvalid
+		}
+		normalized = context
 	case VerificationScopeAccessTokenGenerate:
 		var context AccessTokenGenerateContext
 		if len(fields) != 2 || fields["scopes"] == nil || fields["expires_at"] == nil ||
@@ -330,7 +347,8 @@ func securityVerificationPolicy(scope string, state model.UserVerificationState)
 		VerificationScopePasswordSet, VerificationScopePasswordChange, VerificationScopeAccountDelete,
 		VerificationScopeAdminUserCreate, VerificationScopeAdminUserUpdate, VerificationScopeAdminUserDelete,
 		VerificationScopeAdminUserManage, VerificationScopeAdminUserPasskeyReset,
-		VerificationScopeAdminUserTwoFADisable, VerificationScopeAdminUserBindingClear:
+		VerificationScopeAdminUserTwoFADisable, VerificationScopeAdminUserBindingClear,
+		VerificationScopeAdminUserApiKeyRead:
 		if scope == VerificationScopeAccountDelete && state.Role == common.RoleRootUser {
 			return nil, ErrVerificationForbidden
 		}
@@ -395,7 +413,8 @@ func GetVerificationRequirements(identity AuthIdentity, scope string) (*Verifica
 			case VerificationScopeAccountBind, VerificationScopeAccountUnbind, VerificationScopePasswordSet, VerificationScopePasswordChange, VerificationScopeAccountDelete,
 				VerificationScopeAdminUserCreate, VerificationScopeAdminUserUpdate, VerificationScopeAdminUserDelete,
 				VerificationScopeAdminUserManage, VerificationScopeAdminUserPasskeyReset,
-				VerificationScopeAdminUserTwoFADisable, VerificationScopeAdminUserBindingClear:
+				VerificationScopeAdminUserTwoFADisable, VerificationScopeAdminUserBindingClear,
+				VerificationScopeAdminUserApiKeyRead:
 				methods[i].Available, methods[i].Reason = false, "Password authentication is disabled."
 			}
 		}

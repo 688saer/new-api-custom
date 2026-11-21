@@ -9168,6 +9168,14 @@
     "No user has an enabled API key yet": "暂无用户启用 API 密钥",
     "A user appears here once they keep at least one API key enabled": "用户只要保留至少一个已启用的 API 密钥，就会显示在这里",
     "Search user, key name, or ID...": "搜索用户、密钥名称或 ID...",
-    "Showing the newest {{shown}} of {{total}} keys": "仅显示最新 {{shown}} 个，共 {{total}} 个密钥"
+    "Showing the newest {{shown}} of {{total}} keys": "仅显示最新 {{shown}} 个，共 {{total}} 个密钥",
+    "Copy key information": "复制密钥信息",
+    "Copy all key information of this user": "复制该用户的全部密钥信息",
+    "Key information copied": "密钥信息已复制",
+    "Copy all": "复制全部",
+    "Reveal": "显示完整密钥",
+    "Verify to reveal an API key": "验证身份以查看完整密钥",
+    "Confirm your identity before revealing the key {{name}} of user {{username}}.": "查看用户 {{username}} 的密钥 {{name}} 前，请先验证身份。",
+    "Full API key copied": "完整密钥已复制"
   }
 }

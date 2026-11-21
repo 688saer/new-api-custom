@@ -9168,6 +9168,14 @@
     "No user has an enabled API key yet": "Пока ни у одного пользователя нет активных ключей API",
     "A user appears here once they keep at least one API key enabled": "Пользователь появится здесь, как только у него останется хотя бы один активный ключ API",
     "Search user, key name, or ID...": "Поиск по пользователю, названию ключа или ID...",
-    "Showing the newest {{shown}} of {{total}} keys": "Показаны последние {{shown}} из {{total}} ключей"
+    "Showing the newest {{shown}} of {{total}} keys": "Показаны последние {{shown}} из {{total}} ключей",
+    "Copy key information": "Скопировать сведения о ключе",
+    "Copy all key information of this user": "Скопировать все сведения о ключах этого пользователя",
+    "Key information copied": "Сведения о ключе скопированы",
+    "Copy all": "Скопировать все",
+    "Reveal": "Показать",
+    "Verify to reveal an API key": "Подтвердите личность, чтобы показать ключ API",
+    "Confirm your identity before revealing the key {{name}} of user {{username}}.": "Подтвердите личность, прежде чем показать ключ {{name}} пользователя {{username}}.",
+    "Full API key copied": "Полный ключ API скопирован"
   }
 }
